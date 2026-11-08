@@ -10,8 +10,10 @@ const body = src.match(/<body>([\s\S]*?)<\/body>/i)?.[1] ?? '';
 const headParts = [];
 const titleMatch = head.match(/<title>[\s\S]*?<\/title>/i);
 headParts.push(titleMatch ? titleMatch[0] : '<title>BRAIBO</title>');
-// Keep styles and scripts from <head>, drop <meta> tags (the host supplies them).
-for (const m of head.matchAll(/<style[\s\S]*?<\/style>|<script[\s\S]*?<\/script>/gi)) headParts.push(m[0]);
+// Keep styles, scripts and Google Fonts links from <head>; drop <meta> tags (the host supplies them).
+for (const m of head.matchAll(/<style[\s\S]*?<\/style>|<script[\s\S]*?<\/script>|<link[^>]*fonts\.g(?:oogleapis|static)\.com[^>]*>/gi)) {
+  headParts.push(m[0]);
+}
 
 const out = `${headParts.join('\n')}\n${body.trim()}\n`;
 mkdirSync('dist-artifact', { recursive: true });
