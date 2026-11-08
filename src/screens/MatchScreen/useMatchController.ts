@@ -114,6 +114,8 @@ export function useMatchController() {
   const [logOpen, setLogOpen] = useState(false);
   const [banner, setBanner] = useState<BannerView | null>(null);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [menuAt, setMenuAt] = useState<'token' | 'ghost'>('token');
+  const [hudMenuOpen, setHudMenuOpen] = useState(false);
   const [infoId, setInfoId] = useState<PlayerId | null>(null);
   const [fx, setFx] = useState<Record<PlayerId, TokenFx>>({});
   const [bursts, setBursts] = useState<BurstView[]>([]);
@@ -183,22 +185,29 @@ export function useMatchController() {
       });
   }, [blueHolder, holderPos, blues, state, posOf]);
 
+  // space-pass candidates: every in-range cell except the carrier's own planned cell. Cells where a teammate
+  // will be (planned or standing) are included: tapping them converts to a normal pass to that teammate.
   const spaceAll: SpaceCellView[] = useMemo(() => {
     if (!blueHolder || !holderPos) return [];
     const range = passMaxDistance(getCharacter(blueHolder.charId).skills);
-    const blueCells = new Set(blues.map((p) => `${posOf(p.id).x},${posOf(p.id).y}`));
     const redCells = new Set(state.players.filter((p) => p.team === 'red').map((p) => `${p.pos.x},${p.pos.y}`));
     const out: SpaceCellView[] = [];
     for (let y = 0; y < BOARD.rows; y++) {
       for (let x = 0; x < BOARD.cols; x++) {
         const c = { x, y };
-        if (sameVec(c, holderPos) || blueCells.has(`${x},${y}`)) continue;
+        if (sameVec(c, holderPos)) continue;
         if (dist(holderPos, c) > range) continue;
         out.push({ x, y, enemy: redCells.has(`${x},${y}`) });
       }
     }
     return out;
-  }, [blueHolder, holderPos, blues, state, posOf]);
+  }, [blueHolder, holderPos, state]);
+
+  /** Teammate (not the carrier) who will stand on `c` after planning. */
+  const mateAt = useCallback(
+    (c: Vec) => blues.find((p) => p.id !== blueHolder?.id && sameVec(posOf(p.id), c)),
+    [blues, blueHolder, posOf],
+  );
 
   const canPass = passCandidates.some((c) => c.enabled) || spaceAll.length > 0;
   const canCross = crossCandidates.length > 0;
@@ -263,6 +272,7 @@ export function useMatchController() {
     setInspectId(null);
     setInfoId(null);
     setMenuOpen(false);
+    setMenuAt('token');
     setSelectedId(defaultSelection(s));
   }, []);
 
@@ -303,15 +313,48 @@ export function useMatchController() {
     [plans, blues, state, showNotice],
   );
 
-  const selectBlue = useCallback((id: PlayerId) => {
+  const selectBlue = useCallback((id: PlayerId, at: 'token' | 'ghost' = 'token') => {
     setSelectedId(id);
     setInspectId(null);
     setInfoId(null);
     setPick(null);
+    setMenuAt(at);
     setMenuOpen(true);
   }, []);
 
+  const toggleMenu = useCallback(
+    (at: 'token' | 'ghost') => {
+      setInfoId(null);
+      if (menuOpen && menuAt === at) setMenuOpen(false);
+      else {
+        setMenuAt(at);
+        setMenuOpen(true);
+      }
+    },
+    [menuOpen, menuAt],
+  );
+
   const spaceHas = useCallback((c: Vec) => spaceAll.some((s2) => sameVec(s2, c)), [spaceAll]);
+
+  /** Pass-pick tap on a cell: a teammate's (planned) cell becomes a normal pass, anything else a space pass. */
+  const pickCell = useCallback(
+    (cell: Vec) => {
+      if (!spaceHas(cell)) return;
+      const mate = mateAt(cell);
+      if (mate) {
+        if (passCandidates.some((c) => c.id === mate.id && c.enabled)) setBallAction({ kind: 'pass', targetId: mate.id });
+      } else setBallAction({ kind: 'spacePass', target: { ...cell } });
+    },
+    [spaceHas, mateAt, passCandidates],
+  );
+
+  const pickMate = useCallback(
+    (id: PlayerId) => {
+      const list = pick === 'pass' ? passCandidates : crossCandidates;
+      if (pick && list.some((c) => c.id === id && c.enabled)) setBallAction({ kind: pick, targetId: id });
+    },
+    [pick, passCandidates, crossCandidates],
+  );
 
   const onPlayerTap = useCallback(
     (id: PlayerId) => {
@@ -319,12 +362,9 @@ export function useMatchController() {
       const p = state.players.find((x) => x.id === id);
       if (!p) return;
       if (pick) {
-        if (p.team === 'blue') {
-          const list = pick === 'pass' ? passCandidates : crossCandidates;
-          if (list.some((c) => c.id === id && c.enabled)) setBallAction({ kind: pick, targetId: id });
-        } else if (pick === 'pass' && spaceHas(p.pos)) {
-          setBallAction({ kind: 'spacePass', target: { ...p.pos } });
-        }
+        const vacated = p.team === 'blue' && id in plans && !sameVec(plans[id], p.pos);
+        if (p.team === 'blue' && !vacated) pickMate(id);
+        else if (pick === 'pass') pickCell(p.pos); // enemy token or a teammate's vacated cell = space pass
         setPick(null);
         return;
       }
@@ -338,8 +378,7 @@ export function useMatchController() {
         return;
       }
       if (id === selectedId) {
-        setInfoId(null);
-        setMenuOpen((m) => !m);
+        toggleMenu('token');
         return;
       }
       if (moveTargets.some((t) => sameVec(t, p.pos))) {
@@ -348,36 +387,35 @@ export function useMatchController() {
       }
       selectBlue(id);
     },
-    [planning, pick, passCandidates, crossCandidates, state, moveTargets, selectedId, setDest, selectBlue, spaceHas],
+    [planning, pick, plans, state, moveTargets, selectedId, setDest, selectBlue, toggleMenu, pickMate, pickCell],
   );
 
   const onGhostTap = useCallback(
     (id: PlayerId) => {
       if (!planning) return;
       if (pick) {
-        onPlayerTap(id);
+        pickMate(id);
+        setPick(null);
         return;
       }
-      if (id === selectedId) {
-        setInfoId(null);
-        setMenuOpen((m) => !m);
-      } else selectBlue(id);
+      if (id === selectedId) toggleMenu('ghost');
+      else selectBlue(id, 'ghost');
     },
-    [planning, pick, selectedId, selectBlue, onPlayerTap],
+    [planning, pick, selectedId, selectBlue, toggleMenu, pickMate],
   );
 
   const onCellTap = useCallback(
     (cell: Vec) => {
       if (!planning) return;
       if (pick) {
-        if (pick === 'pass' && spaceHas(cell)) setBallAction({ kind: 'spacePass', target: { ...cell } });
+        if (pick === 'pass') pickCell(cell);
         setPick(null);
         return;
       }
       if (moveTargets.some((t) => sameVec(t, cell))) setDest(selectedId, cell);
       else setMenuOpen(false);
     },
-    [planning, pick, moveTargets, selectedId, setDest, spaceHas],
+    [planning, pick, moveTargets, selectedId, setDest, pickCell],
   );
 
   const closeInfo = useCallback(() => {
@@ -428,16 +466,49 @@ export function useMatchController() {
       if (lines.length === 0) lines.push({ id: nextId(), turn: cur.turn, text: '大きな動きなし' });
 
       // clash positions: where players meet before the loser is knocked back
+      const before = posMap(cur);
       const clash: Record<PlayerId, Vec> = { ...mid };
+      const overridden = new Set<PlayerId>();
       for (const ev of result.events) {
-        if (ev.type === 'bounce' && ev.reason === 'duel') clash[ev.playerId] = { ...ev.from };
-        else if (ev.type === 'displace') clash[ev.playerId] = { ...ev.from };
+        if (ev.type === 'bounce' && ev.reason === 'duel') {
+          clash[ev.playerId] = { ...ev.from };
+          overridden.add(ev.playerId);
+        } else if (ev.type === 'displace') {
+          clash[ev.playerId] = { ...ev.from };
+          overridden.add(ev.playerId);
+        }
       }
       type DuelEv = Extract<TurnEvent, { type: 'duel' }>;
       const duelsOf = (kind: 'ground' | 'aerial') =>
         result.events.filter((e): e is DuelEv => e.type === 'duel' && e.kind === kind);
       const groundDuels = duelsOf('ground');
       const loserOf = (d: DuelEv) => (d.winnerId === d.aId ? d.bId : d.aId);
+
+      // swap (players passing through each other): meet half-way, each nudged 0.3 toward its own origin
+      for (const d of groundDuels) {
+        const { aId, bId } = d;
+        if (overridden.has(aId) || overridden.has(bId)) continue;
+        if (!(sameVec(before[aId], mid[bId]) && sameVec(before[bId], mid[aId]))) continue;
+        if (sameVec(before[aId], before[bId])) continue;
+        const m = { x: (before[aId].x + before[bId].x) / 2, y: (before[aId].y + before[bId].y) / 2 };
+        for (const id of [aId, bId]) {
+          const o = before[id];
+          const dx = o.x - m.x;
+          const dy = o.y - m.y;
+          const l = Math.hypot(dx, dy) || 1;
+          clash[id] = { x: m.x + (dx / l) * 0.3, y: m.y + (dy / l) * 0.3 };
+        }
+      }
+
+      // chained duels: split into waves with no repeated player, animated one after another
+      const waves: DuelEv[][] = [];
+      const lastWave: Record<PlayerId, number> = {};
+      for (const d of groundDuels) {
+        const w = Math.max(lastWave[d.aId] ?? -1, lastWave[d.bId] ?? -1) + 1;
+        (waves[w] ??= []).push(d);
+        lastWave[d.aId] = w;
+        lastWave[d.bId] = w;
+      }
 
       /** Show impact + clash scale for the given duels; returns after the burst. */
       const showClash = async (duels: DuelEv[]) => {
@@ -452,13 +523,18 @@ export function useMatchController() {
         setFx(f);
         await wait(T(CLASH_MS));
       };
-      const tagResult = (duels: DuelEv[], aerial: boolean, knock: boolean): Record<PlayerId, TokenFx> => {
+      const tagResult = (
+        duels: DuelEv[],
+        aerial: boolean,
+        knock: (id: PlayerId) => boolean,
+      ): Record<PlayerId, TokenFx> => {
         const f: Record<PlayerId, TokenFx> = {};
         for (const d of duels) {
           f[d.winnerId] = { tag: { kind: 'win', label: aerial ? '空中戦 WIN' : 'WIN' } };
-          f[loserOf(d)] = {
+          const l = loserOf(d);
+          f[l] = {
             tag: { kind: 'lose', label: aerial ? '空中戦 LOSE' : 'LOSE' },
-            ...(knock ? { moveMs: T(KNOCKBACK_MS), ease: 'back' as const } : {}),
+            ...(knock(l) ? { moveMs: T(KNOCKBACK_MS), ease: 'back' as const } : {}),
           };
         }
         return f;
@@ -471,19 +547,23 @@ export function useMatchController() {
       await wait(T(MOVE_MS) + 80);
       if (!alive()) return;
 
-      // (a2) ground duels: impact -> WIN / LOSE tags -> loser knocked back
-      if (groundDuels.length > 0) {
-        await showClash(groundDuels);
+      // (a2) ground duels, wave by wave: impact -> WIN / LOSE tags -> settle to the final cell
+      for (let w = 0; w < waves.length; w++) {
+        const duels = waves[w];
+        await showClash(duels);
         if (!alive()) return;
-        setFx(tagResult(groundDuels, false, true));
-        setDisp(mid);
-        const ballDuel = groundDuels.find((d) => d.forBall);
+        setFx(tagResult(duels, false, (id) => lastWave[id] === w));
+        const settle: Record<PlayerId, Vec> = {};
+        for (const d of duels) for (const id of [d.aId, d.bId]) if (lastWave[id] === w) settle[id] = mid[id];
+        setDisp((cur2) => ({ ...cur2, ...settle }));
+        const ballDuel = duels.find((d) => d.forBall);
         if (ballDuel) setBallDisp({ kind: 'held', id: ballDuel.winnerId });
         await wait(T(DUEL_RESULT_MS));
         if (!alive()) return;
         setFx({});
         setBursts([]);
       }
+      if (groundDuels.length > 0) setDisp(mid);
 
       // (b) ball events
       const flights = result.events.filter(
@@ -525,7 +605,7 @@ export function useMatchController() {
                 : ev.outcome === 'toEnemy'
                   ? '相手ボール'
                   : ev.outcome === 'loose'
-                    ? 'スルーパス'
+                    ? 'スルーパス（ルーズ）'
                     : 'パス失敗';
         } else if (ev.type === 'cross') {
           dest = ev.outcome === 'failed' ? ev.loosePos ?? ev.to : ev.to;
@@ -580,7 +660,9 @@ export function useMatchController() {
         if (isCross && ev.outcome !== 'failed' && aerialDuels.length > 0) {
           await showClash(aerialDuels);
           if (!alive()) return;
-          setFx(tagResult(aerialDuels, true, false));
+          setFx(tagResult(aerialDuels, true, () => false));
+          const ballAerial = aerialDuels.find((d) => d.forBall) ?? aerialDuels[0];
+          if (ballAerial) setBallDisp({ kind: 'held', id: ballAerial.winnerId });
           aerialShown = true;
         }
         setBanner({ id: nextId(), text, sub, big, team: winner ?? actor });
@@ -637,14 +719,15 @@ export function useMatchController() {
   executeRef.current = execute;
 
   // ---------- timer ----------
+  const paused = logOpen || infoId !== null || hudMenuOpen;
   useEffect(() => {
-    if (phase !== 'planning' || !timerOn) return;
+    if (phase !== 'planning' || !timerOn || paused) return;
     const t = setInterval(() => setTimeLeft((s) => s - 1), 1000);
     return () => clearInterval(t);
-  }, [phase, timerOn]);
+  }, [phase, timerOn, paused]);
   useEffect(() => {
-    if (phase === 'planning' && timerOn && timeLeft <= 0) void executeRef.current();
-  }, [phase, timerOn, timeLeft]);
+    if (phase === 'planning' && timerOn && !paused && timeLeft <= 0) void executeRef.current();
+  }, [phase, timerOn, timeLeft, paused]);
 
   // ---------- lifecycle ----------
   const start = useCallback(() => {
@@ -719,7 +802,9 @@ export function useMatchController() {
     : [];
 
   const passTargets: PassTargetView[] = planning && pick ? (pick === 'pass' ? passCandidates : crossCandidates) : [];
-  const spaceCells: SpaceCellView[] = planning && pick === 'pass' ? spaceAll : [];
+  // markers are hidden under teammates' planned cells (their % badge sits at the ghost instead)
+  const spaceCells: SpaceCellView[] =
+    planning && pick === 'pass' ? spaceAll.filter((c) => !mateAt(c)) : [];
 
   const infoPlayer = infoId ? state.players.find((p) => p.id === infoId) : undefined;
   const info: InfoView | null = infoPlayer
@@ -808,7 +893,9 @@ export function useMatchController() {
         setInfoId(selectedId);
       },
     });
-    return { x: selectedPlayer.pos.x, y: selectedPlayer.pos.y, items };
+    const ghostTo = plans[selectedId];
+    const at = menuAt === 'ghost' && ghostTo && !sameVec(ghostTo, selectedPlayer.pos) ? ghostTo : selectedPlayer.pos;
+    return { x: at.x, y: at.y, items };
   })();
 
   const hint: HintView | null = notice
@@ -834,6 +921,8 @@ export function useMatchController() {
     log,
     logOpen,
     setLogOpen,
+    hudMenuOpen,
+    setHudMenuOpen,
     banner,
     goalFx,
     tokens,

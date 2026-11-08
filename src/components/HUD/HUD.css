@@ -11,25 +11,50 @@
 .hud__plate {
   position: relative;
   height: 60px;
-  margin: 0;
-  padding: 0 calc(4px + var(--safe-right)) 0 calc(8px + var(--safe-left));
-  display: flex;
+  padding: 0 calc(4px + var(--safe-right)) 0 calc(4px + var(--safe-left));
+  display: grid;
+  grid-template-columns: 44px minmax(0, 1fr) 112px minmax(0, 1fr) 44px;
   align-items: center;
-  gap: 6px;
   background: linear-gradient(180deg, rgba(18, 29, 54, 0.94), rgba(7, 13, 26, 0.9));
   border-bottom: 1px solid rgba(229, 189, 90, 0.45);
   box-shadow: var(--shadow-plate);
   pointer-events: auto;
 }
+.hud__timer {
+  text-align: center;
+  font-family: var(--font-num);
+  font-weight: 700;
+  font-size: 15px;
+  color: var(--gold-light);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.hud__timer.is-warn {
+  color: var(--warn);
+}
+.hud__timer.is-off {
+  visibility: hidden;
+}
 .hud__side {
-  position: relative;
   display: flex;
   align-items: center;
-  gap: 5px;
-  flex: 0 0 auto;
+  justify-content: center;
+  gap: 8px;
+  min-width: 0;
 }
-.hud__side--red {
-  margin-left: auto;
+.hud__emblem {
+  position: relative;
+  display: block;
+  flex: 0 0 auto;
+  width: 26px;
+  height: 26px;
+}
+.hud__emblem .hud__ball {
+  position: absolute;
+  right: -6px;
+  bottom: -5px;
+  width: 16px;
+  height: 16px;
 }
 .emblem {
   flex: 0 0 auto;
@@ -37,11 +62,11 @@
 }
 .hud__num {
   display: inline-block;
-  min-width: 22px;
+  min-width: 20px;
   text-align: center;
   font-family: var(--font-num);
   font-weight: 700;
-  font-size: 34px;
+  font-size: 30px;
   line-height: 1;
   color: #fff;
   -webkit-text-stroke: 5px var(--navy-900);
@@ -70,44 +95,39 @@
     transform: scale(1);
   }
 }
-.hud__scorewrap {
-  position: relative;
-  display: flex;
-}
-.hud__scorewrap .hud__ball {
-  position: absolute;
-  top: -5px;
-  right: -9px;
-  width: 15px;
-  height: 15px;
-}
 .hud__ball {
   flex: 0 0 auto;
   filter: drop-shadow(0 1px 0 rgba(0, 0, 0, 0.5));
 }
 .hud__mid {
-  position: absolute;
-  left: 50%;
-  top: 50%;
-  transform: translate(-50%, -50%);
+  position: relative;
+  width: 112px;
+  height: 30px;
   display: flex;
-  flex-direction: column;
+  justify-content: center;
   align-items: center;
-  pointer-events: none;
 }
-.hud__mid .hud__ball {
+.hud__loose {
   position: absolute;
-  top: calc(100% - 1px);
+  top: calc(100% + 1px);
   left: 50%;
   transform: translateX(-50%);
-  width: 18px;
-  height: 18px;
+  font-family: var(--font-num);
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  line-height: 1;
+  color: var(--text-dim);
+  white-space: nowrap;
 }
 .hud__turn {
   display: flex;
   align-items: baseline;
   gap: 4px;
-  padding: 3px 10px 2px;
+  padding: 3px 0 2px;
+  width: 100%;
+  justify-content: center;
+  box-sizing: border-box;
   border-radius: 999px;
   background: linear-gradient(180deg, #243a66, #0f1a33);
   border: 1.5px solid var(--gold);
@@ -130,14 +150,10 @@
   font-size: 12px;
   color: var(--text-dim);
 }
-.hud__btns {
-  display: flex;
-  gap: 0;
-  margin-left: 4px;
-}
 .hud__btn {
   width: 40px;
   height: 40px;
+  justify-self: center;
   display: grid;
   place-items: center;
   border: 0;
@@ -148,24 +164,6 @@
 .hud__btn:active {
   transform: translateY(1px) scale(0.95);
   background: rgba(255, 255, 255, 0.1);
-}
-.hud__timerbar {
-  position: absolute;
-  left: 0;
-  right: 0;
-  top: calc(60px + var(--safe-top));
-  height: 3px;
-  background: rgba(0, 0, 0, 0.35);
-}
-.hud__timerbar i {
-  display: block;
-  height: 100%;
-  background: linear-gradient(90deg, var(--gold-dark), var(--gold-light));
-  transform-origin: left center;
-  transition: transform 1s linear;
-}
-.hud__timerbar.is-urgent i {
-  background: var(--warn);
 }
 .hud__scrim {
   position: fixed;

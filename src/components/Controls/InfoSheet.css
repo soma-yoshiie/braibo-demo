@@ -1,3 +1,10 @@
+.sheet-backdrop {
+  position: absolute;
+  inset: 0;
+  z-index: 11;
+  background: transparent;
+  touch-action: none;
+}
 .sheet {
   position: absolute;
   left: 8px;
@@ -85,13 +92,13 @@
 }
 .sheet__stats li {
   display: grid;
-  grid-template-columns: auto 1fr 22px;
+  grid-template-columns: 7.4em 1fr 22px;
   align-items: center;
   gap: 6px;
   font-size: 10.5px;
 }
 .sheet__k {
-  min-width: 52px;
+  white-space: nowrap;
   color: var(--text-dim);
 }
 .sheet__bar {

@@ -10,12 +10,13 @@ interface Props {
   possession: TeamId | 'loose';
   /** null = timer disabled */
   secondsLeft: number | null;
-  totalSeconds: number;
   /** Team whose score just changed (plays a bump animation). */
   bump?: { team: TeamId; key: number } | null;
   onOpenLog: () => void;
   onRestart: () => void;
   busy?: boolean;
+  menuOpen: boolean;
+  onMenuOpenChange: (open: boolean) => void;
 }
 
 function Emblem({ team }: { team: TeamId }) {
@@ -66,20 +67,20 @@ export function HUD({
   maxTurns,
   possession,
   secondsLeft,
-  totalSeconds,
   bump,
   onOpenLog,
   onRestart,
   busy,
+  menuOpen,
+  onMenuOpenChange,
 }: Props) {
-  const [menuOpen, setMenuOpen] = useState(false);
   const [confirming, setConfirming] = useState(false);
+  const setMenuOpen = onMenuOpenChange;
   const closeMenu = () => {
     setMenuOpen(false);
     setConfirming(false);
   };
-  const urgent = secondsLeft !== null && secondsLeft <= 10;
-  const ratio = secondsLeft === null ? 0 : Math.max(0, Math.min(1, secondsLeft / totalSeconds));
+  const warn = secondsLeft !== null && secondsLeft < 10;
   const num = (team: TeamId) => (
     <span
       key={bump && bump.team === team ? bump.key : 'n'}
@@ -88,15 +89,21 @@ export function HUD({
       {score[team]}
     </span>
   );
+  const emblem = (team: TeamId) => (
+    <span className="hud__emblem">
+      <Emblem team={team} />
+      {possession === team && <PossBall />}
+    </span>
+  );
   return (
     <header className="hud" aria-label={POSS_LABEL[possession]}>
       <div className="hud__plate">
+        <div className={`hud__timer${warn ? ' is-warn' : ''}${secondsLeft === null ? ' is-off' : ''}`} data-testid="hud-timer">
+          {fmt(secondsLeft ?? 0)}
+        </div>
         <div className="hud__side hud__side--blue">
-          <Emblem team="blue" />
-          <span className="hud__scorewrap">
-            {num('blue')}
-            {possession === 'blue' && <PossBall />}
-          </span>
+          {emblem('blue')}
+          {num('blue')}
         </div>
         <div className="hud__mid">
           <div className="hud__turn" data-testid="turn">
@@ -104,14 +111,15 @@ export function HUD({
             <b>{Math.min(turn, maxTurns)}</b>
             <span className="hud__turn-max">/{maxTurns}</span>
           </div>
-          {possession === 'loose' && <PossBall />}
+          {possession === 'loose' && (
+            <span className="hud__loose" data-testid="possession-loose">
+              LOOSE
+            </span>
+          )}
         </div>
         <div className="hud__side hud__side--red">
-          <span className="hud__scorewrap">
-            {num('red')}
-            {possession === 'red' && <PossBall />}
-          </span>
-          <Emblem team="red" />
+          {num('red')}
+          {emblem('red')}
         </div>
         {/* hidden machine-readable score for tests / a11y */}
         <span className="sr" data-testid="score" aria-label="スコア">
@@ -125,35 +133,24 @@ export function HUD({
             {fmt(secondsLeft)}
           </span>
         )}
-        <div className="hud__btns">
-          <button className="hud__btn" onClick={onOpenLog} aria-label="ログ" data-testid="log-button">
-            <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round">
-              <path d="M5 6h14M5 12h14M5 18h9" />
-            </svg>
-          </button>
-          <button
-            className="hud__btn"
-            onClick={() => (menuOpen ? closeMenu() : setMenuOpen(true))}
-            aria-label="メニュー"
-            data-testid="menu-button"
-          >
-            <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor">
-              <circle cx="12" cy="5" r="2.2" />
-              <circle cx="12" cy="12" r="2.2" />
-              <circle cx="12" cy="19" r="2.2" />
-            </svg>
-          </button>
-        </div>
+        <button
+          className="hud__btn"
+          onClick={() => (menuOpen ? closeMenu() : setMenuOpen(true))}
+          aria-label="メニュー"
+          aria-expanded={menuOpen}
+          data-testid="menu-button"
+        >
+          <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor">
+            <circle cx="12" cy="5" r="2.2" />
+            <circle cx="12" cy="12" r="2.2" />
+            <circle cx="12" cy="19" r="2.2" />
+          </svg>
+        </button>
       </div>
-      {secondsLeft !== null && (
-        <div className={`hud__timerbar${urgent ? ' is-urgent' : ''}`} aria-hidden="true">
-          <i style={{ transform: `scaleX(${ratio})` }} />
-        </div>
-      )}
       {menuOpen && (
         <>
           <div className="hud__scrim" onClick={closeMenu} />
-          <div className="hud__menu">
+          <div className="hud__menu" data-testid="hud-menu">
             {confirming ? (
               <>
                 <div className="hud__confirm">本当にやり直しますか？</div>
@@ -175,8 +172,18 @@ export function HUD({
               </>
             ) : (
               <>
-                <button className="gbtn gbtn--neutral" data-testid="restart" disabled={busy} onClick={() => setConfirming(true)}>
-                  最初からやり直す
+                <button
+                  className="gbtn gbtn--neutral"
+                  data-testid="menu-log"
+                  onClick={() => {
+                    closeMenu();
+                    onOpenLog();
+                  }}
+                >
+                  試合ログ
+                </button>
+                <button className="gbtn gbtn--neutral" data-testid="menu-restart" disabled={busy} onClick={() => setConfirming(true)}>
+                  <span data-testid="restart">最初からやり直す</span>
                 </button>
                 <button className="gbtn gbtn--neutral" onClick={closeMenu}>
                   閉じる

@@ -25,26 +25,61 @@ export function shorten(
   return { x: b.x - (dx / len) * by, y: b.y - (dy / len) * by };
 }
 
-/** Radial menu item centres (cell-centre coordinates), opening toward the board centre. */
+export interface RadialAvoid {
+  /** Move-target cell centres (cell indices). */
+  targets?: { x: number; y: number }[];
+  /** Other token centres (cell units, may be fractional). */
+  tokens?: { x: number; y: number }[];
+}
+
+export const RADIAL_RINGS = [1.55, 2.35] as const;
+export const RADIAL_MIN_GAP = 0.8;
+
+/**
+ * Greedy, collision-avoiding slot placement for the radial menu.
+ * Works in cell-index units (the anchor cell index = its centre); callers add 0.5 for svg coordinates.
+ * Candidate slots: two rings x 15 degree steps. Off-board slots and slots closer than 0.8 to an
+ * already placed item are rejected; the rest are scored by angular distance from the opening direction
+ * (anchor -> board centre) plus penalties for covering move targets / tokens and for the outer ring.
+ */
 export function radialLayout(
   anchor: { x: number; y: number },
   n: number,
-  radius = 1.6,
+  avoid: RadialAvoid = {},
 ): { x: number; y: number }[] {
-  const toCx = BOARD.cols / 2 - 0.5 - anchor.x;
-  const toCy = BOARD.rows / 2 - 0.5 - anchor.y;
+  const toCx = (BOARD.cols - 1) / 2 - anchor.x;
+  const toCy = (BOARD.rows - 1) / 2 - anchor.y;
   const base = Math.atan2(toCy, toCx === 0 && toCy === 0 ? 1 : toCx);
-  const span = n <= 1 ? 0 : n === 2 ? 80 : 180;
-  const out: { x: number; y: number }[] = [];
+  const targets = avoid.targets ?? [];
+  const tokens = (avoid.tokens ?? []).filter((t) => Math.hypot(t.x - anchor.x, t.y - anchor.y) > 0.01);
+  const onBoard = (x: number, y: number) => x >= -0.1 && x <= BOARD.cols - 0.9 && y >= -0.6 && y <= BOARD.rows - 0.4;
+  type Slot = { x: number; y: number; score: number };
+  const slots: Slot[] = [];
+  RADIAL_RINGS.forEach((r, ri) => {
+    for (let deg = -180; deg < 180; deg += 15) {
+      const a = (deg * Math.PI) / 180;
+      const x = anchor.x + Math.cos(a) * r;
+      const y = anchor.y + Math.sin(a) * r;
+      if (!onBoard(x, y)) continue;
+      let diff = Math.abs(a - base);
+      if (diff > Math.PI) diff = 2 * Math.PI - diff;
+      let score = (diff * 180) / Math.PI;
+      if (targets.some((t) => Math.hypot(t.x - x, t.y - y) < 0.85)) score += 1000;
+      if (tokens.some((t) => Math.hypot(t.x - x, t.y - y) < 1.0)) score += 300;
+      if (ri === 1) score += 25;
+      slots.push({ x, y, score });
+    }
+  });
+  const placed: { x: number; y: number }[] = [];
   for (let i = 0; i < n; i++) {
-    const deg = n <= 1 ? 0 : -span / 2 + (span * i) / (n - 1);
-    const a = base + (deg * Math.PI) / 180;
-    const x = cx(anchor.x) + Math.cos(a) * radius;
-    const y = cy(anchor.y) + Math.sin(a) * radius;
-    out.push({
-      x: Math.min(BOARD.cols - 0.5, Math.max(0.5, x)),
-      y: Math.min(BOARD.rows - 0.9, Math.max(0.4, y)),
-    });
+    let best: Slot | null = null;
+    for (const s of slots) {
+      if (placed.some((p) => Math.hypot(p.x - s.x, p.y - s.y) < RADIAL_MIN_GAP)) continue;
+      if (!best || s.score < best.score) best = s;
+    }
+    // unreachable for <= 6 items on a 7x10 board (unit-tested); keep a safe fallback anyway
+    const pick = best ?? { x: anchor.x, y: anchor.y + 1.55, score: 0 };
+    placed.push({ x: pick.x, y: pick.y });
   }
-  return out;
+  return placed;
 }

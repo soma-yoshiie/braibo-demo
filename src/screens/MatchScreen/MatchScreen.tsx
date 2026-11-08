@@ -21,10 +21,11 @@ export function MatchScreen() {
         maxTurns={m.state.maxTurns}
         possession={m.possession}
         secondsLeft={m.secondsLeft}
-        totalSeconds={TIMER_SECONDS}
         bump={m.bump}
         onOpenLog={() => m.setLogOpen(true)}
         onRestart={m.restart}
+        menuOpen={m.hudMenuOpen}
+        onMenuOpenChange={m.setHudMenuOpen}
         busy={m.phase === 'resolving'}
       />
       <main className="board">

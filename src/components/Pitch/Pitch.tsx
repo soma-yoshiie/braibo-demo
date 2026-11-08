@@ -12,7 +12,7 @@ import type {
   TokenView,
   TrajectoryView,
 } from '../viewTypes';
-import { GOAL_DEPTH, GOAL_WIDTH, VIEWBOX, cx, cy, goalLeft, shorten } from './pitchGeometry';
+import { GOAL_DEPTH, GOAL_WIDTH, VIEW, VIEWBOX, cx, cy, goalLeft, radialLayout, shorten } from './pitchGeometry';
 import { RadialMenu } from './RadialMenu';
 import './Pitch.css';
 
@@ -81,6 +81,33 @@ export function Pitch({
     if (spaceSet.has(k)) return `space-${c}-${r}`;
     return undefined;
   };
+
+  const targetLayer = (
+    <g pointerEvents="none">
+      {moveTargets.map((t) => {
+        const enemy = enemyCells.has(`${t.x},${t.y}`);
+        return (
+          <g key={`t-${t.x},${t.y}`}>
+            <rect
+              className={`target${enemy ? ' target--enemy' : ''}`}
+              x={t.x + 0.07}
+              y={t.y + 0.07}
+              width={0.86}
+              height={0.86}
+              rx={0.16}
+            />
+            <circle className={`target__ring${enemy ? ' target__ring--enemy' : ''}`} cx={cx(t.x)} cy={cy(t.y)} r={0.42} />
+          </g>
+        );
+      })}
+    </g>
+  );
+  const radialPos = radial
+    ? radialLayout(radial, radial.items.length, {
+        targets: moveTargets,
+        tokens: [...tokens.map((t) => ({ x: t.x, y: t.y })), ...movers.map((m) => ({ x: m.to.x, y: m.to.y }))],
+      })
+    : [];
 
   return (
     <svg
@@ -190,61 +217,7 @@ export function Pitch({
       </g>
 
       {/* legal move targets */}
-      <g pointerEvents="none">
-        {moveTargets.map((t) => {
-          const enemy = enemyCells.has(`${t.x},${t.y}`);
-          return (
-            <g key={`t-${t.x},${t.y}`}>
-              <rect
-                className={`target${enemy ? ' target--enemy' : ''}`}
-                x={t.x + 0.07}
-                y={t.y + 0.07}
-                width={0.86}
-                height={0.86}
-                rx={0.16}
-              />
-              <circle className={`target__ring${enemy ? ' target__ring--enemy' : ''}`} cx={cx(t.x)} cy={cy(t.y)} r={0.42} />
-            </g>
-          );
-        })}
-      </g>
-
-      {/* space-pass candidates */}
-      <g pointerEvents="none">
-        {spaceCells.map((s) => (
-          <g
-            key={`sp-${s.x},${s.y}`}
-            className={`space${s.enemy ? ' space--enemy' : ''}`}
-            transform={`translate(${cx(s.x)} ${cy(s.y)})`}
-          >
-            <rect className="space__mark" x={-0.2} y={-0.2} width={0.4} height={0.4} rx={0.05} transform="rotate(45)" />
-          </g>
-        ))}
-      </g>
-
-      {/* ghosts at planned destinations */}
-      <g>
-        {movers.map((p) => (
-          <g
-            key={`g-${p.id}`}
-            className="ghost"
-            data-testid={`ghost-${p.id}`}
-            transform={`translate(${cx(p.to.x)} ${cy(p.to.y)})`}
-            onClick={
-              interactive
-                ? (e) => {
-                    e.stopPropagation();
-                    onGhostTap(p.id);
-                  }
-                : undefined
-            }
-          >
-            <circle className="ghost__hit" r={0.5} />
-            <circle className="ghost__body" r={0.38} />
-            <text className="ghost__abbr">{p.abbr}</text>
-          </g>
-        ))}
-      </g>
+      {targetLayer}
 
       {/* trajectory of a flying ball */}
       {trajectory && <Trajectory t={trajectory} />}
@@ -262,6 +235,82 @@ export function Pitch({
             onTap={onPlayerTap}
           />
         ))}
+      </g>
+
+      {/* radial scrim: dims everything above; selected token, targets, ghosts and the menu are redrawn on top */}
+      {radial && (
+        <g pointerEvents="none" data-testid="radial-scrim">
+          <rect className="scrim" x={VIEW.x} y={VIEW.y} width={VIEW.w} height={VIEW.h} />
+          {targetLayer}
+          {tokens
+            .filter((t) => t.id === selectedId)
+            .map((t) => (
+              <PlayerToken
+                key={`clone-${t.id}`}
+                clone
+                token={t}
+                selected
+                passTarget={false}
+                interactive={false}
+                onTap={onPlayerTap}
+              />
+            ))}
+        </g>
+      )}
+
+      {/* above-token overlay: tackle rings, space-pass markers, ghosts, check badges */}
+      <g className="overlay-top">
+        <g pointerEvents="none">
+          {moveTargets
+            .filter((t) => enemyCells.has(`${t.x},${t.y}`))
+            .map((t) => (
+              <circle key={`tk-${t.x},${t.y}`} className="tackle-ring" cx={cx(t.x)} cy={cy(t.y)} r={0.5} />
+            ))}
+        </g>
+        <g pointerEvents="none" className="space-layer">
+          {spaceCells.map((s2) => (
+            <g
+              key={`sp-${s2.x},${s2.y}`}
+              className={`space${s2.enemy ? ' space--enemy' : ''}`}
+              transform={`translate(${cx(s2.x)} ${cy(s2.y)})`}
+            >
+              <rect className="space__mark" x={-0.2} y={-0.2} width={0.4} height={0.4} rx={0.05} transform="rotate(45)" />
+              {s2.enemy && <circle className="space__ring" r={0.48} />}
+            </g>
+          ))}
+        </g>
+        <g pointerEvents="none">
+          {tokens
+            .filter((t) => t.planned)
+            .map((t) => (
+              <g key={`ck-${t.id}`} className="token__check" transform={`translate(${cx(t.x) + 0.31} ${cy(t.y) - 0.31})`}>
+                <circle r={0.16} />
+                <path d="M-0.08 0.0 L-0.02 0.07 L0.09 -0.07" />
+              </g>
+            ))}
+        </g>
+        <g>
+          {movers.map((p) => (
+            <g
+              key={`g-${p.id}`}
+              className="ghost"
+              data-testid={`ghost-${p.id}`}
+              transform={`translate(${cx(p.to.x)} ${cy(p.to.y)})`}
+              onClick={
+                interactive
+                  ? (e) => {
+                      e.stopPropagation();
+                      onGhostTap(p.id);
+                    }
+                  : undefined
+              }
+            >
+              <circle className="ghost__hit" r={0.5} />
+              <circle className="ghost__body" r={0.38} />
+              <text className="ghost__abbr">{p.abbr}</text>
+            </g>
+          ))}
+        </g>
       </g>
 
       {/* duel WIN / LOSE tags (above every token) */}
@@ -331,7 +380,7 @@ export function Pitch({
       </g>
 
       {/* radial action menu */}
-      {radial && <RadialMenu menu={radial} />}
+      {radial && <RadialMenu menu={radial} positions={radialPos} />}
     </svg>
   );
 }

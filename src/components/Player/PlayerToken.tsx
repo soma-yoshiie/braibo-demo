@@ -9,6 +9,8 @@ interface Props {
   passTarget: boolean;
   interactive: boolean;
   onTap: (id: string) => void;
+  /** Visual duplicate drawn above the radial scrim (no test id, no pointer events). */
+  clone?: boolean;
 }
 
 /** Small football icon (pentagon pattern) drawn around 0,0 with radius r. */
@@ -24,7 +26,7 @@ export function BallIcon({ r = 0.15 }: { r?: number }) {
   );
 }
 
-export function PlayerToken({ token, selected, inspected, passTarget, interactive, onTap }: Props) {
+export function PlayerToken({ token, selected, inspected, passTarget, interactive, onTap, clone }: Props) {
   const cls = [
     'token',
     `token--${token.team}`,
@@ -42,8 +44,9 @@ export function PlayerToken({ token, selected, inspected, passTarget, interactiv
   return (
     <g
       className={cls}
-      data-testid={`token-${token.id}`}
-      data-id={token.id}
+      data-testid={clone ? undefined : `token-${token.id}`}
+      data-id={clone ? undefined : token.id}
+      pointerEvents={clone ? 'none' : undefined}
       style={style}
       onClick={
         interactive
@@ -75,12 +78,6 @@ export function PlayerToken({ token, selected, inspected, passTarget, interactiv
         {token.hasBall && (
           <g transform="translate(0.3 0.3)" pointerEvents="none">
             <BallIcon r={0.17} />
-          </g>
-        )}
-        {token.planned && (
-          <g className="token__check" transform="translate(0.31 -0.31)" pointerEvents="none">
-            <circle r={0.16} />
-            <path d="M-0.08 0.0 L-0.02 0.07 L0.09 -0.07" />
           </g>
         )}
       </g>

@@ -45,8 +45,22 @@
 .pitch--locked .token {
   cursor: default;
 }
-.pitch--picking .token--red {
-  pointer-events: none;
+
+.scrim {
+  fill: rgba(5, 10, 20, 0.35);
+}
+.tackle-ring {
+  fill: none;
+  stroke: var(--red-light);
+  stroke-width: 0.08;
+}
+.space-layer {
+  opacity: 0.35;
+}
+.space__ring {
+  fill: none;
+  stroke: var(--red-light);
+  stroke-width: 0.07;
 }
 
 .target {
