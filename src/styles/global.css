@@ -1,0 +1,100 @@
+/* Design tokens — dark navy base, calm green pitch, blue vs red teams. */
+:root {
+  --bg: #0b1220;
+  --bg-elev: #121b2f;
+  --bg-elev-2: #1a2540;
+  --line: rgba(255, 255, 255, 0.08);
+  --text: #e6edf7;
+  --text-dim: #9aa8c2;
+  --text-faint: #6b7892;
+
+  --pitch: #2e6b45;
+  --pitch-dark: #296040;
+  --pitch-line: rgba(255, 255, 255, 0.55);
+
+  --blue: #3b82f6;
+  --blue-dark: #1d4ed8;
+  --blue-soft: rgba(59, 130, 246, 0.28);
+  --red: #ef4444;
+  --red-dark: #b91c1c;
+  --red-soft: rgba(239, 68, 68, 0.28);
+
+  --accent: #f5c542; /* ball / highlight */
+  --ok: #34d399;
+  --warn: #fb923c;
+
+  --radius: 12px;
+  --radius-sm: 8px;
+  --shadow: 0 6px 20px rgba(0, 0, 0, 0.35);
+
+  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+  --safe-left: env(safe-area-inset-left, 0px);
+  --safe-right: env(safe-area-inset-right, 0px);
+
+  color-scheme: dark;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+  overscroll-behavior: none;
+}
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: -apple-system, BlinkMacSystemFont, 'Hiragino Sans', 'Noto Sans JP', 'Segoe UI', Roboto, sans-serif;
+  font-size: 14px;
+  line-height: 1.4;
+  -webkit-font-smoothing: antialiased;
+  -webkit-text-size-adjust: 100%;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+button {
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+
+.boot-error {
+  min-height: 100%;
+  padding: calc(24px + var(--safe-top)) 16px calc(24px + var(--safe-bottom));
+  overflow: auto;
+}
+.boot-error h1 {
+  font-size: 18px;
+  margin: 0 0 8px;
+}
+.boot-error pre {
+  white-space: pre-wrap;
+  word-break: break-all;
+  background: var(--bg-elev);
+  padding: 12px;
+  border-radius: var(--radius-sm);
+  font-size: 12px;
+}
+.boot-error__actions {
+  display: flex;
+  gap: 8px;
+}
+.boot-error button {
+  padding: 12px 18px;
+  border-radius: 10px;
+  border: 0;
+  background: var(--blue);
+  color: #fff;
+}

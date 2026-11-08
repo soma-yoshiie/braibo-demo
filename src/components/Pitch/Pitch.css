@@ -1,0 +1,186 @@
+.pitch {
+  display: block;
+  height: 100%;
+  width: auto;
+  max-width: 100%;
+  margin: 0 auto;
+  touch-action: manipulation;
+}
+.pitch__surround {
+  fill: #234f35;
+}
+.pitch__field {
+  fill: var(--pitch);
+}
+.pitch__stripe {
+  fill: var(--pitch-dark);
+  opacity: 0.55;
+}
+.pitch__net {
+  fill: url(#net);
+  stroke: var(--pitch-line);
+  stroke-width: 0.06;
+}
+.pitch__grid line {
+  stroke: rgba(255, 255, 255, 0.07);
+  stroke-width: 0.02;
+}
+.pitch__lines rect,
+.pitch__lines line,
+.pitch__lines circle {
+  fill: none;
+  stroke: var(--pitch-line);
+  stroke-width: 0.045;
+}
+.pitch__lines .pitch__dot {
+  fill: var(--pitch-line);
+  stroke: none;
+}
+.pitch__cell {
+  fill: transparent;
+  cursor: pointer;
+}
+.pitch--locked .pitch__cell,
+.pitch--locked .token {
+  cursor: default;
+}
+
+.target {
+  fill: rgba(255, 255, 255, 0.2);
+}
+.target--enemy {
+  fill: rgba(239, 68, 68, 0.22);
+}
+.target__ring {
+  fill: none;
+  stroke: rgba(255, 255, 255, 0.85);
+  stroke-width: 0.05;
+  stroke-dasharray: 0.14 0.1;
+}
+.target__ring--enemy {
+  stroke: #ffb4b4;
+}
+
+.plan-arrow {
+  stroke: #9cc2ff;
+  stroke-width: 0.06;
+  opacity: 0.85;
+}
+.ghost {
+  cursor: pointer;
+}
+.ghost__hit {
+  fill: transparent;
+}
+.ghost__body {
+  fill: var(--blue);
+  fill-opacity: 0.5;
+  stroke: #cfe0ff;
+  stroke-width: 0.06;
+  stroke-dasharray: 0.12 0.09;
+}
+.ghost__abbr {
+  fill: #fff;
+  fill-opacity: 0.85;
+  font-size: 0.3px;
+  font-weight: 700;
+  text-anchor: middle;
+  dominant-baseline: central;
+  pointer-events: none;
+}
+.stay-badge circle {
+  fill: var(--ok);
+  stroke: #0b3d2c;
+  stroke-width: 0.04;
+}
+.stay-badge path {
+  fill: none;
+  stroke: #04281c;
+  stroke-width: 0.045;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.ball {
+  transition: transform var(--ball-ms, 500ms) ease-in-out, opacity 0.15s;
+}
+.ball__body {
+  fill: var(--accent);
+  stroke: #3a2f06;
+  stroke-width: 0.05;
+}
+.ball__shadow {
+  fill: rgba(0, 0, 0, 0.3);
+}
+.ball__spot {
+  fill: #3a2f06;
+  opacity: 0.55;
+}
+
+.pct rect {
+  fill: rgba(11, 18, 32, 0.92);
+  stroke: var(--accent);
+  stroke-width: 0.03;
+}
+.pct text {
+  fill: #fff;
+  font-size: 0.24px;
+  font-weight: 700;
+  text-anchor: middle;
+  dominant-baseline: central;
+}
+.pct--off {
+  opacity: 0.5;
+}
+.pct--off rect {
+  stroke: var(--text-faint);
+}
+
+.ball-arrow {
+  stroke: var(--accent);
+  stroke-width: 0.07;
+}
+.ball-arrow--cross {
+  stroke-dasharray: 0.2 0.14;
+}
+.ball-arrow--shoot {
+  stroke-width: 0.09;
+}
+.ball-arrow__label rect {
+  fill: rgba(11, 18, 32, 0.92);
+  stroke: var(--accent);
+  stroke-width: 0.03;
+}
+.ball-arrow__label text {
+  fill: #fff;
+  font-size: 0.24px;
+  font-weight: 700;
+  text-anchor: middle;
+  dominant-baseline: central;
+}
+
+.badge {
+  animation: badge-pop 0.25s ease-out;
+}
+.badge rect {
+  fill: #fff;
+  stroke: var(--accent);
+  stroke-width: 0.04;
+}
+.badge text {
+  fill: #1b2540;
+  font-size: 0.24px;
+  font-weight: 800;
+  text-anchor: middle;
+  dominant-baseline: central;
+}
+@keyframes badge-pop {
+  from {
+    opacity: 0;
+    transform: translateY(0.2px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}

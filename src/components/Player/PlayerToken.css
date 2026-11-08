@@ -1,0 +1,73 @@
+.token {
+  transition: transform var(--move-ms, 600ms) ease-in-out;
+  cursor: pointer;
+}
+.token__hit {
+  fill: transparent;
+}
+.token__body {
+  stroke-width: 0.07;
+}
+.token--blue .token__body {
+  fill: var(--blue);
+  stroke: var(--blue-dark);
+}
+.token--red .token__body {
+  fill: var(--red);
+  stroke: var(--red-dark);
+}
+.token__abbr {
+  fill: #fff;
+  font-size: 0.31px;
+  font-weight: 700;
+  text-anchor: middle;
+  dominant-baseline: central;
+  pointer-events: none;
+  letter-spacing: 0.01px;
+}
+.token__ball {
+  fill: var(--accent);
+  stroke: #3a2f06;
+  stroke-width: 0.05;
+  pointer-events: none;
+}
+.token__ring {
+  fill: rgba(255, 255, 255, 0.12);
+  stroke: #fff;
+  stroke-width: 0.07;
+  pointer-events: none;
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: token-pulse 1.1s ease-in-out infinite;
+}
+.token__target-ring {
+  fill: rgba(245, 197, 66, 0.18);
+  stroke: var(--accent);
+  stroke-width: 0.07;
+  stroke-dasharray: 0.16 0.1;
+  pointer-events: none;
+}
+@keyframes token-pulse {
+  0%,
+  100% {
+    transform: scale(0.92);
+    opacity: 1;
+  }
+  50% {
+    transform: scale(1.08);
+    opacity: 0.6;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .token__ring {
+    animation: none;
+  }
+}
+
+.token__inspect-ring {
+  fill: none;
+  stroke: #fff;
+  stroke-width: 0.035;
+  stroke-dasharray: 0.1 0.08;
+  pointer-events: none;
+}
