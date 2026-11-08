@@ -87,6 +87,26 @@ describe('movement', () => {
     expect(ev(r.events, 'duel')[0]).toMatchObject({ forBall: true, pos: { x: 3, y: 4 }, winnerId: 'red-0' });
   });
 
+  it('displaced player is not treated as a swapper (exactly one duel)', () => {
+    const s = scene({ 'blue-0': { x: 3, y: 5 }, 'red-1': { x: 2, y: 5 } }, held('blue-0'));
+    const r = resolveTurn(s, plans({ moves: { 'blue-0': { x: 2, y: 5 } } }), fixedRng([0.0, 0.99]));
+    expect(ev(r.events, 'duel')).toHaveLength(1);
+    expect(ev(r.events, 'displace')).toHaveLength(1);
+    expect(ballHolder(r.after)?.id).toBe('blue-0');
+    expect(getPlayer(r.after, 'blue-0').pos).toEqual({ x: 2, y: 5 });
+  });
+
+  it('a genuine swap yields exactly one duel', () => {
+    const s = scene({ 'blue-0': { x: 3, y: 5 }, 'red-0': { x: 3, y: 4 } }, held('blue-0'));
+    const r = resolveTurn(
+      s,
+      plans({ moves: { 'blue-0': { x: 3, y: 4 } } }, { moves: { 'red-0': { x: 3, y: 5 } } }),
+      fixedRng([0.0, 0.99]),
+    );
+    expect(ev(r.events, 'duel')).toHaveLength(1);
+    expect(ballHolder(r.after)?.id).toBe('blue-0');
+  });
+
   it('loose ball is picked up by the player who ends on it', () => {
     const s = scene({ 'blue-0': { x: 3, y: 5 } }, { kind: 'loose', pos: { x: 3, y: 3 } });
     const r = resolveTurn(s, plans({ moves: { 'blue-0': { x: 3, y: 3 } } }), fixedRng([0.5]));

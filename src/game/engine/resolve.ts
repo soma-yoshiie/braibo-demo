@@ -72,6 +72,11 @@ export function resolveMovement(state: MatchState, plans: TurnPlans, rng: Rng): 
     dest[p.id] = planned && isLegalMove(state, p.id, planned) ? copy(planned) : copy(p.pos);
     flags[p.id] = { ...p.flags };
   }
+  // Destinations as planned (after legality normalisation); used by the swap check.
+  const planned: Positions = {};
+  for (const id of Object.keys(dest)) planned[id] = copy(dest[id] as Vec);
+  /** Players that took part in a cell duel; they never get a swap duel as well. */
+  const dueled = new Set<PlayerId>();
   let holder: PlayerId | undefined = state.ball.kind === 'held' ? state.ball.playerId : undefined;
   const stays = (id: PlayerId) => vecEq(dest[id] as Vec, origin[id] as Vec);
 
@@ -172,6 +177,8 @@ export function resolveMovement(state: MatchState, plans: TurnPlans, rng: Rng): 
       forBall: holder === a || holder === b,
       pAWins: p,
     });
+    dueled.add(a);
+    dueled.add(b);
     award(winner, loser);
     if (stays(loser)) displace(loser);
     else bounce(loser, 'duel');
@@ -182,7 +189,11 @@ export function resolveMovement(state: MatchState, plans: TurnPlans, rng: Rng): 
     if (pa.team !== 'blue') continue;
     for (const pb of state.players) {
       if (pb.team !== 'red') continue;
+      const completed = (id: PlayerId) =>
+        !displaced.has(id) && !dueled.has(id) && vecEq(dest[id] as Vec, planned[id] as Vec);
       const swapped =
+        completed(pa.id) &&
+        completed(pb.id) &&
         !stays(pa.id) &&
         vecEq(dest[pa.id] as Vec, origin[pb.id] as Vec) &&
         vecEq(dest[pb.id] as Vec, origin[pa.id] as Vec);
