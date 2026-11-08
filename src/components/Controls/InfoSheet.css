@@ -1,0 +1,119 @@
+.sheet {
+  position: absolute;
+  left: 8px;
+  right: 8px;
+  bottom: calc(76px + var(--safe-bottom) + 8px);
+  z-index: 12;
+  max-width: 480px;
+  margin: 0 auto;
+  padding: 12px 14px 12px;
+  border-radius: 18px;
+  background: linear-gradient(180deg, var(--navy-600), var(--navy-700));
+  border: 1px solid rgba(229, 189, 90, 0.55);
+  box-shadow: var(--shadow-plate);
+  animation: sheet-up 0.2s ease-out;
+}
+@keyframes sheet-up {
+  from {
+    transform: translateY(24px);
+    opacity: 0;
+  }
+}
+.sheet__head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.sheet__orb {
+  width: 40px;
+  height: 40px;
+  flex: 0 0 auto;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  font-size: 15px;
+  font-weight: 800;
+  color: #fff;
+  -webkit-text-stroke: 3px var(--navy-900);
+  paint-order: stroke fill;
+  box-shadow: 0 3px 0 rgba(0, 0, 0, 0.4), inset 0 2px 3px rgba(255, 255, 255, 0.4);
+}
+.sheet__orb--blue {
+  background: radial-gradient(circle at 35% 30%, var(--blue-light), var(--blue) 55%, var(--blue-dark));
+}
+.sheet__orb--red {
+  background: radial-gradient(circle at 35% 30%, var(--red-light), var(--red) 55%, var(--red-dark));
+}
+.sheet__title {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  line-height: 1.2;
+}
+.sheet__title b {
+  font-size: 17px;
+  font-weight: 800;
+}
+.sheet__role {
+  font-size: 11px;
+  color: var(--gold-light);
+}
+.sheet__close {
+  width: 40px;
+  height: 40px;
+  border: 0;
+  border-radius: 12px;
+  background: transparent;
+  color: var(--text-dim);
+  font-size: 18px;
+}
+.sheet__desc {
+  margin: 8px 0 8px;
+  font-size: 12px;
+  line-height: 1.55;
+  color: var(--text-dim);
+  font-weight: 700;
+}
+.sheet__stats {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 5px 14px;
+}
+.sheet__stats li {
+  display: grid;
+  grid-template-columns: auto 1fr 22px;
+  align-items: center;
+  gap: 6px;
+  font-size: 10.5px;
+}
+.sheet__k {
+  min-width: 52px;
+  color: var(--text-dim);
+}
+.sheet__bar {
+  height: 7px;
+  border-radius: 4px;
+  background: rgba(0, 0, 0, 0.4);
+  overflow: hidden;
+}
+.sheet__bar i {
+  display: block;
+  height: 100%;
+  border-radius: 4px;
+  background: linear-gradient(90deg, var(--gold-dark), var(--gold-light));
+}
+.sheet--blue .sheet__bar i {
+  background: linear-gradient(90deg, var(--blue-dark), var(--blue-light));
+}
+.sheet--red .sheet__bar i {
+  background: linear-gradient(90deg, var(--red-dark), var(--red-light));
+}
+.sheet__v {
+  font-family: var(--font-num);
+  font-size: 12px;
+  text-align: right;
+}

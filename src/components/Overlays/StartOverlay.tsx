@@ -10,17 +10,42 @@ interface Props {
 export function StartOverlay({ timerOn, seconds, onToggleTimer, onStart }: Props) {
   return (
     <div className="overlay overlay--start" data-testid="start-overlay">
-      <div className="card">
-        <h1 className="card__title">BRAIBO</h1>
-        <p className="card__text">
-          5人の移動先を決めて「ターン実行」。敵と同時に動き、移動後の位置でパス・シュートが決まります。
-        </p>
+      <div className="card card--start">
+        <h1 className="logo" aria-label="BRAIBO">
+          <svg viewBox="0 0 300 78" className="logo__svg" role="img" aria-hidden="true">
+            <defs>
+              <linearGradient id="logo-gold" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0" stopColor="#fff3c4" />
+                <stop offset="0.5" stopColor="#e5bd5a" />
+                <stop offset="1" stopColor="#a8822c" />
+              </linearGradient>
+            </defs>
+            <text x="150" y="62" textAnchor="middle" className="logo__shadow">
+              BRAIBO
+            </text>
+            <text x="150" y="58" textAnchor="middle" className="logo__text">
+              BRAIBO
+            </text>
+          </svg>
+        </h1>
+        <div className="card__tag">BRAIN × BALL</div>
+        <ol className="howto">
+          <li>
+            <i>1</i>青の選手をタップして移動先を指定
+          </li>
+          <li>
+            <i>2</i>ボール保持者はシュート・パス・クロスを選ぶ
+          </li>
+          <li>
+            <i>3</i>「ターン実行」で敵と同時に動き出す！
+          </li>
+        </ol>
         <label className="toggle">
           <span>作戦タイマー（{seconds}秒）</span>
           <input type="checkbox" checked={timerOn} onChange={(e) => onToggleTimer(e.target.checked)} />
           <i className="toggle__track" />
         </label>
-        <button className="cta" onClick={onStart} data-testid="start-button">
+        <button className="gbtn gbtn--gold cta" onClick={onStart} data-testid="start-button">
           キックオフ
         </button>
       </div>

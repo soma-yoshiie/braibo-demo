@@ -1,20 +1,36 @@
 import { BOARD } from '../../game/rules/config';
 import type { Vec } from '../../game/types';
-import { PlayerToken } from '../Player/PlayerToken';
-import type { ArrowView, BadgeView, BallView, PassTargetView, PlanView, TokenView } from '../viewTypes';
-import { GOAL_DEPTH, GOAL_WIDTH, VIEWBOX, VIEW, cx, cy, goalLeft, shorten } from './pitchGeometry';
+import { BallIcon, DuelTag, PlayerToken } from '../Player/PlayerToken';
+import type {
+  ArrowView,
+  BallView,
+  BurstView,
+  PassTargetView,
+  PlanView,
+  RadialMenuView,
+  SpaceCellView,
+  TokenView,
+  TrajectoryView,
+} from '../viewTypes';
+import { GOAL_DEPTH, GOAL_WIDTH, VIEWBOX, cx, cy, goalLeft, shorten } from './pitchGeometry';
+import { RadialMenu } from './RadialMenu';
 import './Pitch.css';
 
 interface Props {
   tokens: TokenView[];
   ball: BallView;
+  trajectory?: TrajectoryView | null;
   selectedId: string | null;
   inspectId?: string | null;
   moveTargets: Vec[];
   passTargets: PassTargetView[];
+  spaceCells: SpaceCellView[];
+  /** Picking a pass / cross target: enemy tokens stop eating taps so space cells under them work. */
+  picking: boolean;
   plans: PlanView[];
   ballArrow: ArrowView | null;
-  badges: BadgeView[];
+  bursts: BurstView[];
+  radial: RadialMenuView | null;
   interactive: boolean;
   onCellTap: (cell: Vec) => void;
   onPlayerTap: (id: string) => void;
@@ -23,17 +39,22 @@ interface Props {
 
 const COLS = Array.from({ length: BOARD.cols }, (_, i) => i);
 const ROWS = Array.from({ length: BOARD.rows }, (_, i) => i);
+const SPIKES = Array.from({ length: 8 }, (_, i) => i);
 
 export function Pitch({
   tokens,
   ball,
+  trajectory,
   selectedId,
   inspectId,
   moveTargets,
   passTargets,
+  spaceCells,
+  picking,
   plans,
   ballArrow,
-  badges,
+  bursts,
+  radial,
   interactive,
   onCellTap,
   onPlayerTap,
@@ -47,16 +68,23 @@ export function Pitch({
     tokens.filter((t) => t.team === 'red').map((t) => `${Math.round(t.x)},${Math.round(t.y)}`),
   );
   const targetSet = new Set(moveTargets.map((t) => `${t.x},${t.y}`));
+  const spaceSet = new Set(spaceCells.map((t) => `${t.x},${t.y}`));
   const tokenById = new Map(tokens.map((t) => [t.id, t]));
   const movers = plans.filter((p) => !p.stay);
-  const stayers = plans.filter((p) => p.stay);
   const penW = 3.6;
   const penD = 1.5;
   const penX = (W - penW) / 2;
 
+  const testIdFor = (c: number, r: number): string | undefined => {
+    const k = `${c},${r}`;
+    if (targetSet.has(k)) return `target-${c}-${r}`;
+    if (spaceSet.has(k)) return `space-${c}-${r}`;
+    return undefined;
+  };
+
   return (
     <svg
-      className={`pitch${interactive ? '' : ' pitch--locked'}`}
+      className={`pitch${interactive ? '' : ' pitch--locked'}${picking ? ' pitch--picking' : ''}`}
       viewBox={VIEWBOX}
       preserveAspectRatio="xMidYMid meet"
       role="img"
@@ -68,22 +96,41 @@ export function Pitch({
           <path d="M0,1 L9,5 L0,9 z" fill="#9cc2ff" />
         </marker>
         <marker id="arrow-accent" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="4" markerHeight="4" orient="auto">
-          <path d="M0,1 L9,5 L0,9 z" fill="#f5c542" />
+          <path d="M0,1 L9,5 L0,9 z" fill="#f6dc93" />
         </marker>
-        <pattern id="net" width="0.25" height="0.25" patternUnits="userSpaceOnUse">
-          <path d="M0 0 L0.25 0.25 M0.25 0 L0 0.25" stroke="rgba(255,255,255,0.35)" strokeWidth="0.02" />
+        <pattern id="net" width="0.2" height="0.2" patternUnits="userSpaceOnUse">
+          <path d="M0 0 L0.2 0.2 M0.2 0 L0 0.2" stroke="rgba(255,255,255,0.45)" strokeWidth="0.02" />
         </pattern>
+        <radialGradient id="tok-blue" cx="0.35" cy="0.3" r="0.8">
+          <stop offset="0" stopColor="#7db4ff" />
+          <stop offset="0.55" stopColor="#3d8bff" />
+          <stop offset="1" stopColor="#1b4fb8" />
+        </radialGradient>
+        <radialGradient id="tok-red" cx="0.35" cy="0.3" r="0.8">
+          <stop offset="0" stopColor="#ff8e96" />
+          <stop offset="0.55" stopColor="#ff4d5a" />
+          <stop offset="1" stopColor="#b3202d" />
+        </radialGradient>
+        <radialGradient id="ball-grad" cx="0.35" cy="0.3" r="0.8">
+          <stop offset="0" stopColor="#ffffff" />
+          <stop offset="1" stopColor="#c9d0df" />
+        </radialGradient>
       </defs>
 
-      <rect className="pitch__surround" x={VIEW.x} y={VIEW.y} width={VIEW.w} height={VIEW.h} />
+      {/* field */}
       <rect className="pitch__field" x={0} y={0} width={W} height={H} />
       {ROWS.map((r) =>
-        r % 2 === 0 ? <rect key={r} className="pitch__stripe" x={0} y={r} width={W} height={1} /> : null,
+        r % 2 === 1 ? <rect key={r} className="pitch__stripe" x={0} y={r} width={W} height={1} /> : null,
       )}
 
       {/* goals (net beyond the end lines) */}
-      <rect className="pitch__net" x={gl} y={-GOAL_DEPTH} width={GOAL_WIDTH} height={GOAL_DEPTH} />
-      <rect className="pitch__net" x={gl} y={H} width={GOAL_WIDTH} height={GOAL_DEPTH} />
+      {[-GOAL_DEPTH, H].map((y) => (
+        <g key={y}>
+          <rect className="pitch__net-shadow" x={gl + 0.05} y={y + (y < 0 ? 0 : 0.04)} width={GOAL_WIDTH} height={GOAL_DEPTH} />
+          <rect className="pitch__net" x={gl} y={y} width={GOAL_WIDTH} height={GOAL_DEPTH} />
+          <rect className="pitch__net-fill" x={gl} y={y} width={GOAL_WIDTH} height={GOAL_DEPTH} />
+        </g>
+      ))}
 
       {/* faint grid */}
       <g className="pitch__grid">
@@ -113,7 +160,7 @@ export function Pitch({
               key={`${c},${r}`}
               className="pitch__cell"
               data-cell={`${c},${r}`}
-              data-testid={targetSet.has(`${c},${r}`) ? `target-${c}-${r}` : undefined}
+              data-testid={testIdFor(c, r)}
               x={c}
               y={r}
               width={1}
@@ -144,22 +191,33 @@ export function Pitch({
 
       {/* legal move targets */}
       <g pointerEvents="none">
-        {moveTargets.map((t) => (
-          <g key={`t-${t.x},${t.y}`}>
-            <rect
-              className={`target${enemyCells.has(`${t.x},${t.y}`) ? ' target--enemy' : ''}`}
-              x={t.x + 0.06}
-              y={t.y + 0.06}
-              width={0.88}
-              height={0.88}
-              rx={0.14}
-            />
-            <circle
-              className={`target__ring${enemyCells.has(`${t.x},${t.y}`) ? ' target__ring--enemy' : ''}`}
-              cx={cx(t.x)}
-              cy={cy(t.y)}
-              r={0.44}
-            />
+        {moveTargets.map((t) => {
+          const enemy = enemyCells.has(`${t.x},${t.y}`);
+          return (
+            <g key={`t-${t.x},${t.y}`}>
+              <rect
+                className={`target${enemy ? ' target--enemy' : ''}`}
+                x={t.x + 0.07}
+                y={t.y + 0.07}
+                width={0.86}
+                height={0.86}
+                rx={0.16}
+              />
+              <circle className={`target__ring${enemy ? ' target__ring--enemy' : ''}`} cx={cx(t.x)} cy={cy(t.y)} r={0.42} />
+            </g>
+          );
+        })}
+      </g>
+
+      {/* space-pass candidates */}
+      <g pointerEvents="none">
+        {spaceCells.map((s) => (
+          <g
+            key={`sp-${s.x},${s.y}`}
+            className={`space${s.enemy ? ' space--enemy' : ''}`}
+            transform={`translate(${cx(s.x)} ${cy(s.y)})`}
+          >
+            <rect className="space__mark" x={-0.2} y={-0.2} width={0.4} height={0.4} rx={0.05} transform="rotate(45)" />
           </g>
         ))}
       </g>
@@ -182,26 +240,17 @@ export function Pitch({
             }
           >
             <circle className="ghost__hit" r={0.5} />
-            <circle className="ghost__body" r={0.36} />
+            <circle className="ghost__body" r={0.38} />
             <text className="ghost__abbr">{p.abbr}</text>
-          </g>
-        ))}
-        {stayers.map((p) => (
-          <g
-            key={`s-${p.id}`}
-            className="stay-badge"
-            data-testid={`stay-${p.id}`}
-            transform={`translate(${cx(p.from.x) + 0.34} ${cy(p.from.y) - 0.34})`}
-            pointerEvents="none"
-          >
-            <circle r={0.17} />
-            <path d="M-0.08 0.0 L-0.02 0.07 L0.09 -0.07" />
           </g>
         ))}
       </g>
 
+      {/* trajectory of a flying ball */}
+      {trajectory && <Trajectory t={trajectory} />}
+
       {/* players */}
-      <g>
+      <g className={picking ? 'tokens tokens--picking' : 'tokens'}>
         {tokens.map((t) => (
           <PlayerToken
             key={t.id}
@@ -215,6 +264,11 @@ export function Pitch({
         ))}
       </g>
 
+      {/* duel WIN / LOSE tags (above every token) */}
+      <g pointerEvents="none">
+        {tokens.map((t) => (t.tag ? <DuelTag key={t.id} token={t} /> : null))}
+      </g>
+
       {/* loose / flying ball */}
       <g
         className="ball"
@@ -223,12 +277,19 @@ export function Pitch({
           transform: `translate(${cx(ball.kind === 'free' ? ball.x : -3)}px, ${cy(ball.kind === 'free' ? ball.y : -3)}px)`,
           opacity: ball.kind === 'free' ? 1 : 0,
           transition: ball.kind === 'free' && ball.snap ? 'none' : undefined,
+          ['--ball-ms' as string]: ball.kind === 'free' && ball.ms ? `${ball.ms}ms` : undefined,
+          ['--ball-ease' as string]: ball.kind === 'free' && ball.arc ? 'linear' : undefined,
         }}
         pointerEvents="none"
       >
-        <circle className="ball__shadow" cx={0.03} cy={0.05} r={0.2} />
-        <circle className="ball__body" r={0.2} />
-        <circle className="ball__spot" r={0.08} />
+        <g
+          key={ball.kind === 'free' ? ball.flightKey ?? 0 : 0}
+          className={ball.kind === 'free' && ball.arc && !ball.snap ? 'ball__lob' : undefined}
+          style={{ ['--lob-h' as string]: ball.kind === 'free' && ball.arc ? `${-ball.arc}px` : undefined }}
+        >
+          <ellipse className="ball__shadow" cx={0.03} cy={0.12} rx={0.2} ry={0.09} />
+          <BallIcon r={0.2} />
+        </g>
       </g>
 
       {/* pass target labels */}
@@ -242,9 +303,9 @@ export function Pitch({
             <g
               key={`pl-${p.id}`}
               className={`pct${p.enabled ? '' : ' pct--off'}`}
-              transform={`translate(${cx(t.x)} ${cy(t.y) - 0.74})`}
+              transform={`translate(${cx(t.x)} ${cy(t.y) - 0.78})`}
             >
-              <rect x={-0.42} y={-0.17} width={0.84} height={0.34} rx={0.17} />
+              <rect x={-0.4} y={-0.17} width={0.8} height={0.34} rx={0.17} />
               <text>{p.label}</text>
             </g>
           );
@@ -254,18 +315,38 @@ export function Pitch({
       {/* planned ball action arrow */}
       {ballArrow && <BallArrow arrow={ballArrow} />}
 
-      {/* transient badges */}
+      {/* impact bursts */}
       <g pointerEvents="none">
-        {badges.map((b) => (
-          <g key={b.id} transform={`translate(${cx(b.x)} ${cy(b.y) - 0.78})`}>
-            <g className="badge">
-              <rect x={-0.85} y={-0.2} width={1.7} height={0.4} rx={0.2} />
-              <text>{b.text}</text>
+        {bursts.map((b) => (
+          <g key={b.id} className={`burst burst--${b.team}`} transform={`translate(${cx(b.x)} ${cy(b.y)})`}>
+            <circle className="burst__ring" r={0.5} />
+            <circle className="burst__ring burst__ring--2" r={0.5} />
+            <g className="burst__spikes">
+              {SPIKES.map((i) => (
+                <line key={i} className="burst__spike" x1={0.42} y1={0} x2={0.8} y2={0} transform={`rotate(${i * 45})`} />
+              ))}
             </g>
           </g>
         ))}
       </g>
+
+      {/* radial action menu */}
+      {radial && <RadialMenu menu={radial} />}
     </svg>
+  );
+}
+
+function Trajectory({ t }: { t: TrajectoryView }) {
+  const a = { x: cx(t.from.x), y: cy(t.from.y) };
+  const b = { x: cx(t.to.x), y: cy(t.to.y) };
+  const c = { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 - t.arc * 2 };
+  return (
+    <path
+      className="trajectory"
+      pointerEvents="none"
+      d={`M${a.x} ${a.y} Q${c.x} ${c.y} ${b.x} ${b.y}`}
+      data-testid="trajectory"
+    />
   );
 }
 

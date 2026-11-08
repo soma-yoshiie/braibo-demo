@@ -19,7 +19,7 @@ export function LogDrawer({ lines, onClose }: Props) {
     <div className="overlay overlay--drawer" onClick={onClose} data-testid="log-drawer">
       <div className="drawer" onClick={(e) => e.stopPropagation()}>
         <div className="drawer__head">
-          <b>試合ログ</b>
+          <b className="drawer__title">試合ログ</b>
           <button className="drawer__close" onClick={onClose} aria-label="閉じる">
             ✕
           </button>

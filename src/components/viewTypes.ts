@@ -8,11 +8,28 @@ export interface TokenView {
   x: number;
   y: number;
   hasBall: boolean;
+  /** Blue token whose destination has been set this turn. */
+  planned?: boolean;
+  /** Duel clash: scale up. */
+  clash?: boolean;
+  /** WIN / LOSE tag shown above the token. */
+  tag?: { kind: 'win' | 'lose'; label: string };
+  /** Movement duration override in ms. */
+  moveMs?: number;
+  /** Use the overshoot easing (losers being knocked back). */
+  ease?: 'back';
 }
 
 export type BallView =
   | { kind: 'held' }
-  | { kind: 'free'; x: number; y: number; snap?: boolean };
+  | { kind: 'free'; x: number; y: number; snap?: boolean; arc?: number; flightKey?: number; ms?: number };
+
+export interface TrajectoryView {
+  from: Vec;
+  to: Vec;
+  /** Arc height in cells (0 = straight). */
+  arc: number;
+}
 
 export interface PlanView {
   id: PlayerId;
@@ -36,20 +53,39 @@ export interface PassTargetView {
   enabled: boolean;
 }
 
-export interface BadgeView {
+/** Impact burst at a duel position. */
+export interface BurstView {
   id: string;
   x: number;
   y: number;
-  text: string;
+  team: TeamId;
+}
+
+export interface SpaceCellView {
+  x: number;
+  y: number;
+  enemy: boolean;
+}
+
+export interface RadialMenuItem {
+  key: 'shoot' | 'pass' | 'cross' | 'keep' | 'stay' | 'info';
+  label: string;
+  /** Second line (e.g. a percentage). */
+  sub?: string;
+  enabled: boolean;
+  active?: boolean;
+  onTap: () => void;
+}
+
+export interface RadialMenuView {
+  /** Anchor token position in cell units. */
+  x: number;
+  y: number;
+  items: RadialMenuItem[];
 }
 
 export interface LogLine {
   id: number;
   turn: number;
   text: string;
-}
-
-export interface StatPill {
-  key: string;
-  value: number;
 }

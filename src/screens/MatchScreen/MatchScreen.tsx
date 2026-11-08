@@ -1,6 +1,7 @@
-import { CommandPanel } from '../../components/Controls/CommandPanel';
+import { ActionBar } from '../../components/Controls/ActionBar';
+import { InfoSheet } from '../../components/Controls/InfoSheet';
 import { HUD } from '../../components/HUD/HUD';
-import { EventBanner } from '../../components/Overlays/EventBanner';
+import { EventBanner, GoalFx } from '../../components/Overlays/EventBanner';
 import { LogDrawer } from '../../components/Overlays/LogDrawer';
 import { ResultOverlay } from '../../components/Overlays/ResultOverlay';
 import { StartOverlay } from '../../components/Overlays/StartOverlay';
@@ -13,50 +14,59 @@ export function MatchScreen() {
   const locked = !m.interactive;
   return (
     <div className="shell">
+      <div className="turf" aria-hidden="true" />
       <HUD
-        score={m.state.score}
+        score={m.score}
         turn={m.state.turn}
         maxTurns={m.state.maxTurns}
         possession={m.possession}
         secondsLeft={m.secondsLeft}
+        totalSeconds={TIMER_SECONDS}
+        bump={m.bump}
         onOpenLog={() => m.setLogOpen(true)}
         onRestart={m.restart}
         busy={m.phase === 'resolving'}
       />
-      <main className="pitch-area">
+      <main className="board">
         <Pitch
           tokens={m.tokens}
           ball={m.ball}
+          trajectory={m.trajectory}
           selectedId={m.interactive || m.phase === 'start' ? m.selectedId : null}
           inspectId={m.interactive ? m.inspectId : null}
           moveTargets={m.moveTargets}
           passTargets={m.passTargets}
+          spaceCells={m.spaceCells}
+          picking={m.picking}
           plans={m.planViews}
           ballArrow={m.ballArrow}
-          badges={m.badges}
+          bursts={m.bursts}
+          radial={m.radial}
           interactive={m.interactive}
           onCellTap={m.onCellTap}
           onPlayerTap={m.onPlayerTap}
           onGhostTap={m.onGhostTap}
         />
-        <EventBanner banner={m.banner} />
+        {m.hint && (
+          <div
+            className={`hint${m.hint.warn ? ' hint--warn' : ''}`}
+            data-testid={m.hint.warn ? 'notice' : 'hint'}
+          >
+            {m.hint.text && <b>{m.hint.text}</b>}
+            {m.hint.sub && <span>{m.hint.sub}</span>}
+          </div>
+        )}
       </main>
-      <CommandPanel
-        chips={m.chips}
-        info={m.info}
-        actions={m.actions}
+      <EventBanner banner={m.banner} />
+      <GoalFx fxKey={m.goalFx} />
+      <ActionBar
         plannedCount={m.plannedCount}
-        total={m.chips.length}
+        total={m.totalPlayers}
         disabled={locked}
-        notice={m.notice}
-        onChip={m.onChip}
-        onKeep={m.onKeep}
-        onPass={m.onPass}
-        onCross={m.onCross}
-        onShoot={m.onShoot}
         onReset={m.onReset}
         onExecute={m.execute}
       />
+      {m.info && m.interactive && <InfoSheet info={m.info} onClose={m.closeInfo} />}
       {m.phase === 'start' && (
         <StartOverlay
           timerOn={m.timerOn}

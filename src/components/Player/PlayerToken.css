@@ -2,72 +2,188 @@
   transition: transform var(--move-ms, 600ms) ease-in-out;
   cursor: pointer;
 }
+.token.is-back {
+  transition-timing-function: cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+.token__inner {
+  transform-box: fill-box;
+  transform-origin: center;
+  transition: transform 0.16s ease-out, filter 0.2s;
+}
+.token.is-clash .token__inner {
+  transform: scale(1.15);
+}
+.token.is-lose .token__inner {
+  filter: saturate(0.35) brightness(0.9);
+}
+.token__extent {
+  fill: none;
+  stroke: none;
+  pointer-events: none;
+}
 .token__hit {
   fill: transparent;
 }
+.token__shadow {
+  fill: rgba(0, 0, 0, 0.35);
+  pointer-events: none;
+}
 .token__body {
-  stroke-width: 0.07;
+  stroke-width: 0.06;
 }
 .token--blue .token__body {
-  fill: var(--blue);
+  fill: url(#tok-blue);
   stroke: var(--blue-dark);
 }
 .token--red .token__body {
-  fill: var(--red);
+  fill: url(#tok-red);
   stroke: var(--red-dark);
+}
+.token__gloss {
+  fill: #fff;
+  opacity: 0.25;
+  pointer-events: none;
 }
 .token__abbr {
   fill: #fff;
-  font-size: 0.31px;
-  font-weight: 700;
+  font-family: var(--font-jp);
+  font-size: 0.3px;
+  font-weight: 800;
   text-anchor: middle;
   dominant-baseline: central;
   pointer-events: none;
   letter-spacing: 0.01px;
+  paint-order: stroke fill;
+  stroke-linejoin: round;
 }
-.token__ball {
-  fill: var(--accent);
-  stroke: #3a2f06;
-  stroke-width: 0.05;
-  pointer-events: none;
+.token--blue .token__abbr {
+  stroke: var(--blue-dark);
+  stroke-width: 0.1px;
 }
-.token__ring {
-  fill: rgba(255, 255, 255, 0.12);
-  stroke: #fff;
-  stroke-width: 0.07;
+.token--red .token__abbr {
+  stroke: var(--red-dark);
+  stroke-width: 0.1px;
+}
+.ball-icon__body {
+  fill: #fff;
+  stroke: #1a2238;
+  stroke-width: 0.035;
+}
+.ball-icon__patch {
+  fill: #1a2238;
+}
+.token__sel {
   pointer-events: none;
   transform-box: fill-box;
   transform-origin: center;
   animation: token-pulse 1.1s ease-in-out infinite;
 }
+.token__ring {
+  fill: none;
+  pointer-events: none;
+}
+.token__ring--gold {
+  stroke: var(--gold);
+  stroke-width: 0.06;
+}
+.token__ring--white {
+  stroke: #fff;
+  stroke-width: 0.05;
+}
 .token__target-ring {
-  fill: rgba(245, 197, 66, 0.18);
-  stroke: var(--accent);
-  stroke-width: 0.07;
+  fill: rgba(246, 220, 147, 0.15);
+  stroke: var(--gold-light);
+  stroke-width: 0.06;
   stroke-dasharray: 0.16 0.1;
   pointer-events: none;
+}
+.token__win-ring {
+  fill: none;
+  stroke: var(--gold);
+  stroke-width: 0.09;
+  pointer-events: none;
+}
+.token__inspect-ring {
+  fill: none;
+  stroke: #fff;
+  stroke-width: 0.045;
+  stroke-dasharray: 0.1 0.08;
+  pointer-events: none;
+}
+.token__check circle {
+  fill: var(--ok);
+  stroke: #0b3d2c;
+  stroke-width: 0.045;
+}
+.token__check path {
+  fill: none;
+  stroke: #04281c;
+  stroke-width: 0.055;
+  stroke-linecap: round;
+  stroke-linejoin: round;
 }
 @keyframes token-pulse {
   0%,
   100% {
-    transform: scale(0.92);
-    opacity: 1;
+    transform: scale(1);
   }
   50% {
     transform: scale(1.08);
-    opacity: 0.6;
-  }
-}
-@media (prefers-reduced-motion: reduce) {
-  .token__ring {
-    animation: none;
   }
 }
 
-.token__inspect-ring {
+/* duel tags */
+.tag__pop {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: tag-pop 0.28s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+.tag__plate {
+  stroke: var(--navy-900);
+  stroke-width: 0.05;
+}
+.tag--win.tag--blue .tag__plate {
+  fill: var(--blue);
+}
+.tag--win.tag--red .tag__plate {
+  fill: var(--red);
+}
+.tag--lose .tag__plate {
+  fill: #7b8497;
+}
+.tag__gold {
   fill: none;
-  stroke: #fff;
-  stroke-width: 0.035;
-  stroke-dasharray: 0.1 0.08;
-  pointer-events: none;
+  stroke: var(--gold);
+  stroke-width: 0.06;
+}
+.tag__text {
+  fill: #fff;
+  font-family: var(--font-num);
+  font-size: 0.26px;
+  font-weight: 700;
+  letter-spacing: 0.02px;
+  text-anchor: middle;
+  dominant-baseline: central;
+  paint-order: stroke fill;
+  stroke: var(--navy-900);
+  stroke-width: 0.07px;
+  stroke-linejoin: round;
+}
+.tag--lose .tag__text {
+  fill: #e6e9f0;
+}
+@keyframes tag-pop {
+  from {
+    transform: scale(0.3);
+    opacity: 0;
+  }
+  to {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .token__sel {
+    animation: none;
+  }
 }
