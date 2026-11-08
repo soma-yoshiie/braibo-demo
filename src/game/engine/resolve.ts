@@ -5,6 +5,9 @@
  *     (blue-index order).
  *  2. ball action (passes/crosses/shots) see resolveBallAction.
  *     pass : interceptors by t (one roll each, stop on success) -> accuracy -> [loose pick]
+ *     spacePass: interceptors on the lane by t (one roll each, stop on success; target cell excluded)
+ *                -> accuracy (passAccuracy - spacePenalty) -> [loose pick on failure only].
+ *                A successful roll consumes no further rng (teammate/enemy/empty cell).
  *     cross: delivery -> [loose pick] -> aerial (if defender) -> header (if in range)
  *     shoot: blockers by distance (one roll each) -> goal
  */
@@ -23,7 +26,7 @@ import type {
 } from '../types';
 import { BOARD, RULES, goalTarget, otherTeam } from '../rules/config';
 import { getCharacter } from '../data/characters';
-import { cellsOnSegment, dist, neighbors8, vecEq } from '../rules/geometry';
+import { cellsOnSegment, dist, inBounds, neighbors8, vecEq } from '../rules/geometry';
 import { getEffectiveStats, isLegalMove } from '../rules/moves';
 import {
   aerialWinProbability,
@@ -35,7 +38,7 @@ import {
   passAccuracy,
   shotGoalProbability,
 } from '../rules/probability';
-import { aerialDefender, estimatePass, isCrossValid } from '../rules/estimates';
+import { aerialDefender, estimatePass, estimateSpacePass, isCrossValid } from '../rules/estimates';
 import { kickoffState } from './match';
 
 type Positions = Record<PlayerId, Vec>;
@@ -316,7 +319,7 @@ export function resolveBallAction(
       (flags[targetId] as PlayerFlags).receivedPassTurn = state.turn;
       events.push({
         type: 'pass', passerId, targetId, from: copy(from), to: copy(targetPos),
-        outcome: 'complete', pSuccess: est.pComplete,
+        outcome: 'complete', receiverId: targetId, pSuccess: est.pComplete,
       });
       return;
     }
@@ -366,6 +369,48 @@ export function resolveBallAction(
       }
     }
     return headerOrShot(passerId, from, 'shot', pGoal);
+  }
+
+  if (action.kind === 'spacePass') {
+    const tgt = action.target;
+    if (!tgt || !inBounds(tgt) || vecEq(tgt, from)) {
+      events.push({ type: 'actionCancelled', playerId: passerId, action: 'pass', reason: 'invalidTarget' });
+      return res();
+    }
+    const est = estimateSpacePass(state, passerId, tgt, from, Object.fromEntries(enemies.map((e) => [e.id, at(e.id)])));
+    if (!est.inRange) {
+      events.push({ type: 'actionCancelled', playerId: passerId, action: 'pass', reason: 'outOfRange' });
+      return res();
+    }
+    const base = { type: 'pass' as const, passerId, space: true, from: copy(from), to: copy(tgt), pSuccess: est.pComplete };
+    for (const { cell, offset } of cellsOnSegment(from, tgt, RULES.pass.laneWidth)) {
+      const e = enemies.find((p) => vecEq(at(p.id), cell));
+      if (!e) continue;
+      if (rng.next() < interceptProbability(getEffectiveStats(state, e).intercept, offset)) {
+        give(e.id, true);
+        events.push({ ...base, outcome: 'intercepted', interceptorId: e.id });
+        return res();
+      }
+    }
+    if (rng.next() < est.pAccurate) {
+      const occ = state.players.find((p) => vecEq(at(p.id), tgt));
+      if (!occ) {
+        ball = { kind: 'loose', pos: copy(tgt) };
+        events.push({ ...base, outcome: 'loose', loosePos: copy(tgt) });
+      } else if (occ.team === passer.team) {
+        give(occ.id, false);
+        (flags[occ.id] as PlayerFlags).receivedPassTurn = state.turn;
+        events.push({ ...base, outcome: 'complete', receiverId: occ.id });
+      } else {
+        give(occ.id, true);
+        events.push({ ...base, outcome: 'toEnemy', receiverId: occ.id });
+      }
+      return res();
+    }
+    const idx = events.length;
+    const { loosePos } = scatter(tgt);
+    events.splice(idx, 0, { ...base, outcome: 'failed', loosePos });
+    return res();
   }
 
   const targetId = action.targetId;

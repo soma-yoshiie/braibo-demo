@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { cellsOnSegment, laneOffset, neighbors8, inBounds } from './geometry';
 import { availableMoveTargets, isLegalMove, legalMoveTargets } from './moves';
-import { estimateCross, estimatePass, estimateShot, isCrossValid } from './estimates';
+import { estimateCross, estimatePass, estimateShot, estimateSpacePass, isCrossValid } from './estimates';
 import { duelWinProbability, passMaxDistance, shotGoalProbability } from './probability';
 import { held, plans, scene } from '../testUtils';
 import { getCharacter } from '../data/characters';
@@ -128,6 +128,17 @@ describe('probability and estimates', () => {
     const e2 = estimatePass(s2, 'blue-0', 'blue-1');
     expect(e2.interceptors).toHaveLength(1);
     expect(e2.pComplete).toBeCloseTo(e2.pAccurate * (1 - e2.pIntercepted));
+  });
+  it('estimateSpacePass carries the penalty and respects range', () => {
+    const s = scene({ 'blue-0': { x: 3, y: 5 }, 'blue-1': { x: 3, y: 2 } }, held('blue-0'));
+    const normal = estimatePass(s, 'blue-0', 'blue-1');
+    const space = estimateSpacePass(s, 'blue-0', { x: 3, y: 2 });
+    expect(space.pAccurate).toBeLessThan(normal.pAccurate);
+    expect(space.pComplete).toBeLessThan(normal.pComplete);
+    expect(space.inRange).toBe(true);
+    const far = scene({ 'blue-0': { x: 3, y: 9 }, 'blue-1': { x: 0, y: 1 } }, held('blue-0'));
+    expect(estimateSpacePass(far, 'blue-0', { x: 3, y: 1 }).pComplete).toBe(0);
+    expect(estimateSpacePass(s, 'blue-0', { x: 3, y: 5 }).pComplete).toBe(0);
   });
   it('isCrossValid and estimateCross', () => {
     expect(isCrossValid('blue', { x: 1, y: 3 }, { x: 3, y: 1 })).toBe(true);

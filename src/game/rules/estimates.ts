@@ -91,23 +91,20 @@ export function estimateShot(
   return { distance, pGoalIfUnblocked, pBlocked, pGoal: pGoalIfUnblocked * (1 - pBlocked), blockers };
 }
 
-export function estimatePass(
+/** Shared lane/accuracy computation for player-targeted and space passes. */
+function passEstimate(
   state: MatchState,
-  passerId: PlayerId,
-  targetId: PlayerId,
-  passerPos?: Vec,
-  targetPos?: Vec,
-  defenderPositions?: PositionMap,
+  passer: PlayerState,
+  from: Vec,
+  to: Vec,
+  defs: PositionMap,
+  penalty: number,
 ): PassEstimate {
-  const passer = get(state, passerId);
-  const target = get(state, targetId);
-  const from = passerPos ?? passer.pos;
-  const to = targetPos ?? target.pos;
-  const defs = defenderPositions ?? enemyPositions(state, passer.team);
   const skills = getCharacter(passer.charId).skills;
   const distance = dist(from, to);
   const inRange = distance <= passMaxDistance(skills);
-  const pAccurate = passAccuracy(distance, getEffectiveStats(state, passer).pass, skills);
+  let pAccurate = passAccuracy(distance, getEffectiveStats(state, passer).pass, skills);
+  if (penalty > 0) pAccurate = Math.min(RULES.pass.max, Math.max(RULES.pass.min, pAccurate - penalty));
   const interceptors = onLane(state, defs, from, to, RULES.pass.laneWidth).map(({ player, offset }) => ({
     playerId: player.id,
     pIntercept: interceptProbability(getEffectiveStats(state, player).intercept, offset),
@@ -121,6 +118,36 @@ export function estimatePass(
     interceptors,
     inRange,
   };
+}
+
+export function estimatePass(
+  state: MatchState,
+  passerId: PlayerId,
+  targetId: PlayerId,
+  passerPos?: Vec,
+  targetPos?: Vec,
+  defenderPositions?: PositionMap,
+): PassEstimate {
+  const passer = get(state, passerId);
+  const target = get(state, targetId);
+  const defs = defenderPositions ?? enemyPositions(state, passer.team);
+  return passEstimate(state, passer, passerPos ?? passer.pos, targetPos ?? target.pos, defs, 0);
+}
+
+/** Pass aimed at a cell. Accuracy carries RULES.pass.spacePenalty; pComplete is 0 out of range or when target == passer cell. */
+export function estimateSpacePass(
+  state: MatchState,
+  passerId: PlayerId,
+  target: Vec,
+  passerPos?: Vec,
+  defenderPositions?: PositionMap,
+): PassEstimate {
+  const passer = get(state, passerId);
+  const from = passerPos ?? passer.pos;
+  const defs = defenderPositions ?? enemyPositions(state, passer.team);
+  const e = passEstimate(state, passer, from, target, defs, RULES.pass.spacePenalty);
+  if (vecEq(from, target)) return { ...e, inRange: false, pComplete: 0 };
+  return e;
 }
 
 export function isCrossValid(team: TeamId, passerPos: Vec, targetPos: Vec): boolean {

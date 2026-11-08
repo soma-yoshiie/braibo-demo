@@ -30,9 +30,24 @@ export function describeEvent(event: TurnEvent, state: MatchState): string {
     case 'pickup':
       return `${n(event.playerId)} がボールを拾った`;
     case 'pass': {
+      if (event.space) {
+        const head = `${n(event.passerId)} がスペースへパス`;
+        switch (event.outcome) {
+          case 'intercepted':
+            return event.interceptorId ? `${head} → ${n(event.interceptorId)} がカット！` : `${head} → カットされた`;
+          case 'complete':
+            return `${head} → ${event.receiverId ? n(event.receiverId) : '味方'} が受けた`;
+          case 'toEnemy':
+            return `${head} → ${event.receiverId ? n(event.receiverId) : '相手'} に渡ってしまった`;
+          case 'loose':
+            return `${head} → 誰も触れずルーズボール ${pos(event.loosePos ?? event.to)}`;
+          default:
+            return `${head} → 乱れた${event.loosePos ? ` ${pos(event.loosePos)} にこぼれ球` : ''}`;
+        }
+      }
       if (event.outcome === 'intercepted' && event.interceptorId)
         return `${n(event.interceptorId)} がパスをカット！`;
-      if (event.outcome === 'complete') return `${n(event.passerId)} → ${n(event.targetId)} パス成功`;
+      if (event.outcome === 'complete' && event.targetId) return `${n(event.passerId)} → ${n(event.targetId)} パス成功`;
       return `${n(event.passerId)} のパスが乱れた${event.loosePos ? ` ${pos(event.loosePos)} にこぼれ球` : ''}`;
     }
     case 'cross': {
