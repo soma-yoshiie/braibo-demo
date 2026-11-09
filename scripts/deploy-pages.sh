@@ -4,6 +4,7 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 npm run build
+npm run build:docs
 REMOTE_URL="$(git remote get-url origin)"
 TMP="$(mktemp -d)"
 if git ls-remote --exit-code --heads "$REMOTE_URL" gh-pages >/dev/null 2>&1; then

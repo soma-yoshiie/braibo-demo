@@ -36,6 +36,7 @@
       <h1>BRAIBO の起動に失敗しました</h1>
       <p>以下のエラー内容を確認し、再試行してください。</p>
       <pre id="boot-error-msg"></pre>
+      <p><a id="boot-docs-link" href="./docs/" style="color:#7db4ff">▶ ビルド済みのゲームを開く（./docs/）</a></p>
       <button onclick="location.reload()">再試行</button>
     </div>
     <script>
@@ -59,8 +60,23 @@
         });
         setTimeout(function () {
           var root = document.getElementById('root');
-          if (!root || root.childElementCount === 0) {
-            show('アプリが時間内に描画されませんでした（JavaScript が読み込まれていない可能性があります）。');
+          if (root && root.childElementCount > 0) return;
+          var msg =
+            'アプリが時間内に描画されませんでした。\n' +
+            'このページが開発用の index.html（Vite エントリ）として静的に配信されている場合は動作しません。\n' +
+            '公開版（ビルド済み）は ./docs/ 、または npm run dev で開発サーバーを起動してください。';
+          // Served statically from the repository root (e.g. GitHub Pages "main / root")?
+          // If the built game exists at ./docs/, go there automatically.
+          var isBuilt = !!document.querySelector('script[type="module"]:not([src])') || /\/docs\/?(index\.html)?$/.test(location.pathname);
+          if (!isBuilt && location.protocol !== 'file:' && typeof fetch === 'function') {
+            fetch('./docs/index.html', { method: 'HEAD' })
+              .then(function (r) {
+                if (r.ok) location.replace('./docs/');
+                else show(msg);
+              })
+              .catch(function () { show(msg); });
+          } else {
+            show(msg);
           }
         }, 6000);
       })();
