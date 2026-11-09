@@ -48,6 +48,7 @@ export function MatchScreen() {
           onCellTap={m.onCellTap}
           onPlayerTap={m.onPlayerTap}
           onGhostTap={m.onGhostTap}
+          spread={m.spread}
         />
         {m.hint && (
           <div

@@ -83,3 +83,14 @@ export function radialLayout(
   }
   return placed;
 }
+
+/** Rest slot of a token sharing its cell with an opponent: blue lower-left, red upper-right, 0.8x.
+ *  At the left / right board edge the pair is nudged inward so both bodies stay on the pitch. */
+export function restSlot(team: 'blue' | 'red', cell: { x: number; y: number }): { dx: number; dy: number; s: number } {
+  const sgn = team === 'blue' ? -1 : 1;
+  let dx = 0.24 * sgn;
+  const body = 0.32;
+  if (cell.x + 0.5 + dx - body < 0.02) dx = 0.02 + body - cell.x - 0.5;
+  if (cell.x + 0.5 + dx + body > BOARD.cols - 0.02) dx = BOARD.cols - 0.02 - body - cell.x - 0.5;
+  return { dx, dy: -0.17 * sgn, s: 0.8 };
+}

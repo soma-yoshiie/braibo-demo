@@ -13,6 +13,7 @@ import {
   estimateSpacePass,
   isCrossValid,
 } from '../../game/rules/estimates';
+import { restSlot } from '../../components/Pitch/pitchGeometry';
 import { dist } from '../../game/rules/geometry';
 import { passMaxDistance } from '../../game/rules/probability';
 import { BOARD, MATCH, RULES, goalTarget } from '../../game/rules/config';
@@ -60,7 +61,7 @@ const BANNER_MS = 900;
 const GOAL_MS = 1400;
 const CLASH_MS = 380;
 const DUEL_RESULT_MS = 900;
-const KNOCKBACK_MS = 450;
+const SETTLE_MS = 200;
 
 const prefersReducedMotion = (): boolean => {
   try {
@@ -74,7 +75,6 @@ interface TokenFx {
   clash?: boolean;
   tag?: { kind: 'win' | 'lose'; label: string };
   moveMs?: number;
-  ease?: 'back';
 }
 export const TIMER_SECONDS = MATCH.planningSeconds > 0 ? MATCH.planningSeconds : 60;
 
@@ -121,6 +121,8 @@ export function useMatchController() {
   const [menuAt, setMenuAt] = useState<'token' | 'ghost'>('token');
   const [hudMenuOpen, setHudMenuOpen] = useState(false);
   const [infoId, setInfoId] = useState<PlayerId | null>(null);
+  const [spread, setSpread] = useState(true);
+  const [topId, setTopId] = useState<PlayerId | null>(null);
   const [fx, setFx] = useState<Record<PlayerId, TokenFx>>({});
   const [bursts, setBursts] = useState<BurstView[]>([]);
   const [trajectory, setTrajectory] = useState<TrajectoryView | null>(null);
@@ -544,55 +546,40 @@ export function useMatchController() {
       }
       if (lines.length === 0) lines.push({ id: nextId(), turn: cur.turn, text: '大きな動きなし' });
 
-      // clash positions: where players meet before the loser is knocked back
-      const before = posMap(cur);
-      const clash: Record<PlayerId, Vec> = { ...mid };
-      const overridden = new Set<PlayerId>();
-      for (const ev of result.events) {
-        if (ev.type === 'bounce' && ev.reason === 'duel') {
-          clash[ev.playerId] = { ...ev.from };
-          overridden.add(ev.playerId);
-        } else if (ev.type === 'displace') {
-          clash[ev.playerId] = { ...ev.from };
-          overridden.add(ev.playerId);
-        }
-      }
+      // v0.4: at most one ground duel per turn, only where the ball is. Both players stay in the cell.
       type DuelEv = Extract<TurnEvent, { type: 'duel' }>;
       const duelsOf = (kind: 'ground' | 'aerial') =>
         result.events.filter((e): e is DuelEv => e.type === 'duel' && e.kind === kind);
-      const groundDuels = duelsOf('ground');
+      const groundDuel = duelsOf('ground')[0];
       const loserOf = (d: DuelEv) => (d.winnerId === d.aId ? d.bId : d.aId);
 
-      // swap (players passing through each other): meet half-way, each nudged 0.3 toward its own origin
-      for (const d of groundDuels) {
-        const { aId, bId } = d;
-        if (overridden.has(aId) || overridden.has(bId)) continue;
-        if (!(sameVec(before[aId], mid[bId]) && sameVec(before[bId], mid[aId]))) continue;
-        if (sameVec(before[aId], before[bId])) continue;
-        const m = { x: (before[aId].x + before[bId].x) / 2, y: (before[aId].y + before[bId].y) / 2 };
-        for (const id of [aId, bId]) {
-          const o = before[id];
-          const dx = o.x - m.x;
-          const dy = o.y - m.y;
-          const l = Math.hypot(dx, dy) || 1;
-          clash[id] = { x: m.x + (dx / l) * 0.3, y: m.y + (dy / l) * 0.3 };
+      // where the duellists meet: the shared final cell, or half-way for a swap (they pass through each other)
+      const before = posMap(cur);
+      const clash: Record<PlayerId, Vec> = { ...mid };
+      let clashAt: Vec | undefined = groundDuel ? { ...groundDuel.pos } : undefined;
+      if (groundDuel) {
+        const { aId, bId } = groundDuel;
+        if (
+          !sameVec(mid[aId], mid[bId]) &&
+          sameVec(before[aId], mid[bId]) &&
+          sameVec(before[bId], mid[aId])
+        ) {
+          const m = { x: (before[aId].x + before[bId].x) / 2, y: (before[aId].y + before[bId].y) / 2 };
+          for (const id of [aId, bId]) {
+            const o = before[id];
+            const dx = o.x - m.x;
+            const dy = o.y - m.y;
+            const l = Math.hypot(dx, dy) || 1;
+            clash[id] = { x: m.x + (dx / l) * 0.3, y: m.y + (dy / l) * 0.3 };
+          }
+          clashAt = m;
         }
       }
 
-      // chained duels: split into waves with no repeated player, animated one after another
-      const waves: DuelEv[][] = [];
-      const lastWave: Record<PlayerId, number> = {};
-      for (const d of groundDuels) {
-        const w = Math.max(lastWave[d.aId] ?? -1, lastWave[d.bId] ?? -1) + 1;
-        (waves[w] ??= []).push(d);
-        lastWave[d.aId] = w;
-        lastWave[d.bId] = w;
-      }
-
       /** Show impact + clash scale for the given duels; returns after the burst. */
-      const showClash = async (duels: DuelEv[]) => {
+      const showClash = async (duels: DuelEv[], at?: Vec) => {
         setBursts(
-          duels.map((d) => ({ id: `b-${nextId()}`, x: d.pos.x, y: d.pos.y, team: teamOf(d.winnerId) })),
+          duels.map((d) => ({ id: `b-${nextId()}`, x: (at ?? d.pos).x, y: (at ?? d.pos).y, team: teamOf(d.winnerId) })),
         );
         const f: Record<PlayerId, TokenFx> = {};
         for (const d of duels) {
@@ -602,47 +589,43 @@ export function useMatchController() {
         setFx(f);
         await wait(T(CLASH_MS));
       };
-      const tagResult = (
-        duels: DuelEv[],
-        aerial: boolean,
-        knock: (id: PlayerId) => boolean,
-      ): Record<PlayerId, TokenFx> => {
+      const tagResult = (duels: DuelEv[], aerial: boolean, settleMs?: number): Record<PlayerId, TokenFx> => {
         const f: Record<PlayerId, TokenFx> = {};
+        const moveMs = settleMs === undefined ? {} : { moveMs: settleMs };
         for (const d of duels) {
-          f[d.winnerId] = { tag: { kind: 'win', label: aerial ? '空中戦 WIN' : 'WIN' } };
-          const l = loserOf(d);
-          f[l] = {
-            tag: { kind: 'lose', label: aerial ? '空中戦 LOSE' : 'LOSE' },
-            ...(knock(l) ? { moveMs: T(KNOCKBACK_MS), ease: 'back' as const } : {}),
-          };
+          f[d.winnerId] = { tag: { kind: 'win', label: aerial ? '空中戦 WIN' : 'WIN' }, ...moveMs };
+          f[loserOf(d)] = { tag: { kind: 'lose', label: aerial ? '空中戦 LOSE' : 'LOSE' }, ...moveMs };
         }
         return f;
       };
 
-      // clear plan markers, then (a) movement to the clash positions
+      // clear plan markers, then (a) walk to the meeting cells (shared cells are not laid out side by side yet)
       setPlans({});
       setBallAction({ kind: 'keep' });
-      setDisp(groundDuels.length > 0 ? clash : mid);
+      setSpread(false);
+      setDisp(groundDuel ? clash : mid);
       await wait(T(MOVE_MS) + 80);
       if (!alive()) return;
 
-      // (a2) ground duels, wave by wave: impact -> WIN / LOSE tags -> settle to the final cell
-      for (let w = 0; w < waves.length; w++) {
-        const duels = waves[w];
-        await showClash(duels);
+      if (groundDuel) {
+        // (a2) impact -> WIN / LOSE tags while both settle side by side in the cell (swap: onto their new cells)
+        await showClash([groundDuel], clashAt);
         if (!alive()) return;
-        setFx(tagResult(duels, false, (id) => lastWave[id] === w));
-        const settle: Record<PlayerId, Vec> = {};
-        for (const d of duels) for (const id of [d.aId, d.bId]) if (lastWave[id] === w) settle[id] = mid[id];
-        setDisp((cur2) => ({ ...cur2, ...settle }));
-        const ballDuel = duels.find((d) => d.forBall);
-        if (ballDuel) setBallDisp({ kind: 'held', id: ballDuel.winnerId });
+        setFx(tagResult([groundDuel], false, T(SETTLE_MS)));
+        setSpread(true);
+        setDisp(mid);
+        setBallDisp({ kind: 'held', id: groundDuel.winnerId });
         await wait(T(DUEL_RESULT_MS));
         if (!alive()) return;
         setFx({});
         setBursts([]);
+      } else {
+        // overlaps without the ball: no effect, they just settle side by side
+        setSpread(true);
+        setDisp(mid);
+        await wait(T(SETTLE_MS) + 60);
+        if (!alive()) return;
       }
-      if (groundDuels.length > 0) setDisp(mid);
 
       // (b) ball events
       const flights = result.events.filter(
@@ -726,13 +709,23 @@ export function useMatchController() {
         const isCross = ev.type === 'cross';
         const lofted = (ev.type === 'pass' || ev.type === 'offside') && ev.style === 'lofted';
         const flightMs = T(FLIGHT_MS);
-        setBallDisp({ kind: 'free', pos: { ...ev.from }, snap: true });
+        // start from the kicker's displayed slot (offset when an opponent shares the cell), not the cell centre
+        const kicker = ev.type === 'shot' ? ev.shooterId : ev.passerId;
+        const kickerOffset = (() => {
+          const mate = Object.keys(mid).find((id) => id !== kicker && teamOf(id) !== teamOf(kicker) && sameVec(mid[id], mid[kicker]));
+          if (!mate || !sameVec(mid[kicker], ev.from)) return { x: 0, y: 0 };
+          const sl = restSlot(teamOf(kicker), ev.from);
+          return { x: sl.dx, y: sl.dy };
+        })();
+        const from: Vec = { x: ev.from.x + kickerOffset.x, y: ev.from.y + kickerOffset.y };
+        setTopId(kicker);
+        setBallDisp({ kind: 'free', pos: from, snap: true });
         await wait(60);
         if (!alive()) return;
         if (isCross || lofted) {
-          const d = dist(ev.from, dest);
+          const d = dist(from, dest);
           const arc = Math.max(0.8, Math.min(2.2, d * 0.35));
-          setTrajectory({ from: { ...ev.from }, to: dest, arc });
+          setTrajectory({ from, to: dest, arc });
           setBallDisp({ kind: 'free', pos: dest, snap: false });
           setBallExtra({ arc, flightKey: nextId(), ms: flightMs });
         } else {
@@ -746,7 +739,7 @@ export function useMatchController() {
         if (isCross && ev.outcome !== 'failed' && aerialDuels.length > 0) {
           await showClash(aerialDuels);
           if (!alive()) return;
-          setFx(tagResult(aerialDuels, true, () => false));
+          setFx(tagResult(aerialDuels, true));
           const ballAerial = aerialDuels.find((d) => d.forBall) ?? aerialDuels[0];
           if (ballAerial) setBallDisp({ kind: 'held', id: ballAerial.winnerId });
           aerialShown = true;
@@ -775,6 +768,7 @@ export function useMatchController() {
       }
 
       // (c) commit
+      setTopId(null);
       const after = result.after;
       setLog((l) => [...l, ...lines]);
       matchRef.current = { ...match, state: after };
@@ -782,6 +776,7 @@ export function useMatchController() {
       setShownScore(null);
       setBallExtra({ arc: 0, flightKey: 0, ms: 0 });
       setBallDisp(ballDispOf(after));
+      setSpread(true);
       setDisp(posMap(after));
       const reset = result.afterAction !== after && result.events.some((e) => e.type === 'goal');
       if (reset) {
@@ -828,6 +823,8 @@ export function useMatchController() {
     const m = newMatch();
     matchRef.current = m;
     setState(m.state);
+    setSpread(true);
+    setTopId(null);
     setDisp(posMap(m.state));
     setBallDisp(ballDispOf(m.state));
     setLog([]);
@@ -856,11 +853,11 @@ export function useMatchController() {
       x: d.x,
       y: d.y,
       hasBall: ballDisp.kind === 'held' && ballDisp.id === p.id,
+      top: topId === p.id || undefined,
       planned: planning && p.team === 'blue' && p.id in plans,
       clash: f?.clash,
       tag: f?.tag,
       moveMs: f?.moveMs ?? (reducedNow ? MOVE_MS / 2 : undefined),
-      ease: f?.ease,
     };
   });
   const ball: BallView =
@@ -1031,6 +1028,7 @@ export function useMatchController() {
     passStyle,
     setPassStyle,
     picking: planning && pick !== null,
+    spread,
     planViews,
     ballArrow,
     bursts,

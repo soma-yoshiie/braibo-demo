@@ -2,8 +2,9 @@
   transition: transform var(--move-ms, 600ms) ease-in-out;
   cursor: pointer;
 }
-.token.is-back {
-  transition-timing-function: cubic-bezier(0.34, 1.56, 0.64, 1);
+/* two tokens in one cell: only the (smaller) hit circle takes taps so the blue one wins ambiguous hits */
+.token.is-shared .token__body {
+  pointer-events: none;
 }
 .token__inner {
   transform-box: fill-box;

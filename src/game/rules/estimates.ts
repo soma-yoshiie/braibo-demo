@@ -95,6 +95,7 @@ export function estimateShot(
 
 /**
  * Defenders who get an interception roll on a pass lane, in order of t.
+ * Plus tight markers: enemies in the `to` cell come last (ground `intercept`, lofted `aerial`).
  * ground: everyone on the lane (`intercept`). lofted: only those within endZoneRadius of the
  * passer (`intercept`) or of the target (`aerial`).
  */
@@ -116,6 +117,14 @@ export function laneInterceptors(
     const pos = defs[player.id] as Vec;
     if (dist(from, pos) <= radius) out.push({ playerId: player.id, pIntercept: interceptProbability(stats.intercept, offset) });
     else if (dist(to, pos) <= radius) out.push({ playerId: player.id, pIntercept: interceptProbability(stats.aerial, offset) });
+  }
+  // Tight markers (v0.4): enemies sharing the receiver's / target cell roll last, at offset 0.
+  // Enemies in the kicker's cell never intercept (cellsOnSegment excludes both endpoints).
+  for (const id of Object.keys(defs)) {
+    const pos = defs[id];
+    if (!pos || !vecEq(pos, to)) continue;
+    const stats = getEffectiveStats(state, get(state, id));
+    out.push({ playerId: id, pIntercept: interceptProbability(style === 'ground' ? stats.intercept : stats.aerial, 0) });
   }
   return out;
 }
@@ -205,19 +214,21 @@ export function isCrossValid(team: TeamId, passerPos: Vec, targetPos: Vec): bool
   return inZone && dist(passerPos, targetPos) <= RULES.cross.maxDistance;
 }
 
-/** Enemy adjacent to `targetPos` with the highest aerial (tie -> lower index). */
+/** Enemy adjacent to `targetPos` or in the same cell with the highest aerial (tie -> lower index); enemies on `kickerPos` are ignored. */
 export function aerialDefender(
   state: MatchState,
   team: TeamId,
   targetPos: Vec,
   defenders: PositionMap,
+  kickerPos?: Vec,
 ): PlayerState | undefined {
-  const adj = neighbors8(targetPos);
+  const adj = [...neighbors8(targetPos), targetPos];
   let best: PlayerState | undefined;
   for (const p of state.players) {
     if (p.team === team) continue;
     const pos = defenders[p.id];
     if (!pos || !adj.some((c) => vecEq(c, pos))) continue;
+    if (kickerPos && vecEq(pos, kickerPos)) continue; // the kicker's cell never defends against the kick
     if (
       !best ||
       getEffectiveStats(state, p).aerial > getEffectiveStats(state, best).aerial ||
@@ -245,7 +256,7 @@ export function estimateCross(
   const valid = isCrossValid(passer.team, from, to);
   const offside = isOffsidePosition(passer.team, to, from, posList(defs));
   const pDelivery = crossDelivery(distance, getEffectiveStats(state, passer).cross);
-  const defender = aerialDefender(state, passer.team, to, defs);
+  const defender = aerialDefender(state, passer.team, to, defs, from);
   const tSkills = getCharacter(target.charId).skills;
   const pWinAerial = defender
     ? aerialWinProbability(

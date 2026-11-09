@@ -154,10 +154,15 @@ export type DuelKind = 'ground' | 'aerial';
 
 export type TurnEvent =
   | { type: 'move'; playerId: PlayerId; from: Vec; to: Vec }
-  /** A player who tried to move but was sent back (same-team conflict or lost duel). */
-  | { type: 'bounce'; playerId: PlayerId; from: Vec; to: Vec; reason: 'teammate' | 'duel' }
-  /** A stationary player who lost a duel and was pushed to a nearby cell. */
+  /** A player who tried to move but was sent back by a same-team conflict (v0.4: duels never bounce anyone). */
+  | { type: 'bounce'; playerId: PlayerId; from: Vec; to: Vec; reason: 'teammate' }
+  /** A stationary player who lost a same-team conflict and was pushed to the nearest empty cell. */
   | { type: 'displace'; playerId: PlayerId; from: Vec; to: Vec }
+  /**
+   * v0.4: a ground duel only happens where the ball is (carrier's cell, carrier swap, or a contested
+   * loose ball), at most once per turn, and BOTH players stay in the cell afterwards. Opponents may
+   * share a cell without any duel/event when the ball is not involved. See DESIGN.md §4.
+   */
   | {
       type: 'duel';
       kind: DuelKind;
@@ -165,7 +170,10 @@ export type TurnEvent =
       aId: PlayerId;
       bId: PlayerId;
       winnerId: PlayerId;
+      /** Always true for `kind: 'ground'` since v0.4. */
       forBall: boolean;
+      /** True when the duel was for a loose ball (no carrier bonus); a `pickup` by the winner follows. */
+      loose?: boolean;
       pAWins: number;
     }
   | { type: 'pickup'; playerId: PlayerId; pos: Vec }

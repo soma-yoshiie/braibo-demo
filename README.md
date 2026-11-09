@@ -41,6 +41,8 @@ src/
   screens/           MatchScreen（画面構成）と useMatchController（進行の状態機械）
   styles/            デザイントークン
 DESIGN.md            ルール仕様・暫定決定の理由・モジュール API 契約
+DESIGN-UI.md         画面仕様（レイアウト・演出・同じマスに 2 人いるときの表示）
+concept/             構想資料の PDF と、その元になった HTML（concept/src）
 ```
 
 ## 調整ポイント

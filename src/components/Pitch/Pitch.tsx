@@ -9,10 +9,11 @@ import type {
   PlanView,
   RadialMenuView,
   SpaceCellView,
+  TokenLayout,
   TokenView,
   TrajectoryView,
 } from '../viewTypes';
-import { GOAL_DEPTH, GOAL_WIDTH, VIEW, VIEWBOX, cx, cy, goalLeft, radialLayout, shorten } from './pitchGeometry';
+import { restSlot, GOAL_DEPTH, GOAL_WIDTH, VIEW, VIEWBOX, cx, cy, goalLeft, radialLayout, shorten } from './pitchGeometry';
 import { RadialMenu } from './RadialMenu';
 import './Pitch.css';
 
@@ -37,11 +38,57 @@ interface Props {
   onCellTap: (cell: Vec) => void;
   onPlayerTap: (id: string) => void;
   onGhostTap: (id: string) => void;
+  /** False while pieces are still walking in / clashing: shared cells are not yet laid out side by side. */
+  spread?: boolean;
 }
 
 const COLS = Array.from({ length: BOARD.cols }, (_, i) => i);
 const ROWS = Array.from({ length: BOARD.rows }, (_, i) => i);
 const SPIKES = Array.from({ length: 8 }, (_, i) => i);
+
+/** While the duel clash plays the two sit closer together. */
+const CLASH: Record<'blue' | 'red', TokenLayout> = {
+  blue: { dx: -0.1, dy: 0.07, s: 0.9 },
+  red: { dx: 0.1, dy: -0.07, s: 0.9 },
+};
+const cellKey = (t: { x: number; y: number }): string | null =>
+  Number.isInteger(t.x) && Number.isInteger(t.y) ? `${t.x},${t.y}` : null;
+
+/** Per-token layout for cells holding one blue and one red token, plus the draw order (ball holder on top). */
+function layoutTokens(tokens: TokenView[], spread: boolean, ghostCells: Set<string>): { layouts: Map<string, TokenLayout>; ordered: TokenView[] } {
+  const groups = new Map<string, TokenView[]>();
+  for (const t of tokens) {
+    const k = cellKey(t);
+    if (k) groups.set(k, [...(groups.get(k) ?? []), t]);
+  }
+  const layouts = new Map<string, TokenLayout>();
+  const ordered = [...tokens];
+  for (const [key, g] of groups) {
+    const blue = g.find((t) => t.team === 'blue');
+    const red = g.find((t) => t.team === 'red');
+    if (red && !blue && spread && ghostCells.has(key)) {
+      // a planned blue ghost lands here: make room so both stay readable
+      layouts.set(red.id, restSlot('red', red));
+      continue;
+    }
+    if (!blue || !red) continue;
+    const table = spread
+      ? { blue: restSlot('blue', blue), red: restSlot('red', red) }
+      : g.some((t) => t.clash)
+        ? CLASH
+        : null;
+    if (!table) continue;
+    layouts.set(blue.id, table.blue);
+    layouts.set(red.id, table.red);
+    // ball holder on top (also while its ball is in flight); with no holder the user's own (blue) token is on top
+    const top = red.hasBall || (red.top && !blue.hasBall) ? red : blue;
+    const other = top === blue ? red : blue;
+    const i = ordered.indexOf(top);
+    const j = ordered.indexOf(other);
+    if (i < j) [ordered[i], ordered[j]] = [ordered[j], ordered[i]];
+  }
+  return { layouts, ordered };
+}
 
 export function Pitch({
   tokens,
@@ -62,14 +109,23 @@ export function Pitch({
   onCellTap,
   onPlayerTap,
   onGhostTap,
+  spread = true,
 }: Props) {
   const W = BOARD.cols;
   const H = BOARD.rows;
   const gl = goalLeft();
   const passById = new Map(passTargets.map((p) => [p.id, p]));
-  const enemyCells = new Set(
-    tokens.filter((t) => t.team === 'red').map((t) => `${Math.round(t.x)},${Math.round(t.y)}`),
+  // only the enemy ball holder's cell is a tackle (duel) target; other enemy cells are plain move targets
+  const tackleCells = new Set(
+    tokens.filter((t) => t.team === 'red' && t.hasBall).map((t) => `${Math.round(t.x)},${Math.round(t.y)}`),
   );
+  const ghostCells = new Set(plans.filter((p) => !p.stay).map((p) => `${p.to.x},${p.to.y}`));
+  const { layouts, ordered } = layoutTokens(tokens, spread, ghostCells);
+  const redCellSet = new Set(
+    tokens.filter((t) => t.team === 'red').map((t) => cellKey(t)).filter((k): k is string => k !== null),
+  );
+  /** A ghost on an enemy-occupied cell is drawn at the blue slot so it does not hide the enemy. */
+  const ghostLayout = (to: Vec): TokenLayout | undefined => (spread && redCellSet.has(`${to.x},${to.y}`) ? restSlot('blue', to) : undefined);
   const targetSet = new Set(moveTargets.map((t) => `${t.x},${t.y}`));
   const spaceSet = new Set(spaceCells.map((t) => `${t.x},${t.y}`));
   const tokenById = new Map(tokens.map((t) => [t.id, t]));
@@ -88,7 +144,7 @@ export function Pitch({
   const targetLayer = (
     <g pointerEvents="none">
       {moveTargets.map((t) => {
-        const enemy = enemyCells.has(`${t.x},${t.y}`);
+        const enemy = tackleCells.has(`${t.x},${t.y}`);
         return (
           <g key={`t-${t.x},${t.y}`}>
             <rect
@@ -107,12 +163,14 @@ export function Pitch({
   );
   const ghostLayer = (
     <g>
-      {movers.map((p) => (
+      {movers.map((p) => {
+        const gl2 = ghostLayout(p.to);
+        return (
         <g
           key={`g-${p.id}`}
           className="ghost"
           data-testid={`ghost-${p.id}`}
-          transform={`translate(${cx(p.to.x)} ${cy(p.to.y)})`}
+          transform={`translate(${cx(p.to.x) + (gl2?.dx ?? 0)} ${cy(p.to.y) + (gl2?.dy ?? 0)})${gl2 ? ` scale(${gl2.s})` : ''}`}
           onClick={
             interactive
               ? (e) => {
@@ -122,11 +180,12 @@ export function Pitch({
               : undefined
           }
         >
-          <circle className="ghost__hit" r={0.5} />
+          <circle className="ghost__hit" r={gl2 ? 0.42 : 0.5} />
           <circle className="ghost__body" r={0.38} />
           <text className="ghost__abbr">{p.abbr}</text>
         </g>
-      ))}
+        );
+      })}
     </g>
   );
   const radialPos = radial
@@ -231,13 +290,20 @@ export function Pitch({
       {/* planned movement arrows */}
       <g className="pitch__plans" pointerEvents="none">
         {movers.map((p) => {
-          const end = shorten({ x: cx(p.from.x), y: cy(p.from.y) }, { x: cx(p.to.x), y: cy(p.to.y) }, 0.42);
+          const fl = layouts.get(p.id);
+          const tl = ghostLayout(p.to);
+          const start = { x: cx(p.from.x) + (fl?.dx ?? 0), y: cy(p.from.y) + (fl?.dy ?? 0) };
+          const end = shorten(
+            start,
+            { x: cx(p.to.x) + (tl?.dx ?? 0), y: cy(p.to.y) + (tl?.dy ?? 0) },
+            tl ? 0.34 : 0.42,
+          );
           return (
             <line
               key={`a-${p.id}`}
               className="plan-arrow"
-              x1={cx(p.from.x)}
-              y1={cy(p.from.y)}
+              x1={start.x}
+              y1={start.y}
               x2={end.x}
               y2={end.y}
               markerEnd="url(#arrow-blue)"
@@ -267,10 +333,11 @@ export function Pitch({
 
       {/* players */}
       <g className={picking ? 'tokens tokens--picking' : 'tokens'}>
-        {tokens.map((t) => (
+        {ordered.map((t) => (
           <PlayerToken
             key={t.id}
             token={t}
+            layout={layouts.get(t.id)}
             selected={t.id === selectedId}
             inspected={t.id === inspectId}
             passTarget={passById.get(t.id)?.enabled === true}
@@ -284,7 +351,7 @@ export function Pitch({
       <g className="overlay-top">
         <g pointerEvents="none">
           {moveTargets
-            .filter((t) => enemyCells.has(`${t.x},${t.y}`))
+            .filter((t) => tackleCells.has(`${t.x},${t.y}`))
             .map((t) => (
               <circle key={`tk-${t.x},${t.y}`} className="tackle-ring" cx={cx(t.x)} cy={cy(t.y)} r={0.5} />
             ))}
@@ -304,19 +371,29 @@ export function Pitch({
         <g pointerEvents="none">
           {tokens
             .filter((t) => t.planned)
-            .map((t) => (
-              <g key={`ck-${t.id}`} className="token__check" transform={`translate(${cx(t.x) + 0.31} ${cy(t.y) - 0.31})`}>
-                <circle r={0.16} />
-                <path d="M-0.08 0.0 L-0.02 0.07 L0.09 -0.07" />
-              </g>
-            ))}
+            .map((t) => {
+              const l = layouts.get(t.id);
+              // shared cell: badge goes to the outer-left so it never sits on the opponent
+              const bx = l ? l.dx - 0.25 : 0.31;
+              const by = l ? l.dy - 0.25 : -0.31;
+              return (
+                <g
+                  key={`ck-${t.id}`}
+                  className="token__check"
+                  transform={`translate(${cx(t.x) + bx} ${cy(t.y) + by})${l ? ' scale(0.85)' : ''}`}
+                >
+                  <circle r={0.16} />
+                  <path d="M-0.08 0.0 L-0.02 0.07 L0.09 -0.07" />
+                </g>
+              );
+            })}
         </g>
         {!radial && ghostLayer}
       </g>
 
       {/* duel WIN / LOSE tags (above every token) */}
       <g pointerEvents="none">
-        {tokens.map((t) => (t.tag ? <DuelTag key={t.id} token={t} /> : null))}
+        {tokens.map((t) => (t.tag ? <DuelTag key={t.id} token={t} layout={layouts.get(t.id)} /> : null))}
       </g>
 
       {/* loose / flying ball */}
@@ -349,6 +426,8 @@ export function Pitch({
           if (!t0) return null;
           const planned = movers.find((m) => m.id === p.id);
           const t = planned ? { x: planned.to.x, y: planned.to.y } : t0;
+          const sl = planned ? ghostLayout(planned.to) : layouts.get(p.id);
+          const lx = cx(t.x) + (sl?.dx ?? 0);
           // top-row receivers: put the label below the token so the hint strip never covers it
           const dy = t.y < 1 ? 0.78 : -0.78;
           if (p.offside) {
@@ -357,7 +436,7 @@ export function Pitch({
                 key={`pl-${p.id}`}
                 className="offside-badge"
                 data-testid={`offside-${p.id}`}
-                transform={`translate(${cx(t.x)} ${cy(t.y) + dy})`}
+                transform={`translate(${lx} ${cy(t.y) + dy})`}
               >
                 <rect x={-0.55} y={-0.17} width={1.1} height={0.34} rx={0.07} />
                 <text>OFFSIDE</text>
@@ -368,7 +447,7 @@ export function Pitch({
             <g
               key={`pl-${p.id}`}
               className={`pct${p.enabled ? '' : ' pct--off'}`}
-              transform={`translate(${cx(t.x)} ${cy(t.y) + dy})`}
+              transform={`translate(${lx} ${cy(t.y) + dy})`}
             >
               <rect x={-0.4} y={-0.17} width={0.8} height={0.34} rx={0.17} />
               <text>{p.label}</text>
@@ -407,6 +486,7 @@ export function Pitch({
                 key={`clone-${t.id}`}
                 clone
                 token={t}
+                layout={layouts.get(t.id)}
                 selected
                 passTarget={false}
                 interactive={false}

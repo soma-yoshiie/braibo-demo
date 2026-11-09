@@ -5,3 +5,6 @@ dist-artifact/
 *.zip
 .DS_Store
 *.log
+
+# concept mockup screenshots are regenerated from the HTML with concept/src/shot.cjs
+concept/src/ui/mockups/**/*.png

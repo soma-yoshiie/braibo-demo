@@ -72,6 +72,12 @@ export function ballHolder(state: MatchState): PlayerState | undefined {
   return state.ball.kind === 'held' ? getPlayer(state, state.ball.playerId) : undefined;
 }
 
-export function playerAt(state: MatchState, pos: Vec): PlayerState | undefined {
-  return state.players.find((p) => vecEq(p.pos, pos));
+/** All players standing on `pos` (at most one per team since v0.4), optionally only of `team`. */
+export function playersAt(state: MatchState, pos: Vec, team?: TeamId): PlayerState[] {
+  return state.players.filter((p) => vecEq(p.pos, pos) && (team === undefined || p.team === team));
+}
+
+/** First player on `pos` (of `team` if given). A cell can hold one player per team: pass `team` or use `playersAt`. */
+export function playerAt(state: MatchState, pos: Vec, team?: TeamId): PlayerState | undefined {
+  return playersAt(state, pos, team)[0];
 }

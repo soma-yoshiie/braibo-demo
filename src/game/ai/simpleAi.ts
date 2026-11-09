@@ -60,8 +60,10 @@ const closest = (ps: PlayerState[], to: Vec): PlayerState | undefined =>
 
 function enemyReachers(c: Ctx): Map<string, PlayerState[]> {
   const m = new Map<string, PlayerState[]>();
+  // v0.4: an enemy only duels the carrier when it ends in the carrier's cell, so the enemy's own
+  // cell (it may stay put) counts as reachable too.
   for (const f of c.foes)
-    for (const t of legalMoveTargets(c.state, f.id)) {
+    for (const t of [f.pos, ...legalMoveTargets(c.state, f.id)]) {
       const k = key(t);
       m.set(k, [...(m.get(k) ?? []), f]);
     }

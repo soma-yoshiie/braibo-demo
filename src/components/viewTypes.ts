@@ -8,6 +8,8 @@ export interface TokenView {
   x: number;
   y: number;
   hasBall: boolean;
+  /** Keep drawn above its cell-mate (holder whose ball is in flight). */
+  top?: boolean;
   /** Blue token whose destination has been set this turn. */
   planned?: boolean;
   /** Duel clash: scale up. */
@@ -16,8 +18,13 @@ export interface TokenView {
   tag?: { kind: 'win' | 'lose'; label: string };
   /** Movement duration override in ms. */
   moveMs?: number;
-  /** Use the overshoot easing (losers being knocked back). */
-  ease?: 'back';
+}
+
+/** Offset / scale of a token that shares its cell with an opponent (cell units, relative to the cell centre). */
+export interface TokenLayout {
+  dx: number;
+  dy: number;
+  s: number;
 }
 
 export type BallView =

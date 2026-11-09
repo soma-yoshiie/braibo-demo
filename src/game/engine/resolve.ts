@@ -1,8 +1,7 @@
 /**
  * Turn resolution. RNG consumption order (one rng.next() per roll):
- *  1. movement: one roll per ground duel, in conflict order (cells sorted by y then x,
- *     one conflict cell processed at a time, re-scanning afterwards); then swap duels
- *     (blue-index order).
+ *  1. movement: same-team overlaps use no rng. Then at most ONE ball duel with exactly one draw
+ *     (carrier cell > swap > contested loose ball, first match only).
  *  2. ball action (passes/crosses/shots) see resolveBallAction.
  *     OFFSIDE (RULES.offside.enabled) is judged first for pass / spacePass (teammate standing on the
  *     target cell, if any) / valid cross, on final positions; it consumes NO rng (ball goes to the
@@ -66,7 +65,10 @@ export interface MovementResult {
   events: TurnEvent[];
 }
 
-/** Steps 1-3: normalise, resolve conflicts/duels/swaps, loose-ball pickup. */
+/**
+ * Steps 1-3 (v0.4): normalise, resolve same-team overlaps (no rng), at most one ball duel
+ * (exactly one rng draw), loose-ball pickup. Event order: (bounce|displace)* duel? move* pickup?
+ */
 export function resolveMovement(state: MatchState, plans: TurnPlans, rng: Rng): MovementResult {
   const events: TurnEvent[] = [];
   const origin: Positions = {};
@@ -81,29 +83,21 @@ export function resolveMovement(state: MatchState, plans: TurnPlans, rng: Rng): 
   // Destinations as planned (after legality normalisation); used by the swap check.
   const planned: Positions = {};
   for (const id of Object.keys(dest)) planned[id] = copy(dest[id] as Vec);
-  /** Players that took part in a cell duel; they never get a swap duel as well. */
-  const dueled = new Set<PlayerId>();
   let holder: PlayerId | undefined = state.ball.kind === 'held' ? state.ball.playerId : undefined;
   const stays = (id: PlayerId) => vecEq(dest[id] as Vec, origin[id] as Vec);
 
   const physical = (id: PlayerId) => getEffectiveStats(state, player(state, id)).physical;
-  /** P(A wins) with the carrier bonus applied to whichever side holds the ball. */
-  const pAWins = (a: PlayerId, b: PlayerId): number => {
-    if (holder === a) return duelWinProbability(physical(a), physical(b), { carrierIsA: true });
-    if (holder === b) return 1 - duelWinProbability(physical(b), physical(a), { carrierIsA: true });
-    return duelWinProbability(physical(a), physical(b));
-  };
-  const award = (winner: PlayerId, loser: PlayerId) => {
-    if (holder === loser) {
-      holder = winner;
-      (flags[winner] as PlayerFlags).wonBallTurn = state.turn;
-    }
-  };
   const displaced = new Set<PlayerId>();
   const displace = (id: PlayerId) => {
     const p = player(state, id);
+    // A displaced player needs a cell no one started on, planned to enter, or currently resolves to
+    // (both teams), so a later bounce can never land on it.
     const claimed = new Set<string>();
-    for (const q of state.players) if (q.id !== id) claimed.add(key(dest[q.id] as Vec));
+    for (const q of state.players) {
+      claimed.add(key(origin[q.id] as Vec));
+      claimed.add(key(planned[q.id] as Vec));
+      claimed.add(key(dest[q.id] as Vec));
+    }
     const o = origin[id] as Vec;
     const own = goalTarget(otherTeam(p.team));
     let best: Vec | undefined;
@@ -124,16 +118,16 @@ export function resolveMovement(state: MatchState, plans: TurnPlans, rng: Rng): 
     dest[id] = copy(to);
     displaced.add(id);
   };
-  const bounce = (id: PlayerId, reason: 'teammate' | 'duel') => {
-    events.push({ type: 'bounce', playerId: id, from: copy(dest[id] as Vec), to: copy(origin[id] as Vec), reason });
+  const bounce = (id: PlayerId) => {
+    events.push({ type: 'bounce', playerId: id, from: copy(dest[id] as Vec), to: copy(origin[id] as Vec), reason: 'teammate' });
     dest[id] = copy(origin[id] as Vec);
   };
 
-  // ---- iterative conflict resolution -------------------------------------
+  // ---- 4.1 same-team overlaps (opponents are ignored) ----------------------
   for (let iter = 0; ; iter++) {
     const groups = new Map<string, PlayerId[]>();
     for (const p of state.players) {
-      const k = key(dest[p.id] as Vec);
+      const k = `${p.team}:${key(dest[p.id] as Vec)}`;
       groups.set(k, [...(groups.get(k) ?? []), p.id]);
     }
     const conflicts = [...groups.values()].filter((g) => g.length >= 2);
@@ -143,92 +137,84 @@ export function resolveMovement(state: MatchState, plans: TurnPlans, rng: Rng): 
       for (const g of conflicts) for (const id of g) dest[id] = copy(origin[id] as Vec);
       continue;
     }
+    // Ascending (y, x, blue before red).
     conflicts.sort((a, b) => {
       const pa = dest[a[0] as PlayerId] as Vec;
       const pb = dest[b[0] as PlayerId] as Vec;
-      return pa.y - pb.y || pa.x - pb.x;
+      const ta = player(state, a[0] as PlayerId).team === 'blue' ? 0 : 1;
+      const tb = player(state, b[0] as PlayerId).team === 'blue' ? 0 : 1;
+      return pa.y - pb.y || pa.x - pb.x || ta - tb;
     });
-    const group = conflicts[0] as PlayerId[];
-    const cell = copy(dest[group[0] as PlayerId] as Vec);
-    const reps: Partial<Record<TeamId, PlayerId>> = {};
-    for (const team of ['blue', 'red'] as TeamId[]) {
-      const mates = group
-        .filter((id) => player(state, id).team === team)
-        .sort((a, b) => {
-          const rank = (id: PlayerId) => (id === holder ? 0 : stays(id) ? 1 : 2);
-          return rank(a) - rank(b) || player(state, a).index - player(state, b).index;
-        });
-      if (mates.length === 0) continue;
-      reps[team] = mates[0];
-      for (const loser of mates.slice(1)) {
-        if (stays(loser)) displace(loser);
-        else bounce(loser, 'teammate');
-      }
+    const mates = (conflicts[0] as PlayerId[]).sort((a, b) => {
+      const rank = (id: PlayerId) => (id === holder ? 0 : stays(id) ? 1 : 2);
+      return rank(a) - rank(b) || player(state, a).index - player(state, b).index;
+    });
+    for (const loser of mates.slice(1)) {
+      if (stays(loser)) displace(loser);
+      else bounce(loser);
     }
-    const blue = reps.blue;
-    const red = reps.red;
-    if (!blue || !red) continue;
-    // A is the mover; if exactly one stays, it is B. Both moving: A = blue.
-    const [a, b] = stays(blue) && !stays(red) ? [red, blue] : [blue, red];
-    const p = pAWins(a, b);
-    const aWins = rng.next() < p;
-    const [winner, loser] = aWins ? [a, b] : [b, a];
-    events.push({
-      type: 'duel',
-      kind: 'ground',
-      pos: cell,
-      aId: a,
-      bId: b,
-      winnerId: winner,
-      forBall: holder === a || holder === b,
-      pAWins: p,
-    });
-    dueled.add(a);
-    dueled.add(b);
-    award(winner, loser);
-    if (stays(loser)) displace(loser);
-    else bounce(loser, 'duel');
   }
 
-  // ---- swap check ----------------------------------------------------------
-  for (const pa of state.players) {
-    if (pa.team !== 'blue') continue;
-    for (const pb of state.players) {
-      if (pb.team !== 'red') continue;
-      const completed = (id: PlayerId) =>
-        !displaced.has(id) && !dueled.has(id) && vecEq(dest[id] as Vec, planned[id] as Vec);
-      const swapped =
-        completed(pa.id) &&
-        completed(pb.id) &&
-        !stays(pa.id) &&
-        vecEq(dest[pa.id] as Vec, origin[pb.id] as Vec) &&
-        vecEq(dest[pb.id] as Vec, origin[pa.id] as Vec);
-      if (!swapped || (holder !== pa.id && holder !== pb.id)) continue;
-      const p = pAWins(pa.id, pb.id);
-      const aWins = rng.next() < p;
-      const [winner, loser] = aWins ? [pa.id, pb.id] : [pb.id, pa.id];
-      events.push({
-        type: 'duel',
-        kind: 'ground',
-        pos: copy(dest[holder as PlayerId] as Vec),
-        aId: pa.id,
-        bId: pb.id,
-        winnerId: winner,
-        forBall: true,
-        pAWins: p,
-      });
-      award(winner, loser);
+  // ---- 4.2 ball duel: at most one, exactly one rng draw ----------------------
+  const settled = (id: PlayerId) => !displaced.has(id) && vecEq(dest[id] as Vec, planned[id] as Vec);
+  let pair: { a: PlayerId; b: PlayerId; pos: Vec; loose: boolean } | undefined;
+  if (holder) {
+    const h = player(state, holder);
+    const hd = dest[holder] as Vec;
+    const foe = state.players.find((q) => q.team !== h.team && vecEq(dest[q.id] as Vec, hd));
+    const swapFoe = state.players.find(
+      (q) =>
+        q.team !== h.team &&
+        !stays(holder as PlayerId) &&
+        !stays(q.id) &&
+        settled(holder as PlayerId) &&
+        settled(q.id) &&
+        vecEq(dest[holder as PlayerId] as Vec, origin[q.id] as Vec) &&
+        vecEq(dest[q.id] as Vec, origin[holder as PlayerId] as Vec),
+    );
+    const other = foe ?? swapFoe;
+    if (other) pair = { a: holder, b: other.id, pos: copy(hd), loose: false };
+  } else if (state.ball.kind === 'loose') {
+    const pos = state.ball.pos;
+    const here = state.players.filter((q) => vecEq(dest[q.id] as Vec, pos));
+    const blue = here.find((q) => q.team === 'blue');
+    const red = here.find((q) => q.team === 'red');
+    if (blue && red) pair = { a: blue.id, b: red.id, pos: copy(pos), loose: true };
+  }
+  let looseWinner: PlayerId | undefined;
+  if (pair) {
+    // A = the mover; if exactly one stays, it is B; both moved / both stayed: A = blue.
+    let { a, b } = pair;
+    const sa = stays(a);
+    const sb = stays(b);
+    const isBlue = (id: PlayerId) => player(state, id).team === 'blue';
+    if (sa === sb ? !isBlue(a) : sa) [a, b] = [b, a];
+    let p: number;
+    if (pair.loose) p = duelWinProbability(physical(a), physical(b));
+    else if (holder === a) p = duelWinProbability(physical(a), physical(b), { carrierIsA: true });
+    else p = 1 - duelWinProbability(physical(b), physical(a), { carrierIsA: true });
+    const winner = rng.next() < p ? a : b;
+    events.push({
+      type: 'duel', kind: 'ground', pos: pair.pos, aId: a, bId: b, winnerId: winner,
+      forBall: true, ...(pair.loose ? { loose: true } : {}), pAWins: p,
+    });
+    if (pair.loose) {
+      looseWinner = winner;
+      holder = winner;
+      (flags[winner] as PlayerFlags).wonBallTurn = state.turn;
+    } else if (holder !== winner) {
+      holder = winner;
+      (flags[winner] as PlayerFlags).wonBallTurn = state.turn;
     }
   }
 
   for (const p of state.players) {
-    if (displaced.has(p.id)) continue;
     const o = origin[p.id] as Vec;
     const d = dest[p.id] as Vec;
-    if (!vecEq(o, d)) events.push({ type: 'move', playerId: p.id, from: copy(o), to: copy(d) });
+    if (!displaced.has(p.id) && !vecEq(o, d)) events.push({ type: 'move', playerId: p.id, from: copy(o), to: copy(d) });
   }
 
-  // ---- loose ball pickup -----------------------------------------------------
+  // ---- loose ball pickup -------------------------------------------------------
   let ball: BallState = holder ? { kind: 'held', playerId: holder } : state.ball;
   if (ball.kind === 'loose') {
     const pos = ball.pos;
@@ -237,6 +223,8 @@ export function resolveMovement(state: MatchState, plans: TurnPlans, rng: Rng): 
       ball = { kind: 'held', playerId: picker.id };
       events.push({ type: 'pickup', playerId: picker.id, pos: copy(pos) });
     }
+  } else if (looseWinner) {
+    events.push({ type: 'pickup', playerId: looseWinner, pos: copy(dest[looseWinner] as Vec) });
   }
   return { positions: dest, ball, flags, events };
 }
@@ -430,7 +418,9 @@ export function resolveBallAction(
       return res();
     }
     if (rng.next() < est.pAccurate) {
-      const occ = state.players.find((p) => vecEq(at(p.id), tgt));
+      const here = state.players.filter((p) => vecEq(at(p.id), tgt));
+      // A teammate on the cell receives even when an enemy shares it.
+      const occ = here.find((p) => p.team === passer.team) ?? here[0];
       if (!occ) {
         ball = { kind: 'loose', pos: copy(tgt) };
         events.push({ ...base, outcome: 'loose', loosePos: copy(tgt) });
@@ -477,7 +467,7 @@ export function resolveBallAction(
     return res();
   }
   const defs: Positions = defMap();
-  const defender = aerialDefender(state, passer.team, targetPos, defs);
+  const defender = aerialDefender(state, passer.team, targetPos, defs, from);
   const crossEv = (outcome: 'won' | 'lost' | 'uncontested') =>
     ({
       type: 'cross', passerId, targetId, from: copy(from), to: copy(targetPos), outcome,

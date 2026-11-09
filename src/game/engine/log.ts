@@ -17,13 +17,12 @@ export function describeEvent(event: TurnEvent, state: MatchState): string {
     case 'move':
       return '';
     case 'bounce':
-      return event.reason === 'teammate'
-        ? `${n(event.playerId)} は味方と重なり ${pos(event.to)} に戻された`
-        : `${n(event.playerId)} は競り負けて ${pos(event.to)} に戻された`;
+      return `${n(event.playerId)} は味方と重なり ${pos(event.to)} に戻された`;
     case 'displace':
       return `${n(event.playerId)} は ${pos(event.from)}→${pos(event.to)} へ押し出された`;
     case 'duel': {
       const loser = event.winnerId === event.aId ? event.bId : event.aId;
+      if (event.loose) return `こぼれ球の競り合い: ${n(event.winnerId)} が ${n(loser)} に競り勝ちボールを確保`;
       const kind = event.kind === 'aerial' ? '空中戦' : '競り合い';
       return `${kind}！ ${n(event.winnerId)} が ${n(loser)} に勝利${event.forBall ? '（ボール）' : ''}`;
     }

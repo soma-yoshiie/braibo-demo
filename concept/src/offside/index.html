@@ -1,0 +1,478 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<title>BRAIBO 構想資料01 オフサイドの駆け引き案</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=Noto+Sans+JP:wght@400;500;700;900&family=Zen+Kaku+Gothic+New:wght@700;900&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../shared/doc.css">
+<script src="../shared/diagram.js"></script>
+</head>
+<body>
+
+<!-- ===== 1 cover ===== -->
+<section class="page cover" data-safe="40">
+  <div class="grid"></div><div class="glow"></div><div class="glow2"></div>
+  <div class="in body">
+    <div class="brand"><span>BRAIBO</span> ブレイボ ／ 構想資料</div>
+    <div class="docno">CONCEPT 01 ・ GAME SYSTEM</div>
+    <h1>オフサイドを<br><em>読み合い</em>に変える<br>5つの案</h1>
+    <p class="sub">「相手がラインを上げれば、裏へのパスは全部オフサイドになる」。この状態を解消し、スルーパスと最終ラインのあいだに駆け引きを作るためのルール案をまとめました。</p>
+    <div class="sum">
+      <h2>SUMMARY ・ 先に結論</h2>
+      <ul>
+        <li><i>01</i><b>原因。</b>いまは「蹴る瞬間」と「受ける瞬間」が同じです。裏で受けるパスは定義上オフサイドになり、ラインを上げる側にリスクがありません。</li>
+        <li><i>02</i><b>方針。</b>「蹴る瞬間（オフサイド判定）」と「受ける瞬間」を分けます。5つの案は、その分け方の違いです。</li>
+        <li><i>03</i><b>推奨。</b>まず案1「先出しスルーパス」を入れます。今のルールへの追加だけで、スルーパス、ライン上げ、カバー、足元パスの四すくみができます。手応えがあれば案2「オフサイドトラップ宣言」を重ねます。</li>
+      </ul>
+    </div>
+    <div class="meta"><span>2026-11-09 ／ v0.4 ルール時点</span><span>全10ページ</span></div>
+  </div>
+</section>
+
+<!-- ===== 2 problem ===== -->
+<section class="page">
+  <div class="ph"><span>BRAIBO <b>CONCEPT 01</b></span><span class="ph-r">オフサイドの駆け引き案</span></div>
+  <div class="body">
+    <div class="sec"><div class="no"><small>CHAPTER</small>01</div><div><h1>いま何が起きているか</h1></div></div>
+    <p class="lead">現行ルールでは、<em>裏で受けるパスは守備が何もしなくてもオフサイド</em>になります。ラインを上げられると、ラインと並ぶ選手まで消されます。</p>
+    <div class="fig">
+      <div class="ft"><i>FIG 1</i>現行ルールでスルーパスを狙うと</div>
+      <div class="panels">
+        <div class="panel"><div id="f1a"></div><div class="cap"><span class="n">1</span><span><b>計画。</b>9番を裏へ走らせ、8番からパスを出したい。</span></div></div>
+        <div class="panel"><div id="f1b"></div><div class="cap"><span class="n bad">2</span><span><b>結果。</b>判定は移動後。受ける位置がラインの裏なので、守備が動かなくてもオフサイド。</span></div></div>
+        <div class="panel"><div id="f1c"></div><div class="cap"><span class="n bad">3</span><span><b>ラインを上げられると。</b>ラインと並ぶ位置で受けようとしても、1マス上げられるだけでオフサイド。</span></div></div>
+      </div>
+      <div class="legend"><span><i class="b"></i>青（攻撃、上へ攻める）</span><span><i class="r"></i>赤（守備）</span><span><i class="l"></i>オフサイドライン。網かけがオフサイドの範囲</span><span><i class="p"></i>パス</span><span><i class="m"></i>移動</span></div>
+    </div>
+    <div class="cols">
+      <div>
+        <h3>原因1　蹴る瞬間と受ける瞬間が同じ</h3>
+        <p>全員が動き終わってからボールを蹴り、その位置でオフサイドを判定します。受け手が最終ラインより前にいれば、その時点で反則です。「オンサイドから走り出して裏で受ける」という、サッカーで一番おもしろい動きがルール上できません。</p>
+      </div>
+      <div>
+        <h3>原因2　ラインを上げるリスクがない</h3>
+        <p>本来、ラインを上げる守備は裏を取られる危険と引き換えです。今は裏で受けること自体ができないので、守備は毎ターン上げるのが正解になります。攻撃側に対抗手段がなく、読み合いが生まれません。</p>
+      </div>
+    </div>
+    <div class="callout"><b>今ある唯一の抜け道。</b>空きマスへのスペースパスはオフサイドになりません。ただしボールはこぼれ球になり、拾えるのは次のターンです。たいてい守備の方が近く、狙って使える手段にはなっていません。</div>
+    <h3>現行ルールの整理</h3>
+    <table>
+      <thead><tr><th style="width:26%">項目</th><th>現在の仕様</th></tr></thead>
+      <tbody>
+        <tr><td><span class="nm">判定のタイミング</span></td><td>全員の移動が終わったあと、ボールを蹴る瞬間。</td></tr>
+        <tr><td><span class="nm">対象のキック</span></td><td>パス、クロス、味方が立っているマスへのスペースパス。</td></tr>
+        <tr><td><span class="nm">オフサイドになる条件</span></td><td>受け手が敵陣にいて、ボールより前、かつ最後尾の守備者より前。同じ列ならオンサイド。</td></tr>
+        <tr><td><span class="nm">反則後の再開</span></td><td>受け手に最も近い守備者のボールで再開。</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <div class="foot"><span>BRAIBO 構想資料 01</span><span class="pn"></span></div>
+</section>
+
+<!-- ===== 3 principle ===== -->
+<section class="page">
+  <div class="ph"><span>BRAIBO <b>CONCEPT 01</b></span><span class="ph-r">オフサイドの駆け引き案</span></div>
+  <div class="body">
+    <div class="sec"><div class="no"><small>CHAPTER</small>02</div><div><h1>解決の原則と5つの案</h1></div></div>
+    <p class="lead"><em>蹴る瞬間と受ける瞬間を分ける。</em>これだけで、ラインを上げる側に「裏を取られる」リスクが生まれます。</p>
+    <p class="flow-label">現行の1ターン</p>
+    <div class="flow">
+      <div class="st"><b>計画</b><small>両者が同時に指示</small></div><div class="ar">▶</div>
+      <div class="st"><b>全員が移動</b><small>同時に解決</small></div><div class="ar">▶</div>
+      <div class="st hot"><b>キック＝判定＝受け</b><small>すべて同じ瞬間。裏では受けられない</small></div>
+    </div>
+    <p class="flow-label">分けたあとの1ターン（案1の場合）</p>
+    <div class="flow">
+      <div class="st"><b>計画</b><small>両者が同時に指示</small></div><div class="ar">▶</div>
+      <div class="st key"><b>キック＝判定</b><small>動く前の位置で判定</small></div><div class="ar">▶</div>
+      <div class="st"><b>全員が移動</b><small>受け手が走り込む</small></div><div class="ar">▶</div>
+      <div class="st key"><b>受け</b><small>移動後の位置で奪い合い</small></div>
+    </div>
+    <p>判定が先に済むので、受け手はオンサイドの位置から走り出し、ラインの裏でボールに追いつけます。守備は「上げてオフサイドを取る」か「下がって裏を消す」かを選ぶことになり、どちらにも負け筋ができます。</p>
+    <h3>5つの案の全体像</h3>
+    <table>
+      <thead><tr><th style="width:25%">案</th><th>ひとことで言うと</th><th style="width:21%">今のルールとの関係</th></tr></thead>
+      <tbody>
+        <tr class="rec"><td><span class="nm">案1　先出しスルーパス</span><span class="ds">推奨。最初に入れる</span></td><td>スペースパスだけ、動く前に蹴る。判定は計画中に見えているラインで行う。</td><td>追加ルール1つ</td></tr>
+        <tr class="rec"><td><span class="nm">案2　オフサイドトラップ宣言</span><span class="ds">推奨。案1に重ねる</span></td><td>守備が「ラインを一斉に上げる」を宣言できる。当たれば反則、外せば棒立ち。</td><td>案1＋守備コマンド1つ</td></tr>
+        <tr><td><span class="nm">案3　3拍タイムライン</span></td><td>1ターンを3拍に割り、いつ蹴るか、いつ上げるかまで読み合う。</td><td>解決の仕組みを拡張</td></tr>
+        <tr><td><span class="nm">案4　交互手番＋行動ポイント</span></td><td>同時ターンをやめ、交互に3行動ずつ。パスを出した時点で判定する。</td><td>ほぼ作り直し</td></tr>
+        <tr><td><span class="nm">案5　読み札の対決</span></td><td>勝負どころだけ、両者が伏せた札を同時に開いて結果を決める。</td><td>演出つきの追加システム</td></tr>
+      </tbody>
+    </table>
+    <h3>今のゲームからの距離</h3>
+    <div class="axis">
+      <span class="end" style="left:0">今のゲームに近い</span><span class="end" style="right:0">別のゲームに近い</span>
+      <div class="pt" style="left:8%">案1<small>先出しスルー</small></div>
+      <div class="pt" style="left:26%">案2<small>トラップ宣言</small></div>
+      <div class="pt" style="left:48%">案5<small>読み札</small></div>
+      <div class="pt" style="left:68%">案3<small>3拍</small></div>
+      <div class="pt" style="left:92%">案4<small>交互手番</small></div>
+    </div>
+    <div class="callout blue"><b>読み方。</b>次のページから1案ずつ、ルール、駆け引きの形、長所と短所を示します。9ページに比較表、10ページに進め方があります。</div>
+  </div>
+  <div class="foot"><span>BRAIBO 構想資料 01</span><span class="pn"></span></div>
+</section>
+
+<!-- ===== 4 plan 1 ===== -->
+<section class="page">
+  <div class="ph"><span>BRAIBO <b>CONCEPT 01</b></span><span class="ph-r">オフサイドの駆け引き案</span></div>
+  <div class="body">
+    <div class="sec"><div class="no"><small>PLAN</small>1</div><div><h1>先出しスルーパス</h1><div class="tags"><span class="tag rec">推奨　最初に入れる</span><span class="tag">実装規模　小</span><span class="tag">同時ターン制のまま</span></div></div></div>
+    <p class="lead">スペースパスだけは<em>動く前に蹴る</em>。計画中に見えているラインが、そのまま判定の線になります。</p>
+    <div class="fig">
+      <div class="ft"><i>FIG 2</i>案1でのスルーパス</div>
+      <div class="panels">
+        <div class="panel"><div id="f2a"></div><div class="cap"><span class="n">1</span><span><b>キック。</b>動く前の位置で判定する。9番はラインの手前なのでオンサイド。</span></div></div>
+        <div class="panel"><div id="f2b"></div><div class="cap"><span class="n">2</span><span><b>同時に移動。</b>9番は目標マスへ走る。守備はラインを上げたが、判定はもう済んでいる。</span></div></div>
+        <div class="panel"><div id="f2c"></div><div class="cap"><span class="n">3</span><span><b>受け。</b>9番がラインの裏で追いつく。上げた守備は置き去りになる。</span></div></div>
+      </div>
+    </div>
+    <div class="cols">
+      <div>
+        <h3>ルール</h3>
+        <ol class="rules">
+          <li>スペースパスを「スルーパス」として扱う。キッカーはターン開始時の位置から蹴り、そのターンは移動しない。</li>
+          <li>オフサイドはターン開始時の位置で判定する。その時点でオフサイドの位置にいた味方が、このボールに最初に触ると反則。</li>
+          <li>そのあと全員が同時に移動する。目標マスに入った選手がボールを受ける。両チームが入れば今の密着マークの判定を使う。守備だけなら守備ボール、誰もいなければこぼれ球。</li>
+          <li>足元へのパスとクロスは今のまま。移動後に蹴り、移動後の位置で判定する。</li>
+        </ol>
+      </div>
+      <div>
+        <h3>生まれる駆け引き</h3>
+        <ul class="dots">
+          <li><b>スルーパスはライン上げに強い。</b>上げた裏へ抜け出せる。</li>
+          <li><b>カバーはスルーパスに強い。</b>下がった守備が目標マスに先に入る。</li>
+          <li><b>足元パスとドリブルはカバーに強い。</b>下がった守備の前で、フリーで前を向ける。</li>
+          <li><b>ライン上げと寄せは足元パスに強い。</b>受け手に密着でき、後から蹴るパスはオフサイドにも掛かる。</li>
+        </ul>
+        <p class="small">4つの手が順に勝ち負けを作るので、「毎ターン上げるだけ」は通用しなくなります。</p>
+      </div>
+    </div>
+    <div class="pm">
+      <div><h4>長所</h4><ul><li>追加するルールは1つだけ。操作も今のスペースパスと同じ。</li><li>判定の線が計画中に見えるので、反則に納得しやすい。</li><li>ストライカーの前進2マスが、そのまま「裏抜けの速さ」として活きる。</li></ul></div>
+      <div class="con"><h4>短所と注意</h4><ul><li>守備は「下がる」を選び続けることもできる。ただし陣地を失うので、足元パスが通りやすくなる。</li><li>スルーパスの届く距離と精度は調整が必要。</li><li>AIにスルーパスとラインの上げ下げを教える必要がある。</li></ul></div>
+    </div>
+    <div class="callout blue"><b>実装の見通し。</b>解決の順番を「スペースパスの確定、移動、受け」に変え、オフサイド設定に切り替えの項目を1つ足します。計画画面にはオフサイドラインを常に表示します。今のAIはスペースパスを使わないので、AIの更新が作業の中心になります。</div>
+  </div>
+  <div class="foot"><span>BRAIBO 構想資料 01</span><span class="pn"></span></div>
+</section>
+
+<!-- ===== 5 plan 2 ===== -->
+<section class="page">
+  <div class="ph"><span>BRAIBO <b>CONCEPT 01</b></span><span class="ph-r">オフサイドの駆け引き案</span></div>
+  <div class="body">
+    <div class="sec"><div class="no"><small>PLAN</small>2</div><div><h1>オフサイドトラップ宣言</h1><div class="tags"><span class="tag rec">推奨　案1に重ねる</span><span class="tag">実装規模　小から中</span><span class="tag">同時ターン制のまま</span></div></div></div>
+    <p class="lead">守備に<em>「ラインを一斉に上げる」コマンド</em>を足します。当たればスルーパスを反則にでき、外すと最終ラインが棒立ちになります。</p>
+    <div class="cols" style="gap:5mm">
+      <div class="fig" style="flex:0 0 auto;margin-bottom:3mm">
+        <div class="ft"><i>FIG 3</i>トラップの成功と失敗</div>
+        <div class="panels">
+          <div class="panel"><div id="f3a"></div><div class="cap"><span class="n">A</span><span><b>的中。</b>キックの前に3人が1マス上がる。ライン上にいた9番がオフサイドになる。</span></div></div>
+          <div class="panel"><div id="f3b"></div><div class="cap"><span class="n bad">B</span><span><b>外れ。</b>9番は1列後ろから飛び出した。上がったラインと並ぶのでオンサイド。動けない守備は追えない。</span></div></div>
+        </div>
+      </div>
+      <div>
+        <h3>ルール</h3>
+        <ol class="rules">
+          <li>守備は計画中に「トラップ」を宣言できる。最後尾の列にいる守備者が全員参加する。</li>
+          <li>参加者はキックの前に1マス前へ出る。オフサイドはその位置で判定する。</li>
+          <li>参加者はそのターン、ほかの移動も行動もできない。</li>
+          <li>相手がスルーパスを出さなくても、前に出た位置と行動不能は残る。</li>
+          <li>連続では宣言できない。間隔は調整値とする。</li>
+        </ol>
+      </div>
+    </div>
+    <h3>読み合いの表</h3>
+    <table class="mx">
+      <thead>
+        <tr><th class="corner" style="width:25%">攻撃の手 ＼ 守備の手</th><th class="df">トラップを宣言</th><th class="df">その場で寄せる</th><th class="df">下がってカバー</th></tr>
+      </thead>
+      <tbody>
+        <tr><th class="at">スルーパス<br><small style="font-weight:500">ライン上の選手へ</small></th><td class="l"><b>守備の勝ち</b><small>オフサイド</small></td><td class="w"><b>攻撃の大勝ち</b><small>裏へ抜け出す</small></td><td class="e"><b>五分</b><small>目標マスで競り合い</small></td></tr>
+        <tr><th class="at">スルーパス<br><small style="font-weight:500">1列後ろから飛び出す</small></th><td class="w"><b>攻撃の大勝ち</b><small>オンサイドで独走</small></td><td class="g"><b>攻撃やや有利</b><small>一歩遅れて追われる</small></td><td class="l"><b>守備やや有利</b><small>先に触られやすい</small></td></tr>
+        <tr><th class="at">足元パス、ドリブル</th><td class="w"><b>攻撃の勝ち</b><small>棒立ちのラインの前で前を向く</small></td><td class="l"><b>守備やや有利</b><small>受け手に寄せられる</small></td><td class="g"><b>攻撃やや有利</b><small>前進して陣地を得る</small></td></tr>
+      </tbody>
+    </table>
+    <p>どの列にも勝ちと負けがあります。守備は「いつトラップを切るか」、攻撃は「誰を、どの列から走らせるか」を毎ターン読むことになります。</p>
+    <div class="pm">
+      <div><h4>長所</h4><ul><li>守備側にも能動的な一手ができる。決まったときの気持ちよさが大きい。</li><li>宣言は目に見えるので、演出を付けやすい。旗が上がる、ラインが光る、など。</li><li>案1の「下がり続ける守備」への対抗軸にもなる。</li></ul></div>
+      <div class="con"><h4>短所と注意</h4><ul><li>強すぎると毎ターン宣言される。行動不能と宣言間隔で調整する。</li><li>覚えることが1つ増える。チュートリアルで1回体験させたい。</li><li>AIの守備判断が1段むずかしくなる。</li></ul></div>
+    </div>
+  </div>
+  <div class="foot"><span>BRAIBO 構想資料 01</span><span class="pn"></span></div>
+</section>
+
+<!-- ===== 6 plan 3 ===== -->
+<section class="page">
+  <div class="ph"><span>BRAIBO <b>CONCEPT 01</b></span><span class="ph-r">オフサイドの駆け引き案</span></div>
+  <div class="body">
+    <div class="sec"><div class="no"><small>PLAN</small>3</div><div><h1>3拍タイムライン</h1><div class="tags"><span class="tag">実装規模　大</span><span class="tag">同時ターン制を拡張</span><span class="tag warn">計画の操作が重くなる</span></div></div></div>
+    <p class="lead">1ターンを3拍に分け、<em>いつ蹴るか、いつ上げるか</em>まで読み合います。サッカーらしさは5案で最も高くなります。</p>
+    <div class="fig">
+      <div class="ft"><i>FIG 4</i>拍1で蹴り、拍3で受ける例</div>
+      <div class="panels">
+        <div class="panel"><div id="f4a"></div><div class="cap"><span class="n">1</span><span><b>拍1。</b>9番が1マス進んでラインに並ぶ。8番はここで蹴る。並んでいるのでオンサイド。</span></div></div>
+        <div class="panel"><div id="f4b"></div><div class="cap"><span class="n">2</span><span><b>拍2。</b>ボールは飛んでいる。守備のライン上げは1拍遅く、判定に間に合わない。</span></div></div>
+        <div class="panel"><div id="f4c"></div><div class="cap"><span class="n">3</span><span><b>拍3。</b>9番が追いつく。守備が拍1で上げていれば、逆にオフサイドだった。</span></div></div>
+      </div>
+    </div>
+    <div class="cols">
+      <div>
+        <h3>ルール</h3>
+        <ol class="rules">
+          <li>1ターンを3拍に分ける。選手は今の移動力のまま、1拍に1マスずつ動く。動き出す拍は選べる。</li>
+          <li>キッカーは蹴る拍を選ぶ。オフサイドはその拍の位置で判定する。</li>
+          <li>ボールは1拍に3マスほど進む。届いた拍に、そのマスにいる選手が受ける。</li>
+          <li>守備も、ラインを上げる拍、寄せる拍を選ぶ。</li>
+          <li>計画は今と同じく同時で非公開。実行は3拍を順に再生する。</li>
+        </ol>
+      </div>
+      <div>
+        <h3>生まれる駆け引き</h3>
+        <ul class="dots">
+          <li><b>早く蹴る。</b>ライン上げより先に判定を済ませられる。ただし受け手はまだ遠く、ボールに追いつけないことがある。</li>
+          <li><b>遅く蹴る。</b>受け手は裏に近い。ただし上がったラインに掛かりやすい。</li>
+          <li><b>守備の上げる拍。</b>早すぎると遅れて走る選手に裏を取られ、遅すぎると判定に間に合わない。</li>
+        </ul>
+        <p class="small">計画して同時に再生する方式は、タイミングの読み合いと相性がよく、再生を見る楽しさも出ます。</p>
+      </div>
+    </div>
+    <div class="pm">
+      <div><h4>長所</h4><ul><li>タイミングそのものが駆け引きになる。斜めの走りや時間差の飛び出しが表現できる。</li><li>再生が小さな試合映像になり、見ていて楽しい。</li><li>パスカットや寄せにも「間に合う、間に合わない」が生まれる。</li></ul></div>
+      <div class="con"><h4>短所と注意</h4><ul><li>5人ぶんの拍を指定する操作は、スマホの片手操作には重い。</li><li>1ターンの考える時間が延び、今のテンポが落ちる。</li><li>ルール説明とAIの探索量が大きく増える。</li></ul></div>
+    </div>
+    <div class="callout"><b>位置づけ。</b>案1と案2を遊んで「タイミングの深さが足りない」と感じた場合の次の候補です。先に、蹴る拍だけを選べる簡易版を試す方法もあります。</div>
+  </div>
+  <div class="foot"><span>BRAIBO 構想資料 01</span><span class="pn"></span></div>
+</section>
+
+<!-- ===== 7 plan 4 ===== -->
+<section class="page">
+  <div class="ph"><span>BRAIBO <b>CONCEPT 01</b></span><span class="ph-r">オフサイドの駆け引き案</span></div>
+  <div class="body">
+    <div class="sec"><div class="no"><small>PLAN</small>4</div><div><h1>交互手番＋行動ポイント</h1><div class="tags"><span class="tag">実装規模　特大</span><span class="tag warn">同時ターン制をやめる</span><span class="tag">非同期の対人戦に向く</span></div></div></div>
+    <p class="lead">同時ターンをやめ、<em>交互に3行動ずつ</em>動かします。パスを出した時点で判定するので、オフサイドは自然に成立します。</p>
+    <div class="cols" style="gap:5mm">
+      <div class="fig" style="flex:0 0 auto;margin-bottom:3mm">
+        <div class="ft"><i>FIG 5</i>青の手番の3行動</div>
+        <div class="panels"><div class="panel" style="--pw:220px"><div id="f5"></div><div class="cap"><span class="n">i</span><span>数字は行動の順番。<b>R</b>は赤のリアクション。判定は行動2の瞬間。</span></div></div></div>
+      </div>
+      <div>
+        <h3>ルール</h3>
+        <ol class="rules">
+          <li>攻守が交互に手番を持つ。1手番は3行動。行動は移動、パス、シュート、寄せから選ぶ。</li>
+          <li>同じ選手が動けるのは1手番に2回まで。</li>
+          <li>パスカットや競り負けなど、失敗した時点で手番が終わる。</li>
+          <li>相手の手番中に1回だけ「リアクション」ができる。1マス寄せる、パスコースに入る、など。</li>
+          <li>オフサイドは、パスを出した行動の時点の位置で判定する。受け手は続く行動で走り込める。</li>
+          <li>ラインを上げるのも自分の手番の行動。上げた分だけほかの行動が減る。</li>
+        </ol>
+      </div>
+    </div>
+    <p class="flow-label">1手番の流れ（図の例）</p>
+    <div class="flow">
+      <div class="st"><b>行動1</b><small>9番がラインに並ぶ</small></div><div class="ar">▶</div>
+      <div class="st key"><b>行動2</b><small>8番がスルーパス。ここで判定</small></div><div class="ar">▶</div>
+      <div class="st hot"><b>赤のリアクション</b><small>3番が1マス下がる</small></div><div class="ar">▶</div>
+      <div class="st"><b>行動3</b><small>9番が走り込んで受ける</small></div><div class="ar">▶</div>
+      <div class="st"><b>赤の手番へ</b></div>
+    </div>
+    <h3>生まれる駆け引き</h3>
+    <p>盤面はすべて見えています。読むのは「相手の残り行動」と「1回きりのリアクションをどこで使うか」です。同時に伏せて出す緊張感は減りますが、数手先を組み立てる将棋らしさは最も強くなります。守備は自分の手番でラインを上げ、相手の手番ではリアクションを裏のケアに残すかどうかを選びます。</p>
+    <div class="pm">
+      <div><h4>長所</h4><ul><li>判定の瞬間が明確で、オフサイドの納得感が高い。</li><li>1行動ごとに結果が見えるので、初めての人にも追いやすい。</li><li>1手番ずつ送り合う非同期の対人戦と相性がよい。</li></ul></div>
+      <div class="con"><h4>短所と注意</h4><ul><li>ルール、画面、AI、テストをほぼ作り直すことになる。</li><li>同時に動く読み合いという、今の一番の個性を手放す。</li><li>1試合が長くなる。ターン数や行動数の再設計が要る。</li></ul></div>
+    </div>
+    <div class="callout"><b>位置づけ。</b>今の作品の改良ではなく、別の方向の作品案です。対人戦を主軸にすると決めた場合に、あらためて検討する価値があります。</div>
+  </div>
+  <div class="foot"><span>BRAIBO 構想資料 01</span><span class="pn"></span></div>
+</section>
+
+<!-- ===== 8 plan 5 ===== -->
+<section class="page">
+  <div class="ph"><span>BRAIBO <b>CONCEPT 01</b></span><span class="ph-r">オフサイドの駆け引き案</span></div>
+  <div class="body">
+    <div class="sec"><div class="no"><small>PLAN</small>5</div><div><h1>読み札の対決</h1><div class="tags"><span class="tag">実装規模　中</span><span class="tag">同時ターン制のまま</span><span class="tag">演出向き</span></div></div></div>
+    <p class="lead">勝負どころだけ、両者が<em>伏せた札を同時に開いて</em>結果を決めます。裏を狙うか、ラインを上げるかを、1枚の札で読み合います。</p>
+    <div class="fig">
+      <div class="ft"><i>FIG 6</i>攻撃の3枚と守備の3枚</div>
+      <div class="cards">
+        <div class="card"><div class="top">ATTACK</div><b>裏へ</b><small>ラインの裏へ走る</small></div>
+        <div class="card"><div class="top">ATTACK</div><b>足元へ</b><small>下がって足元で受ける</small></div>
+        <div class="card"><div class="top">ATTACK</div><b>持ち直す</b><small>出さずにキープする</small></div>
+        <div class="vs">VS</div>
+        <div class="card r"><div class="top">DEFENSE</div><b>上げる</b><small>ラインを上げて反則を狙う</small></div>
+        <div class="card r"><div class="top">DEFENSE</div><b>ついていく</b><small>受け手に並走する</small></div>
+        <div class="card r"><div class="top">DEFENSE</div><b>前でカット</b><small>パスコースに飛び出す</small></div>
+      </div>
+    </div>
+    <h3>ルール</h3>
+    <ol class="rules">
+      <li>敵陣でパスを出すとき、受け手のそばに守備者がいれば「読み合い」が起きる。1ターンに1回まで。</li>
+      <li>攻撃と守備が、それぞれ3枚から1枚を伏せて選び、同時に開く。</li>
+      <li>札の組み合わせで結果の型が決まる。選手の能力と位置関係が成功率を上下させる。</li>
+      <li>結果はそのまま盤面に反映する。抜け出した先のマスへの移動、オフサイド、カットなど。</li>
+    </ol>
+    <h3>読み合いの表</h3>
+    <table class="mx">
+      <thead>
+        <tr><th class="corner" style="width:19%">攻撃 ＼ 守備</th><th class="df">上げる</th><th class="df">ついていく</th><th class="df">前でカット</th></tr>
+      </thead>
+      <tbody>
+        <tr><th class="at">裏へ</th><td class="l"><b>守備の勝ち</b><small>オフサイド</small></td><td class="e"><b>五分</b><small>走り合い。速さで判定</small></td><td class="w"><b>攻撃の大勝ち</b><small>裏で独走</small></td></tr>
+        <tr><th class="at">足元へ</th><td class="w"><b>攻撃の勝ち</b><small>フリーで前を向く</small></td><td class="e"><b>五分</b><small>背負って受ける。強さで判定</small></td><td class="l"><b>守備の勝ち</b><small>インターセプト</small></td></tr>
+        <tr><th class="at">持ち直す</th><td class="l"><b>守備やや有利</b><small>ラインを押し上げられる</small></td><td><b>変化なし</b><small>次のターンへ</small></td><td class="g"><b>攻撃やや有利</b><small>守備が前に釣り出される</small></td></tr>
+      </tbody>
+    </table>
+    <div class="pm">
+      <div><h4>長所</h4><ul><li>5案で最も分かりやすい。初見でも「読み勝った」「読まれた」が伝わる。</li><li>カットイン演出や、選手ごとの得意札を載せやすい。</li><li>盤面のルールは今のままでよい。</li></ul></div>
+      <div class="con"><h4>短所と注意</h4><ul><li>盤面の位置取りより札の3択が主役になり、じゃんけんに見える恐れがある。</li><li>発生が多いとテンポが落ちる。回数の上限が必須。</li><li>能力と位置による補正の設計に手間がかかる。</li></ul></div>
+    </div>
+    <div class="callout"><b>位置づけ。</b>一騎打ちの演出を前に出すなら有力です。構想資料02のキャラクター路線の見た目と特に相性がよい案です。</div>
+  </div>
+  <div class="foot"><span>BRAIBO 構想資料 01</span><span class="pn"></span></div>
+</section>
+
+<!-- ===== 9 comparison ===== -->
+<section class="page">
+  <div class="ph"><span>BRAIBO <b>CONCEPT 01</b></span><span class="ph-r">オフサイドの駆け引き案</span></div>
+  <div class="body">
+    <div class="sec"><div class="no"><small>CHAPTER</small>03</div><div><h1>5案の比較</h1></div></div>
+    <p class="lead">駆け引きの深さだけなら案2と案3。<em>手間に対する効果は案1と案2の組み合わせ</em>が最も大きいと考えます。</p>
+    <table>
+      <thead><tr><th style="width:23%">案</th><th>駆け引きの質</th><th>分かりやすさ</th><th>実装規模</th><th>今のゲームとの距離</th><th>テンポ</th><th>AIの難しさ</th></tr></thead>
+      <tbody>
+        <tr class="rec"><td><span class="nm">案1　先出しスルーパス</span></td><td><span class="mk b">○</span></td><td><span class="mk a">◎</span></td><td>小</td><td>近い</td><td>変わらない</td><td>低い</td></tr>
+        <tr class="rec"><td><span class="nm">案2　トラップ宣言</span></td><td><span class="mk a">◎</span></td><td><span class="mk b">○</span></td><td>小から中</td><td>近い</td><td>変わらない</td><td>中くらい</td></tr>
+        <tr><td><span class="nm">案3　3拍タイムライン</span></td><td><span class="mk a">◎</span></td><td><span class="mk c">△</span></td><td>大</td><td>中くらい</td><td>やや遅い</td><td>高い</td></tr>
+        <tr><td><span class="nm">案4　交互手番</span></td><td><span class="mk b">○</span></td><td><span class="mk b">○</span></td><td>特大</td><td>遠い</td><td>遅い</td><td>中くらい</td></tr>
+        <tr><td><span class="nm">案5　読み札の対決</span></td><td><span class="mk b">○</span></td><td><span class="mk a">◎</span></td><td>中</td><td>中くらい</td><td>演出しだい</td><td>低い</td></tr>
+      </tbody>
+    </table>
+    <p class="small">◎ とても良い　○ 良い　△ 工夫が要る。評価は設計上の見立てで、実機での検証前のものです。</p>
+    <h3>どの案でも使える調整ノブ</h3>
+    <table>
+      <thead><tr><th style="width:27%">ノブ</th><th>動かすと何が変わるか</th><th style="width:25%">今の値</th></tr></thead>
+      <tbody>
+        <tr><td><span class="nm">スルーパスの距離と精度</span></td><td>届く距離を短くすると、深いラインの裏は取りにくくなる。精度を下げると、蹴る側のリスクが増える。</td><td>スペースパスは距離の上限つき</td></tr>
+        <tr><td><span class="nm">選手の特性「抜け出し」</span></td><td>ストライカーだけ、先出しパスに対して1マス余分に走れる。キャラクターの差が駆け引きに乗る。</td><td>なし</td></tr>
+        <tr><td><span class="nm">オフサイド後の再開位置</span></td><td>反則の地点から守備ボールにすると、反則の重さが位置で変わる。</td><td>受け手に最も近い守備者のボール</td></tr>
+        <tr><td><span class="nm">最終ラインの数え方</span></td><td>後ろから2人目を基準にすると、1人を残す守り方ができる。キーパーなしの今は1人目が基準。</td><td>後ろから1人目</td></tr>
+      </tbody>
+    </table>
+    <h3>検討して外した案</h3>
+    <table>
+      <thead><tr><th style="width:27%">案</th><th>外した理由</th></tr></thead>
+      <tbody>
+        <tr><td><span class="nm">リアルタイム化</span></td><td>読み合いではなく操作の速さの勝負になる。スマホの片手操作とも相性が悪い。</td></tr>
+        <tr><td><span class="nm">オフサイドの廃止</span></td><td>前線に張りつくのが最善手になり、ラインの上げ下げという守備の読みがなくなる。</td></tr>
+        <tr><td><span class="nm">確率でオフサイドを判定</span></td><td>読み勝ったのに運で負ける場面が出る。納得感が下がる。</td></tr>
+        <tr><td><span class="nm">ラインの上げ下げに回数制限</span></td><td>守備を縛るだけで、攻撃側に新しい選択肢が生まれない。</td></tr>
+      </tbody>
+    </table>
+    <div class="callout blue"><b>補足。</b>案1と案2は同じ土台の上にあり、案3はその発展形です。案1から始めれば、あとで案3へ進む場合も作ったものが無駄になりません。</div>
+  </div>
+  <div class="foot"><span>BRAIBO 構想資料 01</span><span class="pn"></span></div>
+</section>
+
+<!-- ===== 10 roadmap ===== -->
+<section class="page">
+  <div class="ph"><span>BRAIBO <b>CONCEPT 01</b></span><span class="ph-r">オフサイドの駆け引き案</span></div>
+  <div class="body">
+    <div class="sec"><div class="no"><small>CHAPTER</small>04</div><div><h1>おすすめの進め方</h1></div></div>
+    <p class="lead">まず<em>案1を設定で切り替えられる形で入れ</em>、数字と手触りを確かめてから案2を重ねます。</p>
+    <ol class="steps">
+      <li class="key"><b>案1「先出しスルーパス」を入れる</b>設定で新旧を切り替えられるようにする。計画中はオフサイドラインを常に表示する。AIに、裏へのスペースパスと、ラインを上げるか下げるかの判断を教える。</li>
+      <li><b>数字で確かめる</b>AI同士で200試合を回し、下の指標を見る。合わせて人が10試合ほど遊び、裏を取れた場面と取られた場面に納得できるかを確かめる。</li>
+      <li class="key"><b>案2「オフサイドトラップ宣言」を重ねる</b>守備の操作を1つ追加する。宣言が強すぎないか、同じ指標と対人の試遊で確かめる。</li>
+      <li><b>必要なら案3へ進む</b>タイミングの読み合いをさらに深くしたい場合だけ、3拍タイムラインを試作する。操作が重くならないかを先に確かめる。</li>
+    </ol>
+    <p class="small">案4は別の作品の方向として保留します。案5は見た目の方向が決まってから、演出とあわせて判断します。</p>
+    <h3>確かめる指標</h3>
+    <table>
+      <thead><tr><th style="width:30%">指標</th><th style="width:17%">今の値</th><th style="width:17%">目安</th><th>見るポイント</th></tr></thead>
+      <tbody>
+        <tr><td><span class="nm">オフサイド（1試合あたり）</span></td><td>1.05回</td><td>1〜3回</td><td>多すぎれば攻撃が雑。ゼロに近ければ守備がラインを使えていない。</td></tr>
+        <tr><td><span class="nm">得点（1試合あたり）</span></td><td>3.07点</td><td>2.5〜4点</td><td>裏への一発が強すぎると跳ね上がる。</td></tr>
+        <tr><td><span class="nm">スルーパスの成功率</span></td><td>計測なし</td><td>30〜45%</td><td>半分を大きく超えるなら、守備の対抗手段が足りない。</td></tr>
+        <tr><td><span class="nm">裏抜けからの得点の割合</span></td><td>計測なし</td><td>20〜35%</td><td>攻め筋の1つとして成立し、唯一の勝ち筋にはなっていないこと。</td></tr>
+        <tr><td><span class="nm">トラップ宣言の成功率</span></td><td>未実装</td><td>40〜60%</td><td>案2を入れたあとに見る。高すぎれば宣言の代償を重くする。</td></tr>
+      </tbody>
+    </table>
+    <p class="small">今の値は、現行ルールでAI同士を200試合対戦させた結果です。目安は設計上の目標値で、検証しながら見直します。</p>
+    <div class="callout"><b>結論。</b>同時ターン制は残したまま、「蹴る瞬間」と「受ける瞬間」を分けるだけで駆け引きは生まれます。案1から始めるのが、最も小さく確かな一歩です。</div>
+  </div>
+  <div class="foot"><span>BRAIBO 構想資料 01</span><span class="pn"></span></div>
+</section>
+
+<script>
+(function () {
+  const B = (x, y, n, o) => Object.assign({ t: 'b', x, y, n }, o || {});
+  const Rd = (x, y, n, o) => Object.assign({ t: 'r', x, y, n }, o || {});
+  const reds = (row, o) => [Rd(1, row, 5, o), Rd(3, row, 4, o), Rd(6, row, 3, o)];
+  const V = { y0: 0, y1: 5 };
+  const up = (from, to, o) => [1, 3, 6].map((x) => Object.assign({ f: [x, from], to: [x, to], k: 'rmove' }, o || {}));
+
+  // FIG 1
+  D('f1a', Object.assign({}, V, { line: 2,
+    tokens: [B(3, 5, 8, { ball: true }), B(5, 3, 9), B(1, 4, 7), ...reds(2)],
+    arrows: [{ f: [5, 3], to: [5, 1], k: 'move', e: .12 }, { f: [3, 5], to: [5, 1], k: 'pass', curve: -.35, e: .38 }],
+    marks: [{ k: 'tgt', x: 5, y: 1 }] }));
+  D('f1b', Object.assign({}, V, { line: 2,
+    tokens: [B(3, 5, 8, { ball: true }), B(5, 1, 9, { ring: true }), B(1, 4, 7), ...reds(2)],
+    arrows: [{ f: [3, 5], to: [5, 1], k: 'pass', curve: -.35, e: .55 }],
+    marks: [{ k: 'off', x: 5, y: 0.22 }] }));
+  D('f1c', Object.assign({}, V, { oldLine: 2, line: 3,
+    tokens: [B(3, 5, 8, { ball: true }), B(5, 2, 9, { ring: true }), B(1, 4, 7), ...reds(3)],
+    arrows: [...up(2, 3, { s: 0, e: .45 }), { f: [5, 3], to: [5, 2], k: 'move', s: 0, e: .45 }, { f: [3, 5], to: [5, 2], k: 'pass', curve: -.35, e: .55 }],
+    marks: [{ k: 'off', x: 5, y: 1.2 }] }));
+
+  // FIG 2
+  D('f2a', Object.assign({}, V, { line: 2,
+    tokens: [B(3, 5, 8, { ball: true }), B(5, 3, 9, { ring: 'ok' }), B(1, 4, 7), ...reds(2)],
+    arrows: [{ f: [3, 5], to: [5, 1], k: 'pass', curve: .5 }],
+    marks: [{ k: 'tgt', x: 5, y: 1 }, { k: 'on', x: 5, y: 3.78 }] }));
+  D('f2b', Object.assign({}, V, {
+    tokens: [B(3, 5, 8), B(5, 3, 9), B(1, 4, 7), ...reds(2)],
+    arrows: [{ f: [5, 3], to: [5, 1], k: 'move', e: .1 }, ...up(2, 3, { s: .42, e: 0 }), { f: [3, 5], to: [5, 1], k: 'fly', curve: .5 }],
+    marks: [{ k: 'tgt', x: 5, y: 1 }, { k: 'ball', x: 3.79, y: 3.89 }] }));
+  D('f2c', Object.assign({}, V, {
+    tokens: [B(3, 5, 8), B(5, 1, 9, { ball: true }), B(1, 4, 7), ...reds(3)],
+    marks: [{ k: 'txt', x: 5, y: 0.22, text: '抜け出し成功' }] }));
+
+  // FIG 3
+  D('f3a', Object.assign({}, V, { oldLine: 2, line: 3,
+    tokens: [B(3, 5, 8, { ball: true }), B(5, 2, 9, { ring: true }), B(1, 4, 7), ...reds(3, { lock: true })],
+    arrows: [...up(2, 3, { s: 0, e: .45 }), { f: [3, 5], to: [5, 0], k: 'pass', curve: .45 }],
+    marks: [{ k: 'tgt', x: 5, y: 0 }, { k: 'off', x: 5, y: 1.15 }] }));
+  D('f3b', Object.assign({}, V, { line: 3,
+    tokens: [B(3, 5, 8, { ball: true }), B(5, 3, 9, { ring: 'ok' }), B(1, 4, 7), ...reds(3, { lock: true })],
+    arrows: [{ f: [5, 3], to: [5, 1], k: 'move' }, { f: [3, 5], to: [5, 1], k: 'pass', curve: .5 }],
+    marks: [{ k: 'tgt', x: 5, y: 1 }, { k: 'on', x: 5, y: 3.78 }] }));
+
+  // FIG 4
+  D('f4a', Object.assign({}, V, { line: 2,
+    tokens: [B(3, 5, 8, { ball: true }), B(5, 2, 9, { ring: 'ok' }), B(1, 4, 7), ...reds(2)],
+    arrows: [{ f: [5, 3], to: [5, 2], k: 'move', s: 0, e: .45 }, { f: [3, 5], to: [5, 0], k: 'pass', curve: .45 }],
+    marks: [{ k: 'tgt', x: 5, y: 0 }, { k: 'on', x: 5, y: 2.8 }] }));
+  D('f4b', Object.assign({}, V, {
+    tokens: [B(3, 5, 8), B(5, 1, 9), B(1, 4, 7), ...reds(3)],
+    arrows: [{ f: [5, 2], to: [5, 1], k: 'move', s: 0, e: .45 }, ...up(2, 3, { s: 0, e: .45 }), { f: [3, 5], to: [5, 0], k: 'fly', curve: .45 }],
+    marks: [{ k: 'tgt', x: 5, y: 0 }, { k: 'ball', x: 4.55, y: 2.3 }] }));
+  D('f4c', Object.assign({}, V, {
+    tokens: [B(3, 5, 8), B(5, 0, 9, { ball: true }), B(1, 4, 7), ...reds(3)],
+    arrows: [{ f: [5, 1], to: [5, 0], k: 'move', s: 0, e: .45 }],
+    marks: [{ k: 'txt', x: 5, y: 0.92, text: '抜け出し' }] }));
+
+  // FIG 5
+  D('f5', Object.assign({}, V, { cell: 30, line: 2,
+    tokens: [B(3, 5, 8, { ball: true }), B(5, 3, 9, { ghost: true }), B(5, 2, 9), B(1, 4, 7), Rd(1, 2, 5), Rd(3, 2, 4), Rd(6, 2, 3)],
+    arrows: [{ f: [5, 3], to: [5, 2], k: 'move', e: .45 }, { f: [3, 5], to: [5, 0], k: 'pass', curve: .5 }, { f: [6, 2], to: [6, 1], k: 'rmove', e: .2 }, { f: [5, 2], to: [5, 0], k: 'move', e: .2 }],
+    marks: [{ k: 'tgt', x: 5, y: 0 }, { k: 'txt', x: 5.52, y: 2.52, text: '1' }, { k: 'txt', x: 3.62, y: 3.5, text: '2' }, { k: 'txt', x: 6.2, y: 0.62, text: 'R' }, { k: 'txt', x: 5.52, y: 0.95, text: '3' }] }));
+})();
+</script>
+</body>
+</html>

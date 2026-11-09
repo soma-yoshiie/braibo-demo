@@ -1,8 +1,12 @@
 import { getCharacter } from '../data/characters';
-import { estimatePass } from '../rules/estimates';
+import { aerialDefender, estimateCross, estimatePass, estimateShot } from '../rules/estimates';
+import { RULES } from '../rules/config';
+import { duelWinProbability } from '../rules/probability';
+import { getEffectiveStats, legalMoveTargets } from '../rules/moves';
+import { planAiTurn } from '../ai/simpleAi';
 import { interceptProbability } from '../rules/probability';
 import { describe, expect, it } from 'vitest';
-import { resolveTurn } from './resolve';
+import { resolveMovement, resolveTurn } from './resolve';
 import { createMatch, ballHolder, getPlayer } from './match';
 import { createRng, fixedRng } from './rng';
 import { describeEvent } from './log';
@@ -55,26 +59,62 @@ describe('movement', () => {
     expect(getPlayer(r.after, 'blue-3').pos).toEqual({ x: 2, y: 7 });
   });
 
-  it('cross-team duel: attacker wins, defender is displaced', () => {
+  it('carrier-cell duel: attacker wins, both stay in the cell', () => {
     const s = scene({ 'blue-0': { x: 3, y: 5 }, 'red-0': { x: 3, y: 3 } }, held('blue-0'));
     const r = resolveTurn(s, plans({ moves: { 'blue-0': { x: 3, y: 3 } } }), fixedRng([0.1]));
     const d = ev(r.events, 'duel')[0];
     expect(d).toMatchObject({ kind: 'ground', aId: 'blue-0', bId: 'red-0', winnerId: 'blue-0', forBall: true });
+    expect(d?.loose).toBeUndefined();
     expect(d?.pAWins).toBeCloseTo(0.55);
     expect(getPlayer(r.after, 'blue-0').pos).toEqual({ x: 3, y: 3 });
-    expect(getPlayer(r.after, 'red-0').pos).toEqual({ x: 3, y: 2 }); // nearest, toward own goal
-    expect(ev(r.events, 'displace')).toHaveLength(1);
+    expect(getPlayer(r.after, 'red-0').pos).toEqual({ x: 3, y: 3 });
+    expect(ev(r.events, 'displace')).toHaveLength(0);
+    expect(ev(r.events, 'bounce')).toHaveLength(0);
     expect(ballHolder(r.after)?.id).toBe('blue-0');
   });
 
-  it('cross-team duel: defender wins, ball changes hands, mover bounces', () => {
+  it('carrier-cell duel: defender wins, gets the ball and wonBallTurn, loser stays', () => {
     const s = scene({ 'blue-0': { x: 3, y: 5 }, 'red-0': { x: 3, y: 3 } }, held('blue-0'));
     const r = resolveTurn(s, plans({ moves: { 'blue-0': { x: 3, y: 3 } } }), fixedRng([0.9]));
-    expect(getPlayer(r.after, 'blue-0').pos).toEqual({ x: 3, y: 5 });
+    expect(getPlayer(r.after, 'blue-0').pos).toEqual({ x: 3, y: 3 });
     expect(getPlayer(r.after, 'red-0').pos).toEqual({ x: 3, y: 3 });
     expect(ballHolder(r.after)?.id).toBe('red-0');
     expect(getPlayer(r.after, 'red-0').flags.wonBallTurn).toBe(1);
-    expect(ev(r.events, 'bounce')[0]).toMatchObject({ playerId: 'blue-0', reason: 'duel' });
+    expect(ev(r.events, 'bounce')).toHaveLength(0);
+    expect(r.events.map((e) => e.type).filter((t) => ['duel', 'move'].includes(t))).toEqual(['duel', 'move']);
+  });
+
+  it('opponents sharing a cell without the ball: no event, no rng', () => {
+    const s = scene({ 'blue-0': { x: 3, y: 8 }, 'blue-1': { x: 2, y: 6 }, 'red-1': { x: 2, y: 5 } }, held('blue-0'));
+    let draws = 0;
+    const rng = { next: () => (draws++, 0.5) };
+    const r = resolveTurn(s, plans({ moves: { 'blue-1': { x: 2, y: 5 } } }), rng);
+    expect(getPlayer(r.after, 'blue-1').pos).toEqual({ x: 2, y: 5 });
+    expect(getPlayer(r.after, 'red-1').pos).toEqual({ x: 2, y: 5 });
+    expect(ev(r.events, 'duel')).toHaveLength(0);
+    expect(ev(r.events, 'bounce')).toHaveLength(0);
+    expect(draws).toBe(0);
+  });
+
+  it('two opponents already sharing a cell: both stay, duel only if one holds the ball', () => {
+    const shared = { 'blue-1': { x: 2, y: 5 }, 'red-1': { x: 2, y: 5 } };
+    const noBall = resolveTurn(scene({ ...shared, 'blue-0': { x: 3, y: 8 } }, held('blue-0')), plans(), fixedRng([0.5]));
+    expect(ev(noBall.events, 'duel')).toHaveLength(0);
+    const withBall = resolveTurn(scene({ ...shared, 'blue-0': { x: 3, y: 8 } }, held('blue-1')), plans(), fixedRng([0.9]));
+    const d = ev(withBall.events, 'duel')[0];
+    expect(d).toMatchObject({ forBall: true, aId: 'blue-1', bId: 'red-1', winnerId: 'red-1' });
+    expect(ballHolder(withBall.after)?.id).toBe('red-1');
+  });
+
+  it('at most one rng draw in the movement phase', () => {
+    const s = scene(
+      { 'blue-0': { x: 3, y: 5 }, 'red-0': { x: 3, y: 3 }, 'blue-1': { x: 1, y: 7 }, 'red-1': { x: 1, y: 6 } },
+      held('blue-0'),
+    );
+    let draws = 0;
+    const rng = { next: () => (draws++, 0.5) };
+    resolveTurn(s, plans({ moves: { 'blue-0': { x: 3, y: 3 }, 'blue-1': { x: 1, y: 6 } } }), rng);
+    expect(draws).toBe(1);
   });
 
   it('swap with the ball carrier runs a ball-only duel and keeps the swap', () => {
@@ -90,13 +130,41 @@ describe('movement', () => {
     expect(ev(r.events, 'duel')[0]).toMatchObject({ forBall: true, pos: { x: 3, y: 4 }, winnerId: 'red-0' });
   });
 
-  it('displaced player is not treated as a swapper (exactly one duel)', () => {
-    const s = scene({ 'blue-0': { x: 3, y: 5 }, 'red-1': { x: 2, y: 5 } }, held('blue-0'));
-    const r = resolveTurn(s, plans({ moves: { 'blue-0': { x: 2, y: 5 } } }), fixedRng([0.0, 0.99]));
-    expect(ev(r.events, 'duel')).toHaveLength(1);
-    expect(ev(r.events, 'displace')).toHaveLength(1);
-    expect(ballHolder(r.after)?.id).toBe('blue-0');
-    expect(getPlayer(r.after, 'blue-0').pos).toEqual({ x: 2, y: 5 });
+  it('contested loose ball: duel with loose flag (no carrier bonus), then pickup by the winner', () => {
+    const s = scene({ 'blue-0': { x: 3, y: 5 }, 'red-0': { x: 3, y: 3 } }, { kind: 'loose', pos: { x: 3, y: 4 } });
+    const mv = plans({ moves: { 'blue-0': { x: 3, y: 4 } } }, { moves: { 'red-0': { x: 3, y: 4 } } });
+    const r = resolveTurn(s, mv, fixedRng([0.9]));
+    const d = ev(r.events, 'duel')[0];
+    expect(d).toMatchObject({ loose: true, forBall: true, aId: 'blue-0', bId: 'red-0', winnerId: 'red-0' });
+    expect(d?.pAWins).toBeCloseTo(0.5);
+    expect(ballHolder(r.after)?.id).toBe('red-0');
+    expect(getPlayer(r.after, 'red-0').flags.wonBallTurn).toBe(1);
+    expect(getPlayer(r.after, 'blue-0').pos).toEqual({ x: 3, y: 4 });
+    expect(getPlayer(r.after, 'red-0').pos).toEqual({ x: 3, y: 4 });
+    const types = r.events.map((e) => e.type);
+    expect(types.indexOf('duel')).toBeLessThan(types.indexOf('move'));
+    expect(types.indexOf('move')).toBeLessThan(types.indexOf('pickup'));
+    expect(ev(r.events, 'pickup')).toEqual([{ type: 'pickup', playerId: 'red-0', pos: { x: 3, y: 4 } }]);
+    expect(describeEvent(d as TurnEvent, r.after)).toContain('こぼれ球');
+  });
+
+  it('uncontested loose ball: plain pickup, no duel, no rng', () => {
+    const s = scene({ 'blue-0': { x: 3, y: 5 }, 'red-0': { x: 3, y: 3 } }, { kind: 'loose', pos: { x: 3, y: 4 } });
+    let draws = 0;
+    const r = resolveTurn(s, plans({ moves: { 'blue-0': { x: 3, y: 4 } } }), { next: () => (draws++, 0.5) });
+    expect(ev(r.events, 'duel')).toHaveLength(0);
+    expect(ev(r.events, 'pickup')).toEqual([{ type: 'pickup', playerId: 'blue-0', pos: { x: 3, y: 4 } }]);
+    expect(draws).toBe(0);
+  });
+
+  it('displaced stayer goes to a completely empty cell and no duel follows', () => {
+    const s = scene({ 'blue-0': { x: 3, y: 5 }, 'blue-1': { x: 2, y: 5 }, 'red-1': { x: 2, y: 4 } }, held('blue-0'));
+    // blue-0 (holder) moves onto its stationary teammate blue-1 -> blue-1 displaced
+    const r = resolveTurn(s, plans({ moves: { 'blue-0': { x: 2, y: 5 } } }), fixedRng([0.5]));
+    expect(ev(r.events, 'duel')).toHaveLength(0);
+    const d = ev(r.events, 'displace')[0];
+    expect(d?.playerId).toBe('blue-1');
+    expect(r.after.players.filter((p) => p.pos.x === d?.to.x && p.pos.y === d?.to.y)).toHaveLength(1);
   });
 
   it('a genuine swap yields exactly one duel', () => {
@@ -310,7 +378,7 @@ describe('space pass', () => {
   });
   it('goes to an enemy standing on the target', () => {
     const s = scene({ ...base, 'red-3': { x: 3, y: 2 } }, held('blue-0'));
-    const r = resolveTurn(s, plans(sp(3, 2)), fixedRng([0.5]));
+    const r = resolveTurn(s, plans(sp(3, 2)), fixedRng([0.99, 0.5]));
     expect(ev(r.events, 'pass')[0]).toMatchObject({ space: true, outcome: 'toEnemy', receiverId: 'red-3' });
     expect(ballHolder(r.after)?.id).toBe('red-3');
     expect(getPlayer(r.after, 'red-3').flags.wonBallTurn).toBe(1);
@@ -452,5 +520,317 @@ describe('offside', () => {
     );
     expect(ev(r.events, 'offside')).toHaveLength(0);
     expect(ev(r.events, 'pass')[0]).toMatchObject({ space: true, outcome: 'loose' });
+  });
+});
+
+describe('v0.4 same-cell opponents during the ball action', () => {
+  it('an enemy in the kicker\'s cell never intercepts a ground pass', () => {
+    const pos = { 'blue-0': { x: 3, y: 5 }, 'red-0': { x: 3, y: 5 }, 'blue-1': { x: 3, y: 2 }, 'red-4': { x: 6, y: 0 } };
+    const s = scene(pos, held('blue-0'));
+    const pl = plans({ ballAction: { kind: 'pass', targetId: 'blue-1' } });
+    const r = resolveTurn(s, pl, fixedRng([0.0, 0.0]));
+    expect(ev(r.events, 'pass')[0]).toMatchObject({ outcome: 'complete' });
+    expect(estimatePass(s, 'blue-0', 'blue-1').interceptors).toHaveLength(0);
+  });
+
+  it('an enemy in the kicker\'s cell does not block a shot', () => {
+    const s = scene({ 'blue-0': { x: 3, y: 2 }, 'red-0': { x: 3, y: 2 } }, held('blue-0'));
+    expect(estimateShot(s, 'blue-0').blockers).toHaveLength(0);
+  });
+
+  it('an enemy in the receiver\'s cell is rolled last (ground)', () => {
+    const s = scene(
+      { 'blue-0': { x: 3, y: 6 }, 'blue-1': { x: 3, y: 2 }, 'red-0': { x: 3, y: 2 }, 'red-1': { x: 3, y: 4 } },
+      held('blue-0'),
+    );
+    const e = estimatePass(s, 'blue-0', 'blue-1');
+    expect(e.interceptors.map((i) => i.playerId)).toEqual(['red-1', 'red-0']);
+    const stats = getCharacter(getPlayer(s, 'red-0').charId).stats;
+    expect(e.interceptors[1]?.pIntercept).toBeCloseTo(interceptProbability(stats.intercept, 0));
+    // first roll misses, tight marker (second roll) succeeds
+    const r = resolveTurn(s, plans({ ballAction: { kind: 'pass', targetId: 'blue-1' } }), fixedRng([0.999, 0.0]));
+    expect(ev(r.events, 'pass')[0]).toMatchObject({ outcome: 'intercepted', interceptorId: 'red-0' });
+    expect(ballHolder(r.after)?.id).toBe('red-0');
+  });
+
+  it('an enemy in the receiver\'s cell is rolled last (lofted, aerial stat)', () => {
+    const s = scene({ 'blue-0': { x: 3, y: 9 }, 'blue-1': { x: 3, y: 2 }, 'red-0': { x: 3, y: 2 } }, held('blue-0'));
+    const e = estimatePass(s, 'blue-0', 'blue-1', undefined, undefined, undefined, 'lofted');
+    expect(e.interceptors.map((i) => i.playerId)).toEqual(['red-0']);
+    const stats = getCharacter(getPlayer(s, 'red-0').charId).stats;
+    expect(e.interceptors[0]?.pIntercept).toBeCloseTo(interceptProbability(stats.aerial, 0));
+  });
+
+  it('cross: aerial defender may stand in the receiver\'s own cell', () => {
+    const s = scene({ 'blue-1': { x: 1, y: 3 }, 'blue-0': { x: 3, y: 1 }, 'red-4': { x: 3, y: 1 } }, held('blue-1'));
+    expect(aerialDefender(s, 'blue', { x: 3, y: 1 }, { 'red-4': { x: 3, y: 1 } })?.id).toBe('red-4');
+    const r = resolveTurn(s, plans({ ballAction: { kind: 'cross', targetId: 'blue-0' } }), fixedRng([0.0, 0.9]));
+    expect(ev(r.events, 'cross')[0]).toMatchObject({ outcome: 'lost', defenderId: 'red-4' });
+  });
+
+  it('space pass to a cell shared by a teammate and an enemy: the teammate receives', () => {
+    for (const order of [['red-3', 'blue-1'], ['blue-1', 'red-3']]) {
+      const base = { 'blue-0': { x: 3, y: 5 }, 'red-4': { x: 6, y: 0 } };
+      const pos: Record<string, { x: number; y: number }> = { ...base };
+      for (const id of order) pos[id as string] = { x: 3, y: 2 };
+      const s = scene(pos, held('blue-0'));
+      // tight marker misses, accuracy succeeds
+      const r = resolveTurn(s, plans({ ballAction: { kind: 'spacePass', target: { x: 3, y: 2 } } }), fixedRng([0.99, 0.0]));
+      expect(ev(r.events, 'pass')[0]).toMatchObject({ outcome: 'complete', receiverId: 'blue-1' });
+      expect(ballHolder(r.after)?.id).toBe('blue-1');
+    }
+  });
+});
+
+// ---------------------------------------------------------------------------
+// v0.4 fix round: displace targets, kicker-cell cross, extra coverage
+// ---------------------------------------------------------------------------
+const draws = (values: number[]) => {
+  const inner = fixedRng(values);
+  let n = 0;
+  return { rng: { next: () => (n++, inner.next()) }, count: () => n };
+};
+const phys = (s: MatchState, id: string) => getEffectiveStats(s, getPlayer(s, id)).physical;
+
+describe('displace target (v0.4 fix)', () => {
+  it('never picks a cell another player started on (later bounce cannot land there)', () => {
+    // blue-0 (holder) moves onto stationary blue-1 at (2,5): blue-1 is displaced, nearest/own-goal-first
+    // candidate is (2,6) = origin of red-4, who then loses a red conflict at (2,7) and bounces home.
+    const s = scene(
+      { 'blue-0': { x: 3, y: 5 }, 'blue-1': { x: 2, y: 5 }, 'red-4': { x: 2, y: 6 }, 'red-3': { x: 2, y: 7 } },
+      held('blue-0'),
+    );
+    const r = resolveTurn(s, plans({ moves: { 'blue-0': { x: 2, y: 5 } } }, { moves: { 'red-4': { x: 2, y: 7 } } }), fixedRng([0.5]));
+    expect(ev(r.events, 'bounce').map((b) => b.playerId)).toContain('red-4');
+    const d = ev(r.events, 'displace');
+    expect(d).toHaveLength(1);
+    expect(d[0]?.playerId).toBe('blue-1');
+    expect(d[0]?.to).not.toEqual({ x: 2, y: 6 });
+    const cells = r.after.players.map((p) => `${p.team}:${p.pos.x},${p.pos.y}`);
+    expect(new Set(cells).size).toBe(cells.length);
+    // the displaced player shares its cell with nobody at all
+    const bp = getPlayer(r.after, 'blue-1').pos;
+    expect(r.after.players.filter((p) => p.pos.x === bp.x && p.pos.y === bp.y)).toHaveLength(1);
+  });
+
+  it('a player receives at most one displace event; the target is not any planned destination', () => {
+    // red-0 stays at (3,3); red-1 plans to enter it, red-2 plans (3,2) (candidate toward own goal) but is bounced.
+    const s = scene(
+      { 'red-0': { x: 3, y: 3 }, 'red-1': { x: 3, y: 2 }, 'red-2': { x: 2, y: 1 }, 'red-3': { x: 4, y: 1 }, 'blue-0': { x: 3, y: 8 } },
+      held('blue-0'),
+    );
+    const r = resolveTurn(
+      s,
+      plans({}, { moves: { 'red-1': { x: 3, y: 3 }, 'red-2': { x: 3, y: 2 }, 'red-3': { x: 3, y: 2 } } }),
+      fixedRng([0.5]),
+    );
+    const per = new Map<string, number>();
+    for (const e of ev(r.events, 'displace')) per.set(e.playerId, (per.get(e.playerId) ?? 0) + 1);
+    for (const n of per.values()) expect(n).toBe(1);
+    const cells = r.after.players.map((p) => `${p.team}:${p.pos.x},${p.pos.y}`);
+    expect(new Set(cells).size).toBe(cells.length);
+  });
+});
+
+describe('cross: kicker-cell enemy (v0.4 fix)', () => {
+  it('an enemy in the kicker\'s cell is not the aerial defender', () => {
+    const s = scene({ 'blue-1': { x: 1, y: 2 }, 'red-2': { x: 1, y: 2 }, 'blue-0': { x: 2, y: 2 } }, held('blue-1'));
+    const defs = { 'red-2': { x: 1, y: 2 } } as Record<string, { x: number; y: number }>;
+    expect(aerialDefender(s, 'blue', { x: 2, y: 2 }, defs, { x: 1, y: 2 })).toBeUndefined();
+    expect(aerialDefender(s, 'blue', { x: 2, y: 2 }, defs)?.id).toBe('red-2');
+    expect(estimateCross(s, 'blue-1', 'blue-0').defenderId).toBeUndefined();
+    const d = draws([0.0, 0.0, 0.99]); // carrier-cell duel (blue wins), delivery, header
+    const r = resolveTurn(s, plans({ ballAction: { kind: 'cross', targetId: 'blue-0' } }), d.rng);
+    expect(ev(r.events, 'duel').filter((e) => e.kind === 'aerial')).toHaveLength(0);
+    expect(ev(r.events, 'cross')[0]).toMatchObject({ outcome: 'uncontested' });
+  });
+});
+
+describe('ball duel roles and probabilities (v0.4)', () => {
+  it('holder swaps with X while Y moves into the holder destination: one duel against Y, one draw', () => {
+    const s = scene(
+      { 'blue-0': { x: 3, y: 5 }, 'red-0': { x: 3, y: 4 }, 'red-1': { x: 3, y: 3 } },
+      held('blue-0'),
+    );
+    const d = draws([0.5]);
+    const r = resolveTurn(
+      s,
+      plans({ moves: { 'blue-0': { x: 3, y: 4 } } }, { moves: { 'red-0': { x: 3, y: 5 }, 'red-1': { x: 3, y: 4 } } }),
+      d.rng,
+    );
+    expect(getPlayer(r.after, 'red-1').pos).toEqual({ x: 3, y: 4 });
+    expect(getPlayer(r.after, 'red-0').pos).toEqual({ x: 3, y: 5 });
+    const duels = ev(r.events, 'duel');
+    expect(duels).toHaveLength(1);
+    expect(duels[0]).toMatchObject({ aId: 'blue-0', bId: 'red-1', pos: { x: 3, y: 4 } });
+    expect(d.count()).toBe(1);
+  });
+
+  it('holder stays, enemy moves in: A is the mover', () => {
+    const s = scene({ 'blue-0': { x: 3, y: 5 }, 'red-0': { x: 3, y: 3 } }, held('blue-0'));
+    const r = resolveTurn(s, plans({}, { moves: { 'red-0': { x: 3, y: 5 } } }), fixedRng([0.5]));
+    const d = ev(r.events, 'duel')[0];
+    expect(d).toMatchObject({ aId: 'red-0', bId: 'blue-0', forBall: true });
+    expect(d?.pAWins).toBeCloseTo(1 - duelWinProbability(phys(s, 'blue-0'), phys(s, 'red-0'), { carrierIsA: true }));
+  });
+
+  it('red holder tackled by blue: A = blue (mover), carrier bonus goes to B', () => {
+    const s = scene({ 'red-0': { x: 3, y: 5 }, 'blue-0': { x: 3, y: 7 } }, held('red-0'));
+    const r = resolveTurn(s, plans({ moves: { 'blue-0': { x: 3, y: 5 } } }), fixedRng([0.5]));
+    const d = ev(r.events, 'duel')[0];
+    expect(d).toMatchObject({ aId: 'blue-0', bId: 'red-0' });
+    expect(d?.pAWins).toBeCloseTo(1 - duelWinProbability(phys(s, 'red-0'), phys(s, 'blue-0'), { carrierIsA: true }));
+  });
+
+  it('both already share the cell and both stay: A = blue', () => {
+    const shared = { 'blue-1': { x: 2, y: 5 }, 'red-1': { x: 2, y: 5 }, 'blue-0': { x: 3, y: 8 } };
+    for (const holderId of ['blue-1', 'red-1']) {
+      const s = scene(shared, held(holderId));
+      const d = draws([0.5]);
+      const r = resolveTurn(s, plans(), d.rng);
+      const e = ev(r.events, 'duel')[0];
+      expect(e).toMatchObject({ aId: 'blue-1', bId: 'red-1' });
+      const expected =
+        holderId === 'blue-1'
+          ? duelWinProbability(phys(s, 'blue-1'), phys(s, 'red-1'), { carrierIsA: true })
+          : 1 - duelWinProbability(phys(s, 'red-1'), phys(s, 'blue-1'), { carrierIsA: true });
+      expect(e?.pAWins).toBeCloseTo(expected);
+      expect(d.count()).toBe(1);
+    }
+  });
+
+  it('swap duel where the holder loses: foe gets the ball and wonBallTurn, positions stay swapped', () => {
+    const s = scene({ 'blue-0': { x: 3, y: 5 }, 'red-0': { x: 3, y: 4 } }, held('blue-0'), { turn: 4 });
+    const r = resolveTurn(s, plans({ moves: { 'blue-0': { x: 3, y: 4 } } }, { moves: { 'red-0': { x: 3, y: 5 } } }), fixedRng([0.99]));
+    expect(ballHolder(r.after)?.id).toBe('red-0');
+    expect(getPlayer(r.after, 'red-0').flags.wonBallTurn).toBe(4);
+    expect(getPlayer(r.after, 'blue-0').pos).toEqual({ x: 3, y: 4 });
+    expect(getPlayer(r.after, 'red-0').pos).toEqual({ x: 3, y: 5 });
+  });
+
+  it('loose-ball duel winner gets wonBallTurn; an uncontested pickup does not', () => {
+    const loose = { kind: 'loose', pos: { x: 3, y: 4 } } as const;
+    const s = scene({ 'blue-0': { x: 3, y: 5 }, 'red-0': { x: 3, y: 3 } }, loose, { turn: 3 });
+    const both = resolveTurn(s, plans({ moves: { 'blue-0': { x: 3, y: 4 } } }, { moves: { 'red-0': { x: 3, y: 4 } } }), fixedRng([0.0]));
+    expect(ballHolder(both.after)?.id).toBe('blue-0');
+    expect(getPlayer(both.after, 'blue-0').flags.wonBallTurn).toBe(3);
+    const solo = resolveTurn(s, plans({ moves: { 'blue-0': { x: 3, y: 4 } } }), fixedRng([0.5]));
+    expect(getPlayer(solo.after, 'blue-0').flags.wonBallTurn).toBeUndefined();
+  });
+});
+
+describe('ball action after a won duel (v0.4)', () => {
+  // blue-0 walks onto red-0 (carrier-cell duel, rng 0.0 = win) and then acts; red-3/red-4 deep to keep blue-1 onside.
+  const pos = {
+    'blue-0': { x: 3, y: 6 }, 'red-0': { x: 3, y: 4 }, 'blue-1': { x: 3, y: 2 },
+    'red-4': { x: 6, y: 0 }, 'red-3': { x: 6, y: 1 },
+  };
+  const move = { 'blue-0': { x: 3, y: 4 } };
+
+  for (const style of ['ground', 'lofted'] as const) {
+    it(`${style} pass: the duel loser in the kicker's cell never intercepts`, () => {
+      const s = scene(pos, held('blue-0'));
+      const d = draws([0.0, 0.0]);
+      const r = resolveTurn(s, plans({ moves: move, ballAction: { kind: 'pass', targetId: 'blue-1', style } }), d.rng);
+      expect(ev(r.events, 'duel')[0]).toMatchObject({ winnerId: 'blue-0' });
+      expect(ev(r.events, 'pass')[0]).toMatchObject({ outcome: 'complete', style });
+      expect(d.count()).toBe(2); // duel + accuracy; no interception rolls
+    });
+  }
+
+  it('shot: the duel loser in the kicker\'s cell never blocks', () => {
+    const s = scene(pos, held('blue-0'));
+    const d = draws([0.0, 0.0]);
+    const r = resolveTurn(s, plans({ moves: move, ballAction: { kind: 'shoot' } }), d.rng);
+    expect(ev(r.events, 'shot')[0]).toMatchObject({ outcome: 'goal' });
+    expect(d.count()).toBe(2); // duel + goal roll
+  });
+});
+
+describe('space pass cells (v0.4)', () => {
+  const base = { 'blue-0': { x: 3, y: 5 }, 'red-4': { x: 6, y: 0 }, 'red-3': { x: 6, y: 1 } };
+  const sp = { ballAction: { kind: 'spacePass', target: { x: 3, y: 2 } } } as const;
+  it('enemy only: tight marker misses, accuracy passes -> toEnemy, two draws', () => {
+    const s = scene({ ...base, 'red-2': { x: 3, y: 2 } }, held('blue-0'));
+    const d = draws([0.99, 0.0]);
+    const r = resolveTurn(s, plans(sp), d.rng);
+    expect(ev(r.events, 'pass')[0]).toMatchObject({ outcome: 'toEnemy', receiverId: 'red-2' });
+    expect(d.count()).toBe(2);
+  });
+  it('teammate + enemy: the tight marker is rolled and can intercept', () => {
+    const s = scene({ ...base, 'blue-1': { x: 3, y: 2 }, 'red-2': { x: 3, y: 2 } }, held('blue-0'));
+    const d = draws([0.0]);
+    const r = resolveTurn(s, plans(sp), d.rng);
+    expect(ev(r.events, 'pass')[0]).toMatchObject({ outcome: 'intercepted', interceptorId: 'red-2' });
+    expect(ballHolder(r.after)?.id).toBe('red-2');
+    expect(d.count()).toBe(1);
+  });
+});
+
+describe('offside with a shared receiver cell (v0.4)', () => {
+  it('the defender sharing the receiver\'s cell gets the ball, zero draws', () => {
+    // With the default k=1 a sharer is always level with the last defender (onside), so use k=2 here.
+    const cfg = RULES.offside as { lastDefenders: number };
+    const saved = cfg.lastDefenders;
+    cfg.lastDefenders = 2;
+    try {
+      const s = scene(
+        { 'blue-0': { x: 3, y: 6 }, 'blue-1': { x: 3, y: 2 }, 'red-4': { x: 3, y: 2 }, 'red-3': { x: 1, y: 4 } },
+        held('blue-0'),
+      );
+      const d = draws([]);
+      const r = resolveTurn(s, plans({ ballAction: { kind: 'pass', targetId: 'blue-1' } }), d.rng);
+      expect(ev(r.events, 'offside')[0]).toMatchObject({ receiverId: 'blue-1', toPlayerId: 'red-4' });
+      expect(ballHolder(r.after)?.id).toBe('red-4');
+      expect(d.count()).toBe(0);
+    } finally {
+      cfg.lastDefenders = saved;
+    }
+  });
+});
+
+describe('invariants over seeded random play (v0.4)', () => {
+  it('holds over ~300 turns of AI and random plans', () => {
+    const rank: Record<string, number> = { bounce: 0, displace: 0, duel: 1, move: 2, pickup: 3 };
+    let turns = 0;
+    for (let seed = 1; seed <= 15; seed++) {
+      const rng = createRng(seed);
+      let state = createMatch({ maxTurns: 20 });
+      while (state.phase !== 'finished') {
+        const random = seed % 2 === 0;
+        const mk = (team: 'blue' | 'red') => {
+          if (!random) return planAiTurn(state, team, rng);
+          const moves: Record<string, { x: number; y: number }> = {};
+          for (const p of state.players.filter((q) => q.team === team)) {
+            const t = legalMoveTargets(state, p.id);
+            if (t.length > 0 && rng.next() < 0.8) moves[p.id] = t[Math.floor(rng.next() * t.length)] as { x: number; y: number };
+          }
+          return { team, moves, ballAction: { kind: 'keep' as const } };
+        };
+        const pl = { blue: mk('blue'), red: mk('red') };
+        const mvEvents = resolveMovement(state, pl, createRng(seed * 1000 + turns)).events;
+        const r = resolveTurn(state, pl, createRng(seed * 1000 + turns));
+        turns++;
+        const order = mvEvents.map((e) => rank[e.type] as number);
+        expect(order).toEqual([...order].sort((a, b) => a - b));
+        expect(mvEvents.filter((e) => e.type === 'duel').length).toBeLessThanOrEqual(1);
+        for (const e of mvEvents) {
+          if (e.type === 'bounce') expect(e.reason).toBe('teammate');
+          if (e.type === 'duel') expect(e.forBall).toBe(true);
+        }
+        const dis = new Map<string, number>();
+        for (const e of mvEvents) if (e.type === 'displace') dis.set(e.playerId, (dis.get(e.playerId) ?? 0) + 1);
+        for (const n of dis.values()) expect(n).toBe(1);
+        const seen = new Set<string>();
+        for (const p of r.afterAction.players) {
+          expect(p.pos.x >= 0 && p.pos.x < 7 && p.pos.y >= 0 && p.pos.y < 10).toBe(true);
+          const k = `${p.team}:${p.pos.x},${p.pos.y}`;
+          expect(seen.has(k)).toBe(false);
+          seen.add(k);
+        }
+        state = r.after;
+      }
+    }
+    expect(turns).toBeGreaterThanOrEqual(300);
   });
 });

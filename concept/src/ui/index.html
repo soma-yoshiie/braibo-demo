@@ -1,0 +1,645 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<title>BRAIBO 構想資料02 UIビジュアル案</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=Noto+Sans+JP:wght@400;500;700;900&family=Zen+Kaku+Gothic+New:wght@700;900&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@900&family=Rajdhani:wght@700&family=Inter:wght@600&family=Dela+Gothic+One&family=Bebas+Neue&family=M+PLUS+Rounded+1c:wght@800&family=Shippori+Mincho+B1:wght@800&family=Zen+Old+Mincho:wght@700&family=Cormorant+Garamond:wght@700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../shared/doc.css">
+<style>
+/* Phone frames */
+.phone { position: relative; flex: 0 0 auto; width: var(--w, 55mm); padding: calc(var(--w, 55mm) * .024); border-radius: calc(var(--w, 55mm) * .115);
+  background: linear-gradient(160deg, #2b303b, #0a0c11 40%, #1a1d25); box-shadow: 0 1.4mm 3.2mm rgba(15,27,45,.30); }
+.phone img { display: block; width: 100%; height: auto; border-radius: calc(var(--w, 55mm) * .092); }
+.shot { display: flex; flex-direction: column; align-items: center; gap: 1.8mm; flex: 0 0 auto; }
+.shot .cp { font-size: 7.4pt; font-weight: 700; color: var(--sub); letter-spacing: .04em; text-align: center; line-height: 1.4; }
+.shot .cp b { color: var(--ink); }
+.mkr { position: absolute; width: 5.4mm; height: 5.4mm; border-radius: 50%; background: var(--red); color: #fff; border: .45mm solid #fff;
+  font-family: 'Barlow Condensed', sans-serif; font-weight: 700; font-size: 9.4pt; line-height: 4.5mm; text-align: center; transform: translate(-50%, -50%); box-shadow: 0 .5mm 1.2mm rgba(0,0,0,.45); }
+ol.rules.red li::before { background: var(--red); }
+
+/* Cover strip */
+.cvr { display: flex; justify-content: space-between; margin-top: 8mm; }
+.cvr .shot .cp { color: #c9d4ea; font-family: 'Barlow Condensed', 'Noto Sans JP', sans-serif; font-size: 8.6pt; letter-spacing: .16em; }
+.cvr .shot .cp b { color: var(--amber); margin-right: 1.2mm; }
+.cvr .phone { box-shadow: 0 2mm 5mm rgba(0,0,0,.5); }
+
+/* Positioning map */
+.map { position: relative; height: 70mm; border-radius: 3mm; background: var(--tint); margin: 0 0 3mm; }
+.map::before { content: ''; position: absolute; left: 50%; top: 7mm; bottom: 7mm; border-left: .3mm solid #c5cedd; }
+.map::after { content: ''; position: absolute; top: 50%; left: 7mm; right: 7mm; border-top: .3mm solid #c5cedd; }
+.map .ax { position: absolute; font-size: 7.2pt; font-weight: 700; color: var(--sub); letter-spacing: .06em; background: var(--tint); padding: 0 1.8mm; white-space: nowrap; z-index: 1; }
+.map .it { position: absolute; display: flex; gap: 2.6mm; align-items: center; transform: translate(-50%, -50%); z-index: 2; }
+.map .th { flex: 0 0 auto; width: 17mm; height: 24mm; border-radius: 1.8mm; overflow: hidden; box-shadow: 0 .8mm 2mm rgba(15,27,45,.32); border: .5mm solid #fff; }
+.map .th img { display: block; width: 100%; height: 100%; object-fit: cover; object-position: 50% 32%; }
+.map .it b { display: block; font-family: 'Zen Kaku Gothic New', sans-serif; font-weight: 900; font-size: 9.4pt; line-height: 1.3; white-space: nowrap; }
+.map .it b i { font-style: normal; font-family: 'Barlow Condensed', sans-serif; font-size: 11pt; color: var(--blue); margin-right: 1.2mm; }
+.map .it small { display: block; font-size: 7.2pt; color: var(--sub); line-height: 1.45; white-space: nowrap; }
+
+/* Gallery */
+.gal { display: grid; grid-template-columns: repeat(4, 1fr); column-gap: 4mm; row-gap: 2.6mm; justify-items: center; margin-bottom: 3mm; }
+.gal .hd { text-align: center; line-height: 1.3; }
+.gal .hd i { display: block; font-style: normal; font-family: 'Barlow Condensed', sans-serif; font-weight: 700; font-size: 17pt; color: var(--blue); line-height: 1; }
+.gal .hd b { display: block; font-family: 'Zen Kaku Gothic New', sans-serif; font-weight: 900; font-size: 9.6pt; margin-top: .6mm; }
+.gal .hd small { display: block; font-size: 7.2pt; color: var(--sub); }
+.gal .rl { grid-column: 1 / -1; justify-self: stretch; font-size: 7.6pt; font-weight: 700; letter-spacing: .1em; color: var(--sub); border-bottom: .3mm solid var(--line); padding-bottom: 1mm; margin-top: 1mm; }
+.gal .rl i { font-style: normal; font-family: 'Barlow Condensed', sans-serif; font-size: 8.6pt; letter-spacing: .14em; color: #fff; background: var(--ink); border-radius: 1mm; padding: .4mm 1.8mm; margin-right: 2mm; }
+
+/* Direction pages */
+.dtop { display: flex; gap: 5mm; align-items: flex-start; margin: 0 0 3.2mm; }
+.dtop .phone { --w: 51mm; }
+.spec { flex: 1 1 0; min-width: 0; }
+.spec h4 { font-size: 7.4pt; letter-spacing: .14em; color: var(--sub); font-weight: 700; margin: 0 0 1.6mm; padding-bottom: 1mm; border-bottom: .3mm solid var(--line); }
+.spec h4:not(:first-child) { margin-top: 3.6mm; }
+.sw { display: flex; align-items: center; gap: 2.4mm; margin-bottom: 1.35mm; font-size: 7.7pt; line-height: 1.3; }
+.sw i { flex: 0 0 auto; width: 7.4mm; height: 7.4mm; border-radius: 1.7mm; border: .25mm solid rgba(15,27,45,.2); }
+.sw b { display: block; font-weight: 700; }
+.sw code { font-family: 'Barlow Condensed', sans-serif; font-weight: 600; font-size: 8.2pt; letter-spacing: .08em; color: var(--sub); }
+.ty { border: .3mm solid var(--line); border-radius: 2mm; padding: 1.5mm 2.6mm 1.3mm; margin-bottom: 1.4mm; }
+.ty .s { font-size: 15pt; line-height: 1.2; white-space: nowrap; overflow: hidden; color: var(--ink); }
+.ty small { display: block; font-size: 6.9pt; color: var(--sub); margin-top: .5mm; line-height: 1.35; }
+.kw { display: flex; flex-wrap: wrap; gap: 1.2mm; }
+.kw span { font-size: 7.4pt; font-weight: 700; line-height: 1; padding: 1.3mm 2.2mm; border-radius: 10mm; background: var(--tint); color: var(--ink); }
+.dirno { font-family: 'Barlow Condensed', sans-serif; font-weight: 700; font-size: 38pt; line-height: .9; color: var(--blue); }
+.sec .en { font-family: 'Barlow Condensed', sans-serif; font-weight: 600; font-size: 9pt; letter-spacing: .22em; color: var(--mute); margin-bottom: .4mm; }
+table.need td { padding: 1.5mm 2mm; font-size: 8.1pt; }
+table.need td:first-child { width: 31%; font-weight: 700; white-space: nowrap; }
+table.cmp th, table.cmp td { text-align: center; }
+table.cmp th:first-child, table.cmp td:first-child { text-align: left; }
+table.cmp td small { display: block; font-size: 7.1pt; color: var(--sub); line-height: 1.35; margin-top: .4mm; }
+.who { display: grid; grid-template-columns: repeat(4, 1fr); gap: 3mm; margin: 0 0 3mm; }
+.who > div { border: .3mm solid var(--line); border-top: 1mm solid var(--ink); border-radius: 2mm; padding: 2.2mm 2.6mm 2mm; font-size: 8.1pt; line-height: 1.55; }
+.who > div.rec { border-top-color: var(--blue); background: #f3f7ff; }
+.who b { display: block; font-size: 8.8pt; margin-bottom: .6mm; }
+.who b i { font-style: normal; font-family: 'Barlow Condensed', sans-serif; font-size: 11pt; color: var(--blue); margin-right: 1.2mm; }
+.pick { display: flex; gap: 5mm; align-items: center; background: var(--tint); border-radius: 3mm; padding: 4mm 5mm; margin: 0 0 3.4mm; }
+.pick .txt { flex: 1 1 0; min-width: 0; }
+.pick .txt .big { font-family: 'Zen Kaku Gothic New', sans-serif; font-weight: 900; font-size: 15pt; line-height: 1.35; margin-bottom: 1.6mm; }
+.pick .txt .big em { font-style: normal; color: var(--blue); }
+.pick .txt p { font-size: 8.8pt; margin-bottom: 1.4mm; }
+.chk { list-style: none; columns: 2; column-gap: 6mm; margin: 0 0 3mm; }
+.chk li { position: relative; padding-left: 5.4mm; margin-bottom: 1.5mm; font-size: 8.5pt; line-height: 1.55; break-inside: avoid; }
+.chk li::before { content: ''; position: absolute; left: 0; top: 1mm; width: 3.4mm; height: 3.4mm; border-radius: .8mm; border: .4mm solid var(--blue); }
+.chk li::after { content: ''; position: absolute; left: 1.05mm; top: 1.5mm; width: 1.2mm; height: 2mm; border: solid var(--blue); border-width: 0 .45mm .45mm 0; transform: rotate(40deg); }
+.steps li { padding-top: 1.6mm; padding-bottom: 1.6mm; margin-bottom: 1.5mm; }
+.steps li::before { top: 2mm; }
+</style>
+</head>
+<body>
+
+<!-- ===== 1 cover ===== -->
+<section class="page cover" data-safe="40">
+  <div class="grid"></div><div class="glow"></div><div class="glow2"></div>
+  <div class="in body">
+    <div class="brand"><span>BRAIBO</span> ブレイボ ／ 構想資料</div>
+    <div class="docno" style="margin-top:15mm">CONCEPT 02 ・ VISUAL DESIGN</div>
+    <h1>「自作ゲーム感」を抜け出す<br><em>4つのビジュアル案</em></h1>
+    <p class="sub" style="margin-top:5mm">いまの画面は遊べますが、見た目は試作品のままです。商用のスマホゲームとして通用する見た目の方向を4つ、実寸の画面モックアップつきでまとめました。</p>
+    <div class="cvr">
+      <div class="shot"><div class="phone" style="--w:36mm"><img src="img/a-1.jpg" alt=""></div><div class="cp"><b>A</b>NEON STADIUM</div></div>
+      <div class="shot"><div class="phone" style="--w:36mm"><img src="img/b-1.jpg" alt=""></div><div class="cp"><b>B</b>PRO TACTICS BOARD</div></div>
+      <div class="shot"><div class="phone" style="--w:36mm"><img src="img/c-1.jpg" alt=""></div><div class="cp"><b>C</b>ANIME BATTLE</div></div>
+      <div class="shot"><div class="phone" style="--w:36mm"><img src="img/d-1.jpg" alt=""></div><div class="cp"><b>D</b>KOMA 和モダン</div></div>
+    </div>
+    <div class="sum">
+      <h2>SUMMARY ・ 先に結論</h2>
+      <ul>
+        <li><i>01</i><b>原因。</b>自作っぽさの正体は、絵の上手さではありません。色、文字、形、動きの「決めごと」が少なく、世界観が決まっていないことです。</li>
+        <li><i>02</i><b>4つの案。</b>A ネオンスタジアム、B プロ戦術ボード、C アニメキャラクターバトル、D 駒（和モダン）。それぞれ作戦画面と競り合い演出の2画面を用意しました。</li>
+        <li><i>03</i><b>推奨。</b>本命は D「駒」です。「サッカー×将棋」が一目で伝わり、イラストなしで作れます。無難に進めるなら B。キャラクター絵を用意できる段階で C の要素を足します。</li>
+      </ul>
+    </div>
+    <div class="meta"><span>2026-11-09 ／ v0.4 時点の画面と比較</span><span>全11ページ</span></div>
+  </div>
+</section>
+
+<!-- ===== 2 gap analysis ===== -->
+<section class="page">
+  <div class="ph"><span>BRAIBO <b>CONCEPT 02</b></span><span class="ph-r">UIビジュアル案</span></div>
+  <div class="body">
+    <div class="sec"><div class="no"><small>CHAPTER</small>01</div><div><h1>いまの画面が「自作っぽく」見える理由</h1></div></div>
+    <p class="lead">原因は絵の上手さではありません。<em>見た目の決めごとが足りず、世界観が決まっていない</em>ことです。</p>
+    <div class="dtop" style="gap:6mm">
+      <div class="shot">
+        <div class="phone" style="--w:42mm"><img src="img/current-plan.jpg" alt="">
+          <span class="mkr" style="left:87%;top:56.5%">1</span>
+          <span class="mkr" style="left:14%;top:30%">2</span>
+          <span class="mkr" style="left:86%;top:8%">3</span>
+          <span class="mkr" style="left:60%;top:91%">4</span>
+          <span class="mkr" style="left:50%;top:86.3%">6</span>
+        </div>
+        <div class="cp">いまの作戦画面</div>
+      </div>
+      <div class="shot">
+        <div class="phone" style="--w:42mm"><img src="img/current-duel.jpg" alt="">
+          <span class="mkr" style="left:76%;top:41.5%">5</span>
+          <span class="mkr" style="left:50%;top:86.3%">6</span>
+        </div>
+        <div class="cp">いまの競り合いの結果表示</div>
+      </div>
+      <div class="spec">
+        <ol class="rules red">
+          <li><b>選手が「色の丸と英字2文字」。</b>10人全員が同じ形で、役割や個性が形から読めません。主役が記号のままです。</li>
+          <li><b>ピッチに質感がない。</b>縞と白線だけで、光や素材の手ざわりがありません。画面の大半を占める場所が「図」に見えます。</li>
+          <li><b>部品がどのアプリにもある形。</b>角丸のボタンとカプセル型の表示は汎用品です。このゲーム専用に見える形や書体がありません。</li>
+          <li><b>色が標準色の組み合わせ。</b>青、赤、緑、金だけで、世界観を作る素材の色がありません。配色から作品の空気が伝わりません。</li>
+          <li><b>見せ場が小さい。</b>競り合いの勝敗は選手の横の小さな札で終わります。一番盛り上がる瞬間が流れてしまいます。</li>
+          <li><b>盤面の外に何もない。</b>チーム名、エンブレム、選手カードがなく、下には空きがあります。誰の試合なのかが見えません。</li>
+        </ol>
+      </div>
+    </div>
+    <div class="callout blue"><b>直すのは「皮」と「演出」です。</b>操作の骨格は今のままで通用します。下の左側はどの案でもそのまま生かし、右側を作り替えます。</div>
+    <div class="pm">
+      <div><h4>残すもの</h4><ul>
+        <li>1画面に収まる縦持ちの構成</li>
+        <li>選手をタップして移動先や行動を選ぶ流れ</li>
+        <li>移動先、予定線、成功率の表示</li>
+        <li>勝敗を色だけでなく文字でも示す表示</li>
+      </ul></div>
+      <div class="use"><h4>作り替えるもの</h4><ul>
+        <li>選手の形と、ピッチの質感</li>
+        <li>書体、配色、ボタンやパネルの形</li>
+        <li>競り合い、ゴール、オフサイドの演出</li>
+        <li>選手カード、チーム名、タイトルなど盤面の外</li>
+      </ul></div>
+    </div>
+    <h3>4つの案に共通する考え方</h3>
+    <p>商用ゲームの画面は、特別な技術で作られているわけではありません。「舞台はどこか」「選手は何でできているか」「押せる場所は何色か」といった決めごとを先に置き、画面の隅までそれを守っています。次のページで決めごとを7つに整理し、そのあと4つの案を順に見ていきます。</p>
+  </div>
+  <div class="foot"><span>BRAIBO 構想資料 02</span><span class="pn"></span></div>
+</section>
+
+<!-- ===== 3 principles + map ===== -->
+<section class="page">
+  <div class="ph"><span>BRAIBO <b>CONCEPT 02</b></span><span class="ph-r">UIビジュアル案</span></div>
+  <div class="body">
+    <div class="sec"><div class="no"><small>CHAPTER</small>02</div><div><h1>商用ゲームに見える7つの決めごと</h1></div></div>
+    <p class="lead">4つの案は、<em>同じ7項目に別の答えを出したもの</em>です。どの案を選んでも、この7つを最後まで守れば自作っぽさは消えます。</p>
+    <table>
+      <thead><tr><th style="width:15%">決めごと</th><th style="width:27%">いまの状態</th><th>決めること</th></tr></thead>
+      <tbody>
+        <tr><td><span class="nm">1　世界観</span></td><td>なし。一般的なスポーツ配色</td><td>一言で言える舞台を1つ決める。例は「夜のネオン競技場」「将棋盤の上のサッカー」。</td></tr>
+        <tr><td><span class="nm">2　選手の形</span></td><td>色の丸と英字2文字</td><td>役割が形や絵で分かるようにする。チームの違いは色と形の両方で示す。</td></tr>
+        <tr><td><span class="nm">3　素材感</span></td><td>平らなグラデーション</td><td>素材を1〜2種類に絞る。光の向きを1つ決め、影とハイライトを全部品でそろえる。</td></tr>
+        <tr><td><span class="nm">4　文字</span></td><td>丸ゴシックと数字用の2書体</td><td>見出し、数字、本文の3役に書体を割り当てる。大きさは4段階に固定する。</td></tr>
+        <tr><td><span class="nm">5　色</span></td><td>青、赤、緑、金</td><td>背景、チーム2色、強調、警告の5色に限る。強調色は「押せる場所」にだけ使う。</td></tr>
+        <tr><td><span class="nm">6　見せ場</span></td><td>小さな札とバナー</td><td>競り合い、ゴール、オフサイド、試合終了に全画面の演出を用意する。動きの速さと緩急をそろえる。</td></tr>
+        <tr><td><span class="nm">7　盤面の外</span></td><td>空き</td><td>選手カード、チーム名、エンブレムを常に見せる。タイトル画面とアプリアイコンまで同じ世界観で作る。</td></tr>
+      </tbody>
+    </table>
+    <h3>4つの案の位置づけ</h3>
+    <div class="map">
+      <span class="ax" style="left:50%;top:2.6mm;transform:translateX(-50%)">熱く盛り上がる</span>
+      <span class="ax" style="left:50%;bottom:2.6mm;transform:translateX(-50%)">落ち着いて考える</span>
+      <span class="ax" style="left:3mm;top:50%;transform:translateY(-50%)">現実のサッカー寄り</span>
+      <span class="ax" style="right:3mm;top:50%;transform:translateY(-50%)">独自の世界寄り</span>
+      <div class="it" style="left:27%;top:27%"><div class="th"><img src="img/a-1.jpg" alt=""></div><div><b><i>A</i>ネオンスタジアム</b><small>対戦中継の緊張感<br>光と数字で見せる</small></div></div>
+      <div class="it" style="left:27%;top:74%"><div class="th"><img src="img/b-1.jpg" alt=""></div><div><b><i>B</i>プロ戦術ボード</b><small>本物の芝と分析画面<br>読みやすさ最優先</small></div></div>
+      <div class="it" style="left:74%;top:27%"><div class="th"><img src="img/c-1.jpg" alt=""></div><div><b><i>C</i>アニメキャラクターバトル</b><small>顔と名前のある選手<br>少年マンガの勢い</small></div></div>
+      <div class="it" style="left:74%;top:74%"><div class="th"><img src="img/d-1.jpg" alt=""></div><div><b><i>D</i>駒（和モダン）</b><small>将棋盤の上のサッカー<br>木と和紙と金</small></div></div>
+    </div>
+    <div class="callout"><b>モックアップについて。</b>次ページ以降の画面は、同じ場面を4通りに描いたものです。青の7番がボールを持ち、9番が裏へ走る作戦画面と、9番と赤4番の競り合いです。すべてコードだけで描いており、写真やイラストの素材は使っていません。Cのキャラクター絵だけは仮の絵です。</div>
+  </div>
+  <div class="foot"><span>BRAIBO 構想資料 02</span><span class="pn"></span></div>
+</section>
+
+<!-- ===== 4 gallery ===== -->
+<section class="page">
+  <div class="ph"><span>BRAIBO <b>CONCEPT 02</b></span><span class="ph-r">UIビジュアル案</span></div>
+  <div class="body">
+    <div class="sec"><div class="no"><small>CHAPTER</small>03</div><div><h1>4つの案を並べて見る</h1></div></div>
+    <p class="lead">同じ盤面、同じ情報でも、<em>決めごとが変わると別のゲームに見えます</em>。</p>
+    <div class="gal">
+      <div class="hd"><i>A</i><b>ネオンスタジアム</b><small>NEON STADIUM</small></div>
+      <div class="hd"><i>B</i><b>プロ戦術ボード</b><small>PRO TACTICS BOARD</small></div>
+      <div class="hd"><i>C</i><b>アニメキャラクターバトル</b><small>ANIME CHARACTER BATTLE</small></div>
+      <div class="hd"><i>D</i><b>駒（和モダン）</b><small>KOMA</small></div>
+      <div class="rl"><i>SCREEN 1</i>作戦画面。選手を選び、移動とパスを指示しているところ</div>
+      <div class="phone" style="--w:38mm"><img src="img/a-1.jpg" alt=""></div>
+      <div class="phone" style="--w:38mm"><img src="img/b-1.jpg" alt=""></div>
+      <div class="phone" style="--w:38mm"><img src="img/c-1.jpg" alt=""></div>
+      <div class="phone" style="--w:38mm"><img src="img/d-1.jpg" alt=""></div>
+      <div class="rl"><i>SCREEN 2</i>見せ場。競り合いが起きた瞬間の全画面演出</div>
+      <div class="phone" style="--w:38mm"><img src="img/a-2.jpg" alt=""></div>
+      <div class="phone" style="--w:38mm"><img src="img/b-2.jpg" alt=""></div>
+      <div class="phone" style="--w:38mm"><img src="img/c-2.jpg" alt=""></div>
+      <div class="phone" style="--w:38mm"><img src="img/d-2.jpg" alt=""></div>
+    </div>
+    <p class="small">チーム名の「蒼嵐」「紅蓮」、選手の二つ名やセリフは、モックアップ用の仮の設定です。画面はスマホの実寸（幅390ポイント）で作っており、いまの盤面（横7マス、縦10マス）と操作をそのまま載せています。</p>
+  </div>
+  <div class="foot"><span>BRAIBO 構想資料 02</span><span class="pn"></span></div>
+</section>
+
+<!-- ===== 5 direction A ===== -->
+<section class="page">
+  <div class="ph"><span>BRAIBO <b>CONCEPT 02</b></span><span class="ph-r">UIビジュアル案</span></div>
+  <div class="body">
+    <div class="sec"><div class="dirno">A</div><div><div class="en">NEON STADIUM</div><h1>ネオンスタジアム</h1><div class="tags"><span class="tag">イラスト不要</span><span class="tag">対戦、競技向け</span><span class="tag warn">暗い画面</span></div></div></div>
+    <p class="lead">夜の競技場を見下ろす<em>eスポーツ中継</em>の画面です。暗い紺の上で、チームの光だけが動きます。</p>
+    <div class="dtop">
+      <div class="shot"><div class="phone"><img src="img/a-1.jpg" alt=""></div><div class="cp">作戦画面</div></div>
+      <div class="shot"><div class="phone"><img src="img/a-2.jpg" alt=""></div><div class="cp">競り合いの演出</div></div>
+      <div class="spec">
+        <h4>色</h4>
+        <div class="sw"><i style="background:#050913"></i><span><b>背景。夜の紺</b><code>#050913</code></span></div>
+        <div class="sw"><i style="background:#21d4fd"></i><span><b>青チーム。シアン</b><code>#21D4FD</code></span></div>
+        <div class="sw"><i style="background:#ff2d78"></i><span><b>赤チーム。マゼンタ</b><code>#FF2D78</code></span></div>
+        <div class="sw"><i style="background:#c6ff3d"></i><span><b>強調。ライム</b><code>#C6FF3D</code></span></div>
+        <div class="sw"><i style="background:#ffb020"></i><span><b>警告。アンバー</b><code>#FFB020</code></span></div>
+        <h4>書体</h4>
+        <div class="ty"><div class="s" style="font-family:'Orbitron';font-weight:900">DUEL 38%</div><small>Orbitron Black。見出しと大きな数字</small></div>
+        <div class="ty"><div class="s" style="font-family:'Rajdhani';font-weight:700;letter-spacing:.12em">TURN 07/20</div><small>Rajdhani Bold。ラベルと小さな数字</small></div>
+        <div class="ty"><div class="s" style="font-family:'Zen Kaku Gothic New';font-weight:700;font-size:13pt">競り合い　実行</div><small>Zen Kaku Gothic New。日本語</small></div>
+        <h4>キーワード</h4>
+        <div class="kw"><span>発光</span><span>六角形</span><span>グリッチ</span><span>テロップ</span></div>
+      </div>
+    </div>
+    <div class="cols">
+      <div>
+        <h3>決めごと</h3>
+        <ul class="dots">
+          <li><b>選手は六角形のチップ。</b>中央に背番号、下に役割の札。チームは色と光で分けます。</li>
+          <li><b>ピッチは線だけを光らせる。</b>面は暗く沈め、選手とボールの軌道を主役にします。</li>
+          <li><b>押せる場所はライムだけ。</b>移動先、選択中の枠、実行ボタンに限ります。</li>
+          <li><b>見せ場は文字のノイズ演出。</b>「DUEL」を大きく出し、画面を斜めに割って勝率を押し合わせます。</li>
+        </ul>
+      </div>
+      <div>
+        <h3>作るのに必要なもの</h3>
+        <table class="need"><tbody>
+          <tr><td>画面の実装</td><td>発光、ぼかし、斜めの切り欠きをCSSとSVGで実装</td></tr>
+          <tr><td>演出</td><td>グリッチ、走査線、光の軌跡</td></tr>
+          <tr><td>音</td><td>電子音系の効果音</td></tr>
+          <tr><td>イラスト</td><td>不要</td></tr>
+        </tbody></table>
+      </div>
+    </div>
+    <div class="pm">
+      <div><h4>強み</h4><ul>
+        <li>発光やぼかしはコードの得意分野で、絵がなくても完成度が出る</li>
+        <li>暗い背景の上で、大事な情報だけを光らせられる</li>
+        <li>対戦ゲームらしい緊張感がある</li>
+      </ul></div>
+      <div class="con"><h4>弱み</h4><ul>
+        <li>「よくあるサイバー風」に埋もれやすい</li>
+        <li>サッカーらしさと、選手の人間味が出にくい</li>
+        <li>光らせすぎると安っぽくなる。屋外では見づらい</li>
+      </ul></div>
+      <div class="use"><h4>向いている場合</h4><ul>
+        <li>オンライン対戦や大会を軸にしたい</li>
+        <li>配信で映える画面にしたい</li>
+        <li>若い対戦ゲーム層を狙う</li>
+      </ul></div>
+    </div>
+  </div>
+  <div class="foot"><span>BRAIBO 構想資料 02</span><span class="pn"></span></div>
+</section>
+
+<!-- ===== 6 direction B ===== -->
+<section class="page">
+  <div class="ph"><span>BRAIBO <b>CONCEPT 02</b></span><span class="ph-r">UIビジュアル案</span></div>
+  <div class="body">
+    <div class="sec"><div class="dirno">B</div><div><div class="en">PRO TACTICS BOARD</div><h1>プロ戦術ボード</h1><div class="tags"><span class="tag">イラスト不要</span><span class="tag">サッカーファン向け</span><span class="tag">最も早く作れる</span></div></div></div>
+    <p class="lead">分析担当が使う<em>戦術ボード</em>です。本物らしい芝の上に、黒いガラスの操作パネルを重ねます。</p>
+    <div class="dtop">
+      <div class="shot"><div class="phone"><img src="img/b-1.jpg" alt=""></div><div class="cp">作戦画面</div></div>
+      <div class="shot"><div class="phone"><img src="img/b-2.jpg" alt=""></div><div class="cp">競り合いの演出</div></div>
+      <div class="spec">
+        <h4>色</h4>
+        <div class="sw"><i style="background:#1f7a3f"></i><span><b>芝。刈り目の2色で縞</b><code>#1F7A3F</code></span></div>
+        <div class="sw"><i style="background:#0b0d0f"></i><span><b>パネル。半透明の黒</b><code>#0B0D0F</code></span></div>
+        <div class="sw"><i style="background:#2f7bff"></i><span><b>青チーム</b><code>#2F7BFF</code></span></div>
+        <div class="sw"><i style="background:#ff4b4b"></i><span><b>赤チーム</b><code>#FF4B4B</code></span></div>
+        <div class="sw"><i style="background:#ffd60a"></i><span><b>強調。イエロー</b><code>#FFD60A</code></span></div>
+        <h4>書体</h4>
+        <div class="ty"><div class="s" style="font-family:'Barlow Condensed';font-weight:700;font-size:17pt;letter-spacing:.04em">DUEL 38% 0:42</div><small>Barlow Condensed Bold。数字と見出し</small></div>
+        <div class="ty"><div class="s" style="font-family:'Inter';font-weight:600;font-size:12pt;letter-spacing:.08em">OFFSIDE LINE</div><small>Inter SemiBold。英字のラベル</small></div>
+        <div class="ty"><div class="s" style="font-family:'Noto Sans JP';font-weight:700;font-size:13pt">作戦を実行</div><small>Noto Sans JP Bold。日本語</small></div>
+        <h4>キーワード</h4>
+        <div class="kw"><span>芝の刈り目</span><span>マグネット</span><span>中継スタッツ</span></div>
+      </div>
+    </div>
+    <div class="cols">
+      <div>
+        <h3>決めごと</h3>
+        <ul class="dots">
+          <li><b>選手は光沢のある丸いマグネット。</b>背番号を大きく、役割は下の小さな札に入れます。</li>
+          <li><b>芝は刈り目と照明まで描く。</b>線の比率も実際のピッチに近づけます。</li>
+          <li><b>パネルは黒い半透明で統一。</b>角の丸み、罫線、影を1種類に固定します。</li>
+          <li><b>見せ場は中継のスタッツ表示。</b>両者の数値を左右に並べ、結果を1行で言い切ります。</li>
+        </ul>
+      </div>
+      <div>
+        <h3>作るのに必要なもの</h3>
+        <table class="need"><tbody>
+          <tr><td>画面の実装</td><td>いまの構成に近く、色と部品の置き換えが中心</td></tr>
+          <tr><td>演出</td><td>拡大、スタッツの数え上げ、パネルの出入り</td></tr>
+          <tr><td>音</td><td>ホイッスル、歓声、キック音</td></tr>
+          <tr><td>イラスト</td><td>不要</td></tr>
+        </tbody></table>
+      </div>
+    </div>
+    <div class="pm">
+      <div><h4>強み</h4><ul>
+        <li>盤面が4案でいちばん読みやすい</li>
+        <li>サッカーが好きな人に説明なしで伝わる</li>
+        <li>いまの実装からの距離が近く、早く仕上がる</li>
+      </ul></div>
+      <div class="con"><h4>弱み</h4><ul>
+        <li>実在のサッカーアプリに似て、独自性が弱い</li>
+        <li>ゲームより「道具」に見えやすい</li>
+        <li>選手の個性と見せ場が地味になりやすい</li>
+      </ul></div>
+      <div class="use"><h4>向いている場合</h4><ul>
+        <li>まず確実に「ちゃんとした見た目」にしたい</li>
+        <li>サッカーファンに届けたい</li>
+        <li>海外にも同じ見た目で出したい</li>
+      </ul></div>
+    </div>
+  </div>
+  <div class="foot"><span>BRAIBO 構想資料 02</span><span class="pn"></span></div>
+</section>
+
+<!-- ===== 7 direction C ===== -->
+<section class="page">
+  <div class="ph"><span>BRAIBO <b>CONCEPT 02</b></span><span class="ph-r">UIビジュアル案</span></div>
+  <div class="body">
+    <div class="sec"><div class="dirno">C</div><div><div class="en">ANIME CHARACTER BATTLE</div><h1>アニメキャラクターバトル</h1><div class="tags"><span class="tag warn">イラスト必須</span><span class="tag">キャラクター重視</span><span class="tag">最もにぎやか</span></div></div></div>
+    <p class="lead">少年マンガのサッカーです。選手は<em>顔と名前と決めゼリフのあるキャラクター</em>です。</p>
+    <div class="dtop">
+      <div class="shot"><div class="phone"><img src="img/c-1.jpg" alt=""></div><div class="cp">作戦画面</div></div>
+      <div class="shot"><div class="phone"><img src="img/c-2.jpg" alt=""></div><div class="cp">競り合いの演出</div></div>
+      <div class="spec">
+        <h4>色</h4>
+        <div class="sw"><i style="background:#151a2d"></i><span><b>主線。濃紺の太い線</b><code>#151A2D</code></span></div>
+        <div class="sw"><i style="background:#1c46c8"></i><span><b>青チーム</b><code>#1C46C8</code></span></div>
+        <div class="sw"><i style="background:#b81224"></i><span><b>赤チーム</b><code>#B81224</code></span></div>
+        <div class="sw"><i style="background:#ffd34d"></i><span><b>強調。イエロー</b><code>#FFD34D</code></span></div>
+        <div class="sw"><i style="background:#9ceaff"></i><span><b>ハイライト。空色</b><code>#9CEAFF</code></span></div>
+        <h4>書体</h4>
+        <div class="ty"><div class="s" style="font-family:'Dela Gothic One';font-size:13.5pt">競り合い!! 実行!</div><small>Dela Gothic One。見出しと掛け声</small></div>
+        <div class="ty"><div class="s" style="font-family:'Bebas Neue';font-size:17pt;letter-spacing:.06em">DUEL 38% TURN 7</div><small>Bebas Neue。数字と英字</small></div>
+        <div class="ty"><div class="s" style="font-family:'M PLUS Rounded 1c';font-weight:800;font-size:12.5pt">パスマスター</div><small>M PLUS Rounded 1c。本文とラベル</small></div>
+        <h4>キーワード</h4>
+        <div class="kw"><span>太い主線</span><span>集中線</span><span>描き文字</span><span>立ち絵</span></div>
+      </div>
+    </div>
+    <div class="callout"><b>絵は仮のものです。</b>モックアップのキャラクターは、位置と大きさを示すためにコードで描いた仮の絵です。この案の品質は絵で決まるので、進めるにはイラストレーターへの発注が前提になります。</div>
+    <div class="cols">
+      <div>
+        <h3>決めごと</h3>
+        <ul class="dots">
+          <li><b>選手は顔のアイコン。</b>太い主線と2段階の影でそろえ、背番号と役割を小さく添えます。</li>
+          <li><b>下に立ち絵と二つ名。</b>数値より先に「誰なのか」を見せます。</li>
+          <li><b>見せ場は立ち絵の対決。</b>描き文字、集中線、勝者の決めゼリフで締めます。</li>
+        </ul>
+      </div>
+      <div>
+        <h3>作るのに必要なもの</h3>
+        <table class="need"><tbody>
+          <tr><td>イラスト</td><td>キャラクター10人分のデザイン、顔アイコン、立ち絵（通常、勝ち、負け）</td></tr>
+          <tr><td>画面の実装</td><td>太線の部品一式、斜めの帯、集中線</td></tr>
+          <tr><td>文章と音</td><td>二つ名、セリフ、掛け声。できればボイス</td></tr>
+        </tbody></table>
+      </div>
+    </div>
+    <div class="pm">
+      <div><h4>強み</h4><ul>
+        <li>第一印象がいちばん強く、見せ場が盛り上がる</li>
+        <li>役割とスキルの違いを、そのまま魅力にできる</li>
+        <li>キャラクターを軸に、物語や追加選手へ広げやすい</li>
+      </ul></div>
+      <div class="con"><h4>弱み</h4><ul>
+        <li>絵の制作に費用と時間がかかる</li>
+        <li>絵の質が、そのまま全体の質になる</li>
+        <li>盤面がにぎやかで、読みやすさの調整が要る</li>
+      </ul></div>
+      <div class="use"><h4>向いている場合</h4><ul>
+        <li>キャラクター人気でゲームを育てたい</li>
+        <li>イラストを発注できる</li>
+        <li>構想資料01の案5「読み札」を採る</li>
+      </ul></div>
+    </div>
+  </div>
+  <div class="foot"><span>BRAIBO 構想資料 02</span><span class="pn"></span></div>
+</section>
+
+<!-- ===== 8 direction D ===== -->
+<section class="page">
+  <div class="ph"><span>BRAIBO <b>CONCEPT 02</b></span><span class="ph-r">UIビジュアル案</span></div>
+  <div class="body">
+    <div class="sec"><div class="dirno">D</div><div><div class="en">KOMA</div><h1>駒（和モダン）</h1><div class="tags"><span class="tag rec">推奨</span><span class="tag">イラスト不要</span><span class="tag">コンセプトに直結</span></div></div></div>
+    <p class="lead"><em>将棋盤の上でサッカーをする</em>画面です。選手は駒、ピッチは盤、指示は「着手」と呼びます。</p>
+    <div class="dtop">
+      <div class="shot"><div class="phone"><img src="img/d-1.jpg" alt=""></div><div class="cp">作戦画面</div></div>
+      <div class="shot"><div class="phone"><img src="img/d-2.jpg" alt=""></div><div class="cp">競り合いの演出</div></div>
+      <div class="spec">
+        <h4>色</h4>
+        <div class="sw"><i style="background:#f3ecdc"></i><span><b>和紙。背景とカード</b><code>#F3ECDC</code></span></div>
+        <div class="sw"><i style="background:#3a2108"></i><span><b>木。盤の枠と文字</b><code>#3A2108</code></span></div>
+        <div class="sw"><i style="background:#27488c"></i><span><b>藍。青チーム</b><code>#27488C</code></span></div>
+        <div class="sw"><i style="background:#c8372d"></i><span><b>朱。赤チームと判</b><code>#C8372D</code></span></div>
+        <div class="sw"><i style="background:#c9a24a"></i><span><b>金。線と強調</b><code>#C9A24A</code></span></div>
+        <h4>書体</h4>
+        <div class="ty"><div class="s" style="font-family:'Shippori Mincho B1';font-weight:800;font-size:15pt">激突　撃 翼 砲 奪 壁</div><small>Shippori Mincho B1。見出しと駒の字</small></div>
+        <div class="ty"><div class="s" style="font-family:'Cormorant Garamond';font-weight:700;font-size:17pt">38% 62% 7/20</div><small>Cormorant Garamond Bold。数字</small></div>
+        <div class="ty"><div class="s" style="font-family:'Zen Old Mincho';font-weight:700;font-size:13pt">第七手　着手</div><small>Zen Old Mincho。本文とラベル</small></div>
+        <h4>キーワード</h4>
+        <div class="kw"><span>駒</span><span>木の盤</span><span>和紙</span><span>筆文字</span><span>朱印</span></div>
+      </div>
+    </div>
+    <div class="cols">
+      <div>
+        <h3>決めごと</h3>
+        <ul class="dots">
+          <li><b>選手は五角形の駒。</b>先が相手ゴールを向くので、攻める向きが形で分かります。</li>
+          <li><b>駒には役割の一字。</b>撃、翼、砲、奪、壁。背番号を小さく添えます。</li>
+          <li><b>ピッチは木枠の盤。</b>深い緑の面に金の線。余白は和紙にします。</li>
+          <li><b>見せ場は筆文字と判。</b>「激突」の大書と、勝者に押す「勝」の朱印で締めます。</li>
+        </ul>
+      </div>
+      <div>
+        <h3>作るのに必要なもの</h3>
+        <table class="need"><tbody>
+          <tr><td>画面の実装</td><td>駒、木枠、和紙の質感をCSSとSVGで実装</td></tr>
+          <tr><td>演出</td><td>筆の払い、金の飛沫、判を押す動き</td></tr>
+          <tr><td>音</td><td>駒音、太鼓、拍子木</td></tr>
+          <tr><td>イラスト</td><td>不要。筆文字の見出しは書体で作れる</td></tr>
+        </tbody></table>
+      </div>
+    </div>
+    <div class="pm">
+      <div><h4>強み</h4><ul>
+        <li>「サッカー×将棋」が説明なしで伝わる</li>
+        <li>ほかのサッカーゲームと一目で見分けがつく</li>
+        <li>駒の向きと字が、そのまま読みやすさになる</li>
+      </ul></div>
+      <div class="con"><h4>弱み</h4><ul>
+        <li>駒の字は覚えるまで役割が分かりにくい</li>
+        <li>海外向けには字の扱いに工夫が要る</li>
+        <li>朱が赤チームと実行ボタンで重なる。実装時に分ける</li>
+      </ul></div>
+      <div class="use"><h4>向いている場合</h4><ul>
+        <li>コンセプトの独自性で勝負したい</li>
+        <li>絵に頼らず品質を上げたい</li>
+        <li>幅広い年齢に、落ち着いて遊んでもらいたい</li>
+      </ul></div>
+    </div>
+  </div>
+  <div class="foot"><span>BRAIBO 構想資料 02</span><span class="pn"></span></div>
+</section>
+
+<!-- ===== 9 comparison ===== -->
+<section class="page">
+  <div class="ph"><span>BRAIBO <b>CONCEPT 02</b></span><span class="ph-r">UIビジュアル案</span></div>
+  <div class="body">
+    <div class="sec"><div class="no"><small>CHAPTER</small>04</div><div><h1>4つの案を比べる</h1></div></div>
+    <p class="lead">どの案も「自作っぽさ」は消せます。違いは、<em>何を強みにして、何を引き受けるか</em>です。</p>
+    <table class="cmp">
+      <thead><tr><th style="width:31%">比べる点</th><th>A ネオン</th><th>B 戦術ボード</th><th>C アニメ</th><th>D 駒</th></tr></thead>
+      <tbody>
+        <tr><td><span class="nm">コンセプトの伝わりやすさ</span><span class="ds">「サッカー×将棋」が見た目で分かるか</span></td><td><span class="mk c">△</span></td><td><span class="mk b">○</span></td><td><span class="mk c">△</span></td><td class="c"><span class="mk a">◎</span></td></tr>
+        <tr><td><span class="nm">盤面の読みやすさ</span><span class="ds">誰がどこにいて、何ができるか</span></td><td><span class="mk b">○</span></td><td><span class="mk a">◎</span></td><td><span class="mk c">△</span></td><td><span class="mk b">○</span></td></tr>
+        <tr><td><span class="nm">独自性</span><span class="ds">ほかのゲームと見分けがつくか</span></td><td><span class="mk c">△</span></td><td><span class="mk c">△</span></td><td><span class="mk b">○</span></td><td><span class="mk a">◎</span></td></tr>
+        <tr><td><span class="nm">第一印象の強さ</span><span class="ds">1枚の画像で目を引けるか</span></td><td><span class="mk b">○</span></td><td><span class="mk c">△</span></td><td><span class="mk a">◎</span></td><td><span class="mk b">○</span></td></tr>
+        <tr><td><span class="nm">キャラクターの見せやすさ</span><span class="ds">選手の個性とスキルを伝えられるか</span></td><td><span class="mk c">△</span></td><td><span class="mk c">△</span></td><td><span class="mk a">◎</span></td><td><span class="mk b">○</span></td></tr>
+        <tr><td><span class="nm">イラストなしで作れるか</span><span class="ds">コードだけで完成度が出るか</span></td><td><span class="mk a">◎</span></td><td><span class="mk a">◎</span></td><td><span class="mk c">△</span></td><td><span class="mk a">◎</span></td></tr>
+        <tr><td><span class="nm">実装の軽さ</span><span class="ds">いまの画面から作り替える量</span></td><td><span class="mk b">○</span></td><td><span class="mk a">◎</span></td><td><span class="mk c">△</span></td><td><span class="mk b">○</span></td></tr>
+        <tr><td><span class="nm">端末への負荷の軽さ</span><span class="ds">古いスマホでもなめらかに動くか</span></td><td><span class="mk c">△</span></td><td><span class="mk b">○</span></td><td><span class="mk b">○</span></td><td><span class="mk a">◎</span></td></tr>
+        <tr><td><span class="nm">海外への出しやすさ</span><span class="ds">言葉を変えるだけで通じるか</span></td><td><span class="mk a">◎</span></td><td><span class="mk a">◎</span></td><td><span class="mk b">○</span></td><td><span class="mk c">△</span></td></tr>
+      </tbody>
+    </table>
+    <p class="small">◎ とても良い　○ 良い　△ 工夫が要る。評価はモックアップを作って比べた時点の見立てです。</p>
+
+    <h3>作る量の目安</h3>
+    <table>
+      <thead><tr><th style="width:24%">案</th><th style="width:22%">モックアップのコード量</th><th style="width:16%">Bを1とした比</th><th>コード以外に必要なもの</th></tr></thead>
+      <tbody>
+        <tr><td><span class="nm">A ネオンスタジアム</span></td><td>121 KB</td><td>約2.0倍</td><td>効果音</td></tr>
+        <tr><td><span class="nm">B プロ戦術ボード</span></td><td>60 KB</td><td>基準</td><td>効果音</td></tr>
+        <tr><td><span class="nm">C アニメキャラクターバトル</span></td><td>188 KB</td><td>約3.2倍</td><td>キャラクターの絵、セリフ、効果音</td></tr>
+        <tr class="rec"><td><span class="nm">D 駒（和モダン）</span></td><td>105 KB</td><td>約1.8倍</td><td>効果音</td></tr>
+      </tbody>
+    </table>
+    <p class="small">コード量は、作戦画面と見せ場の2画面を作ったHTMLの合計です。実際の作業量そのものではなく、案どうしの重さを比べるための目安です。</p>
+
+    <h3>こんな場合に向いています</h3>
+    <div class="who">
+      <div><b><i>A</i>対戦と配信が軸</b>オンライン対戦や大会を中心に据え、緊張感を前に出したい場合。</div>
+      <div><b><i>B</i>早く確実に</b>短い期間で、読みやすく整った見た目にしたい場合。</div>
+      <div><b><i>C</i>キャラクターが軸</b>絵を発注でき、選手の人気でゲームを育てたい場合。</div>
+      <div class="rec"><b><i>D</i>独自性が軸</b>絵に頼らず、コンセプトそのものを顔にしたい場合。</div>
+    </div>
+  </div>
+  <div class="foot"><span>BRAIBO 構想資料 02</span><span class="pn"></span></div>
+</section>
+
+<!-- ===== 10 recommendation ===== -->
+<section class="page">
+  <div class="ph"><span>BRAIBO <b>CONCEPT 02</b></span><span class="ph-r">UIビジュアル案</span></div>
+  <div class="body">
+    <div class="sec"><div class="no"><small>CHAPTER</small>05</div><div><h1>おすすめ</h1></div></div>
+    <div class="pick">
+      <div class="phone" style="--w:30mm"><img src="img/d-1.jpg" alt=""></div>
+      <div class="phone" style="--w:30mm"><img src="img/d-2.jpg" alt=""></div>
+      <div class="txt">
+        <div class="big">本命は <em>D 駒（和モダン）</em> です。</div>
+        <p>BRAIBOの核は「サッカーを将棋のように読み合う」ことです。Dは、その核を見た目だけで伝えられる唯一の案です。</p>
+        <p>絵を用意しなくても品質が出るので、いまの体制のまま進められます。</p>
+      </div>
+    </div>
+
+    <h3>Dをすすめる3つの理由</h3>
+    <ol class="rules">
+      <li><b>何のゲームかが一目で分かる。</b>駒と盤を見た瞬間に「読み合いのゲームだ」と伝わります。説明文や遊び方の画面に頼らずに済みます。</li>
+      <li><b>絵がなくても安っぽくならない。</b>木、和紙、金、明朝体は、コードと書体だけで質感が出せます。品質が絵の出来に左右されません。</li>
+      <li><b>飾りがそのまま機能になる。</b>駒の先が攻める向きを示し、駒の字が役割を示します。見た目を良くするほど、盤面も読みやすくなります。</li>
+    </ol>
+
+    <h3>組み合わせ方</h3>
+    <table>
+      <thead><tr><th style="width:19%">位置づけ</th><th style="width:24%">案</th><th>使い方</th></tr></thead>
+      <tbody>
+        <tr class="rec"><td><span class="nm">本命</span></td><td>D 駒（和モダン）</td><td>全体の世界観として採用します。</td></tr>
+        <tr><td><span class="nm">保険</span></td><td>B プロ戦術ボード</td><td>Dの駒の字が分かりにくいと感じたら、Bに切り替えます。作る量がいちばん少なく、失敗しにくい案です。</td></tr>
+        <tr><td><span class="nm">後から足す</span></td><td>C の立ち絵</td><td>絵が用意できた段階で、Dの見せ場に選手の立ち絵を足します。盤面は駒のまま保ちます。</td></tr>
+        <tr><td><span class="nm">方針が変われば</span></td><td>A ネオンスタジアム</td><td>オンライン対戦や大会を軸にする場合に選びます。</td></tr>
+      </tbody>
+    </table>
+
+    <div class="cols">
+      <div>
+        <h3>Dを選ばないほうがよい場合</h3>
+        <ul class="dots">
+          <li><b>最初から海外に出す。</b>漢字の駒が壁になります。Bが向いています。</li>
+          <li><b>キャラクターを主役にする。</b>駒では顔が見えません。Cが向いています。</li>
+          <li><b>大会や配信を主役にする。</b>落ち着いた画面は映えにくくなります。Aが向いています。</li>
+        </ul>
+      </div>
+      <div>
+        <h3>決めるための3つの問い</h3>
+        <ul class="dots">
+          <li><b>誰に遊んでほしいか。</b>サッカーファン、対戦ゲーム好き、ボードゲーム好きで答えが変わります。</li>
+          <li><b>絵を発注するか。</b>発注しないなら、Cは選べません。</li>
+          <li><b>日本と海外のどちらが先か。</b>海外が先なら、Dは字の扱いを先に決めます。</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="callout blue"><b>構想資料01との関係。</b>オフサイドの推奨案「先に蹴る」は、どの見た目でもそのまま使えます。発展案の「読み札」は、札を出して読み合う仕組みです。札との相性は、Dの駒とCのキャラクターが良好です。</div>
+  </div>
+  <div class="foot"><span>BRAIBO 構想資料 02</span><span class="pn"></span></div>
+</section>
+
+<!-- ===== 11 roadmap ===== -->
+<section class="page">
+  <div class="ph"><span>BRAIBO <b>CONCEPT 02</b></span><span class="ph-r">UIビジュアル案</span></div>
+  <div class="body">
+    <div class="sec"><div class="no"><small>CHAPTER</small>06</div><div><h1>進め方</h1></div></div>
+    <p class="lead">ルールとAIには触れません。<em>見た目の層だけを、盤面から順に作り替えます</em>。</p>
+    <ol class="steps">
+      <li><b>方向を決める</b>この資料の4案から1つを選びます。迷う場合は、DとBの盤面だけを実機で動かして比べます。</li>
+      <li class="key"><b>決めごとを1か所にまとめる</b>色、書体、角の丸み、影、動きの速さを、名前のついた値として定義します。いまの画面も色を変数で管理しているので、土台はそのまま使えます。</li>
+      <li><b>盤面と選手を作り替える</b>いちばん長く見る場所から始めます。ピッチ、選手、ボール、矢印、移動先の表示が対象です。</li>
+      <li><b>見せ場を作る</b>競り合い、シュート、ゴール、オフサイドを全画面の演出にします。1回2秒以内で、飛ばせます。</li>
+      <li><b>盤面の外を作る</b>タイトル、対戦前の顔合わせ、結果、遊び方の画面を同じ決めごとで作ります。</li>
+      <li><b>実機で確かめて直す</b>小さいスマホ、屋外の明るさ、片手操作で確かめます。下の指標で合否を決めます。</li>
+    </ol>
+
+    <h3>どの案でも共通して行うこと</h3>
+    <ul class="chk">
+      <li>選手を、形と番号で見分けられる駒に変える</li>
+      <li>ピッチに素材感を足す。芝、木、光から1つ</li>
+      <li>数字と見出しの書体を決めて統一する</li>
+      <li>強調色を1色に決め、押せる場所だけに使う</li>
+      <li>競り合いとゴールに全画面の演出を入れる</li>
+      <li>タイトルと対戦前の画面で世界観を見せる</li>
+      <li>効果音を入れる。決定、移動、キック、勝敗</li>
+      <li>動きを減らす設定の端末では演出を短くする</li>
+    </ul>
+
+    <h3>確かめる指標</h3>
+    <table>
+      <thead><tr><th style="width:36%">問い</th><th>確かめ方</th><th style="width:22%">合格の目安</th></tr></thead>
+      <tbody>
+        <tr><td><span class="nm">3秒で何のゲームか言えるか</span></td><td>初めて見る人に画面を3秒だけ見せて、どんなゲームかを聞く</td><td>5人中4人が言える</td></tr>
+        <tr><td><span class="nm">攻める向きを即答できるか</span></td><td>盤面だけを見せて、青がどちらに攻めるかを聞く</td><td>全員が即答できる</td></tr>
+        <tr><td><span class="nm">役割を見分けられるか</span></td><td>選手を指して、役割を当ててもらう。説明を1回した後に行う</td><td>5人中4人が当てる</td></tr>
+        <tr><td><span class="nm">小さい端末で読めるか</span></td><td>幅375ポイントの画面で、番号、勝率、残り時間を読む</td><td>腕を伸ばして読める</td></tr>
+      </tbody>
+    </table>
+
+    <h3>決めていただきたいこと</h3>
+    <ol class="rules">
+      <li><b>Dで進めてよいか。</b>別の案や、組み合わせの希望があれば教えてください。</li>
+      <li><b>キャラクターの絵を発注するか。</b>発注する場合は、Cの立ち絵を足す前提で画面を設計します。</li>
+      <li><b>チーム名と世界設定。</b>モックアップの「蒼嵐」「紅蓮」は仮の名前です。正式な名前があれば差し替えます。</li>
+    </ol>
+  </div>
+  <div class="foot"><span>BRAIBO 構想資料 02</span><span class="pn"></span></div>
+</section>
+
+</body>
+</html>

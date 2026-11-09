@@ -1,0 +1,215 @@
+<!doctype html><html lang="ja"><head><meta charset="utf-8"><meta name="viewport" content="width=390"><title>BRAIBO B screen1</title><link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700&family=Inter:wght@500;600&family=Noto+Sans+JP:wght@500;700&display=swap" rel="stylesheet"><style>
+:root{--glass:rgba(14,17,19,.78);--hair:rgba(255,255,255,.09);--sub:#9aa4ad;--blue:#2f7bff;--red:#ff4b4b;--yel:#ffd60a;--grn:#34c759}
+*{box-sizing:border-box}
+html,body{margin:0;width:390px;height:844px;overflow:hidden;background:#0e1113;font-family:'Noto Sans JP','Inter',sans-serif;color:#fff;-webkit-font-smoothing:antialiased}
+svg{overflow:hidden}
+.bc{font-family:'Barlow Condensed',sans-serif;font-weight:700}
+.abs{position:absolute}
+.status{position:absolute;left:0;top:0;width:390px;height:44px;display:flex;justify-content:space-between;align-items:center;padding:6px 30px 0 34px;font-family:'Inter';font-weight:600;font-size:15px;z-index:20}
+.status svg{display:block}
+.home{position:absolute;left:135px;bottom:7px;width:120px;height:4px;border-radius:2px;background:rgba(255,255,255,.55);z-index:30}
+
+.glass{background:var(--glass);backdrop-filter:blur(22px) saturate(1.3);-webkit-backdrop-filter:blur(22px) saturate(1.3);border:1px solid var(--hair);box-shadow:0 10px 30px rgba(0,0,0,.35),inset 0 1px 0 rgba(255,255,255,.2),inset 0 0 0 1px rgba(255,255,255,.04)}
+.menu{left:16px;top:50px;width:38px;height:38px;border-radius:12px;display:grid;place-items:center;z-index:10}
+.bug{left:62px;top:50px;width:206px;height:38px;border-radius:12px;z-index:10;display:flex;align-items:center;justify-content:center;gap:0;overflow:hidden}
+.bug .tm{flex:1;justify-content:flex-start;display:flex;align-items:center;gap:7px;height:100%;font-weight:700;font-size:12.5px;letter-spacing:.04em}
+.bug .tm.r{flex-direction:row-reverse;justify-content:flex-start}
+.chip{width:4px;height:20px;border-radius:2px}
+.sc{width:62px;justify-content:center;display:flex;align-items:baseline;gap:5px;font-size:25px;line-height:1;padding:0 4px;text-shadow:0 1px 0 rgba(0,0,0,.4)}
+.sc em{font-style:normal;color:var(--sub);font-size:17px;font-weight:600}
+.tim{left:278px;top:50px;width:96px;height:38px;border-radius:12px;z-index:10;padding:5px 11px 0;overflow:hidden}
+.tim .t{display:flex;justify-content:space-between;align-items:baseline;line-height:1;margin-top:1px}
+.tim .n{font-size:20px;letter-spacing:.02em}
+.tim .tt{font-size:11.5px;color:var(--sub);letter-spacing:.06em;font-family:'Barlow Condensed';font-weight:600}
+.tim .pb{position:absolute;left:10px;right:10px;bottom:6px;height:3px;border-radius:2px;background:rgba(255,255,255,.14);overflow:hidden}
+.tim .pb i{display:block;height:100%;width:70%;border-radius:2px;background:linear-gradient(90deg,#ffd60a,#ffe66b)}
+.sheet{left:10px;top:558px;width:370px;height:278px;border-radius:26px;padding:14px 14px 0;z-index:10}
+.grab{position:absolute;left:165px;top:7px;width:40px;height:4px;border-radius:2px;background:rgba(255,255,255,.2)}
+.hd{display:flex;align-items:center;gap:11px;margin-top:2px}
+.av{width:46px;height:46px;border-radius:50%;position:relative;background:radial-gradient(circle at 35% 22%,#8db6ff,#2f7bff 50%,#1b4fc4);border:1.8px solid rgba(255,255,255,.9);display:grid;place-items:center;font-size:25px;box-shadow:0 5px 10px rgba(0,0,0,.45);text-shadow:0 1px 1px rgba(0,0,0,.3)}
+.av b{position:absolute;right:-5px;bottom:-3px;width:18px;height:18px;border-radius:50%;background:var(--yel);}
+.nm{flex:1;min-width:0}
+.nm h2{margin:0;font-size:18px;line-height:1.15;font-weight:700;letter-spacing:.02em;display:flex;align-items:baseline;gap:6px}
+.nm h2 .bc{color:var(--yel);font-size:19px}
+.rp{display:inline-block;height:15px;line-height:15px;padding:0 6px;margin-right:6px;border-radius:7.5px;background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.16);color:#e9eef2;font-family:'Barlow Condensed';font-weight:700;font-size:11px;letter-spacing:.06em}
+.nm p{margin:4px 0 0;font-size:11px;color:var(--sub);font-weight:500;letter-spacing:.06em;display:flex;align-items:center}
+.tag{height:26px;padding:0 10px 0 8px;border-radius:13px;display:flex;align-items:center;gap:5px;font-size:11px;font-weight:700;color:var(--yel);background:rgba(255,214,10,.1);border:1px solid rgba(255,214,10,.38);white-space:nowrap}
+.stats{display:grid;grid-template-columns:1fr 1fr;gap:9px 22px;margin-top:13px}
+.sr{display:flex;justify-content:space-between;align-items:baseline}
+.sl{font-size:11px;color:var(--sub);font-weight:500}
+.sv{font-size:17px;line-height:1}
+.sv.hi{color:var(--yel)}
+.bar{height:4px;border-radius:2px;background:rgba(255,255,255,.1);margin-top:3px;overflow:hidden}
+.bar i{display:block;height:100%;border-radius:2px;background:linear-gradient(90deg,#4d8dff,#8db6ff)}
+.bar i.hi{background:linear-gradient(90deg,#ffc400,#ffe45c)}
+.seg{display:flex;margin-top:13px;height:48px;padding:3px;border-radius:15px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.06)}
+.sg{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;border-radius:12px;color:#9aa4ad;font-size:10px;font-weight:700}
+.sg.on{background:rgba(255,214,10,.14);color:var(--yel);box-shadow:inset 0 0 0 1px rgba(255,214,10,.45)}
+.go{margin-top:11px;height:54px;border-radius:17px;background:linear-gradient(180deg,#ffe23d,#ffd60a 55%,#f2c200);color:#14120a;display:flex;align-items:center;justify-content:space-between;padding:0 8px 0 22px;box-shadow:0 8px 20px rgba(255,214,10,.22),inset 0 1px 0 rgba(255,255,255,.55)}
+.go b{font-size:19px;letter-spacing:.08em}
+.go .cnt{display:flex;align-items:center;gap:7px;height:38px;padding:0 12px;border-radius:12px;background:rgba(20,18,10,.88);color:#fff;font-size:11px;font-weight:700}
+.go .cnt .bc{font-size:16px;color:var(--yel)}
+.dots{display:flex;gap:3px}.dots i{width:5px;height:5px;border-radius:50%;background:rgba(255,255,255,.25)}.dots i.on{background:var(--grn)}
+</style></head><body>
+<svg class="abs" style="left:0;top:0" width="390" height="844" viewBox="0 0 390 844"><defs>
+<linearGradient id="kb" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#6fa4ff"/><stop offset=".45" stop-color="#2f7bff"/><stop offset="1" stop-color="#1b4fc4"/></linearGradient>
+<linearGradient id="kr" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ff8a80"/><stop offset=".45" stop-color="#ff4b4b"/><stop offset="1" stop-color="#c42b2e"/></linearGradient>
+<radialGradient id="gloss" cx=".35" cy=".22" r=".7"><stop offset="0" stop-color="#fff" stop-opacity=".5"/><stop offset=".5" stop-color="#fff" stop-opacity="0"/></radialGradient>
+<linearGradient id="light" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff" stop-opacity=".2"/><stop offset=".35" stop-color="#fff" stop-opacity=".02"/><stop offset="1" stop-color="#000" stop-opacity=".3"/></linearGradient>
+<radialGradient id="vig" cx=".5" cy=".42" r=".75"><stop offset=".45" stop-color="#000" stop-opacity="0"/><stop offset="1" stop-color="#000" stop-opacity=".5"/></radialGradient>
+<linearGradient id="off" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ff4b4b" stop-opacity="0"/><stop offset=".5" stop-color="#ff4b4b" stop-opacity=".42"/><stop offset="1" stop-color="#ff4b4b" stop-opacity="0"/></linearGradient>
+<radialGradient id="ballg" cx=".35" cy=".3" r=".8"><stop offset="0" stop-color="#fff"/><stop offset="1" stop-color="#cfd5da"/></radialGradient>
+<filter id="b2" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="2"/></filter>
+<filter id="b3" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="3"/></filter>
+<filter id="b5" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="5"/></filter>
+<filter id="noise" x="0" y="0" width="100%" height="100%"><feTurbulence type="fractalNoise" baseFrequency=".9 .55" numOctaves="2" seed="4" result="n"/><feColorMatrix type="matrix" values="0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 .9 -.28"/></filter>
+<filter id="noiseL" x="0" y="0" width="100%" height="100%"><feTurbulence type="fractalNoise" baseFrequency=".5 1.4" numOctaves="2" seed="9"/><feColorMatrix type="matrix" values="0 0 0 0 1  0 0 0 0 1  0 0 0 0 1  0 0 0 .8 -.38"/></filter>
+<pattern id="net" width="5" height="5" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><path d="M0 0H5M0 0V5" stroke="#fff" stroke-opacity=".5" stroke-width=".6" fill="none"/></pattern>
+<clipPath id="ballclip"><circle r="8"/></clipPath>
+<g id="ball"><circle r="8" fill="url(#ballg)"/><g clip-path="url(#ballclip)" fill="#1a1d20" stroke="#1a1d20" stroke-width=".7" stroke-linejoin="round"><path d="M0-3.2 3 -1 1.9 2.5H-1.9L-3-1Z"/><path d="M0-3.2V-8M3-1 8-2.6M1.9 2.5 5 7M-1.9 2.5-5 7M-3-1-8-2.6" fill="none"/><path d="M5.2-6.4 9-3.5V-8ZM-5.2-6.4-9-3.5V-8ZM0 9.6 4 6.4H-4Z M9 3 6 5.6 9.6 7ZM-9 3-6 5.6-9.6 7Z"/></g><circle r="8" fill="none" stroke="#0e1113" stroke-opacity=".55" stroke-width=".9"/><ellipse cx="-2.4" cy="-3.6" rx="3" ry="1.8" fill="#fff" opacity=".55" transform="rotate(-30)"/></g>
+</defs><rect x="-10" y="-39" width="410" height="45" fill="#1b6f39"/><rect x="-10" y="6" width="410" height="45" fill="#1f7a3f"/><rect x="-10" y="51" width="410" height="45" fill="#1b6f39"/><rect x="-10" y="96" width="410" height="45" fill="#1f7a3f"/><rect x="-10" y="141" width="410" height="45" fill="#1b6f39"/><rect x="-10" y="186" width="410" height="45" fill="#1f7a3f"/><rect x="-10" y="231" width="410" height="45" fill="#1b6f39"/><rect x="-10" y="276" width="410" height="45" fill="#1f7a3f"/><rect x="-10" y="321" width="410" height="45" fill="#1b6f39"/><rect x="-10" y="366" width="410" height="45" fill="#1f7a3f"/><rect x="-10" y="411" width="410" height="45" fill="#1b6f39"/><rect x="-10" y="456" width="410" height="45" fill="#1f7a3f"/><rect x="-10" y="501" width="410" height="45" fill="#1b6f39"/><rect x="-10" y="546" width="410" height="45" fill="#1f7a3f"/><rect x="-10" y="591" width="410" height="45" fill="#1b6f39"/><rect x="-10" y="636" width="410" height="45" fill="#1f7a3f"/><rect x="-10" y="681" width="410" height="45" fill="#1b6f39"/><rect x="-10" y="726" width="410" height="45" fill="#1f7a3f"/><rect x="-10" y="771" width="410" height="45" fill="#1b6f39"/><rect x="-10" y="816" width="410" height="45" fill="#1f7a3f"/><rect x="-10" y="861" width="410" height="45" fill="#1b6f39"/><rect x="-10" y="906" width="410" height="45" fill="#1f7a3f"/><rect x="-10" y="951" width="410" height="45" fill="#1b6f39"/><rect x="-10" y="996" width="410" height="45" fill="#1f7a3f"/><rect x="-10" y="1041" width="410" height="45" fill="#1b6f39"/><rect x="-10" y="-10" width="410" height="870" filter="url(#noise)" opacity=".3"/><rect x="-10" y="-10" width="410" height="870" filter="url(#noiseL)" opacity=".10"/><rect x="-10" y="-10" width="410" height="870" fill="url(#light)"/><path fill-rule="evenodd" fill="#04140a" fill-opacity=".3" d="M-10 -10H400V860H-10Z M37.5 96H352.5V546H37.5Z"/><g><rect x="127.5" y="81" width="135" height="15" fill="#0b1a10" fill-opacity=".55"/><rect x="127.5" y="81" width="135" height="15" fill="url(#net)"/><path d="M127.5 96V81H262.5V96" fill="none" stroke="#fff" stroke-width="2.6" stroke-linejoin="round"/>
+  <rect x="127.5" y="546" width="135" height="15" fill="#0b1a10" fill-opacity=".55"/><rect x="127.5" y="546" width="135" height="15" fill="url(#net)"/><path d="M127.5 546V561H262.5V546" fill="none" stroke="#fff" stroke-width="2.6" stroke-linejoin="round"/></g><path d="M82.5 96V546M127.5 96V546M172.5 96V546M217.5 96V546M262.5 96V546M307.5 96V546M37.5 141H352.5M37.5 186H352.5M37.5 231H352.5M37.5 276H352.5M37.5 321H352.5M37.5 366H352.5M37.5 411H352.5M37.5 456H352.5M37.5 501H352.5" stroke="#fff" stroke-opacity=".075" stroke-width="1" fill="none"/><g fill="none" stroke="#fff" stroke-opacity=".85" stroke-width="1.7" stroke-linejoin="round" stroke-linecap="round">
+  <rect x="37.5" y="96" width="315" height="450"/>
+  <path d="M37.5 321H352.5"/><circle cx="195" cy="321" r="58.5"/>
+  <path d="M82.5 96V186H307.5V96"/><path d="M127.5 96V141H262.5V96"/>
+  <path d="M82.5 456V546M307.5 456V546M82.5 456H307.5"/><path d="M127.5 546V501H262.5V546"/>
+  <path d="M139.33807405416158 186A58.5 58.5 0 0 0 250.66192594583842 186"/><path d="M139.33807405416158 456A58.5 58.5 0 0 1 250.66192594583842 456"/>
+  <path d="M37.5 105A9 9 0 0 0 46.5 96M343.5 96A9 9 0 0 0 352.5 105M37.5 537A9 9 0 0 1 46.5 546M343.5 546A9 9 0 0 1 352.5 537"/></g>
+  <g fill="#fff" fill-opacity=".85"><circle cx="195" cy="321" r="2.4"/><circle cx="195" cy="168" r="2"/><circle cx="195" cy="474" r="2"/></g><rect x="37.5" y="177" width="315" height="18" fill="url(#off)"/><path d="M37.5 186H352.5" stroke="#ff5a5a" stroke-width="1.6" stroke-dasharray="10 5" opacity=".95"/>
+<g transform="translate(44.5 191)"><rect width="84" height="14" rx="7" fill="#2a0e10" fill-opacity=".85" stroke="#ff5a5a" stroke-opacity=".6" stroke-width=".8"/><circle cx="8" cy="7" r="2" fill="#ff5a5a"/><text x="14" y="10.4" font-family="Barlow Condensed" font-weight="700" font-size="10.2" letter-spacing=".8" fill="#ffb4b4">OFFSIDE LINE</text></g><rect x="265" y="233.5" width="40" height="40" rx="7" fill="#ffd60a" fill-opacity=".24" stroke="#ffd60a" stroke-opacity=".95" stroke-width="2" stroke-dasharray="0.1 4.6" stroke-linecap="round"/><rect x="265" y="188.5" width="40" height="40" rx="7" fill="#ffd60a" fill-opacity=".24" stroke="#ffd60a" stroke-opacity=".95" stroke-width="2" stroke-dasharray="0.1 4.6" stroke-linecap="round"/><rect x="310" y="233.5" width="40" height="40" rx="7" fill="#ffd60a" fill-opacity=".24" stroke="#ffd60a" stroke-opacity=".95" stroke-width="2" stroke-dasharray="0.1 4.6" stroke-linecap="round"/><rect x="310" y="278.5" width="40" height="40" rx="7" fill="#ffd60a" fill-opacity=".24" stroke="#ffd60a" stroke-opacity=".95" stroke-width="2" stroke-dasharray="0.1 4.6" stroke-linecap="round"/><rect x="310" y="323.5" width="40" height="40" rx="7" fill="#ffd60a" fill-opacity=".24" stroke="#ffd60a" stroke-opacity=".95" stroke-width="2" stroke-dasharray="0.1 4.6" stroke-linecap="round"/><rect x="220" y="278.5" width="40" height="40" rx="7" fill="#ffd60a" fill-opacity=".24" stroke="#ffd60a" stroke-opacity=".95" stroke-width="2" stroke-dasharray="0.1 4.6" stroke-linecap="round"/><rect x="265" y="323.5" width="40" height="40" rx="7" fill="#ffd60a" fill-opacity=".24" stroke="#ffd60a" stroke-opacity=".95" stroke-width="2" stroke-dasharray="0.1 4.6" stroke-linecap="round"/><rect x="220" y="233.5" width="40" height="40" rx="7" fill="#ff4b4b" fill-opacity=".2" stroke="#ff5a5a" stroke-width="1.8" stroke-dasharray="5 4" stroke-linecap="round"/><g transform="translate(285 307.5)"><ellipse rx="28" ry="21" fill="#ffd60a" fill-opacity=".24"/><ellipse rx="27" ry="20" fill="none" stroke="#ffd60a" stroke-width="3.2" stroke-linecap="round" stroke-dasharray="150 7 40 0" transform="rotate(-8)"/><ellipse rx="31" ry="23.5" fill="none" stroke="#ffd60a" stroke-opacity=".35" stroke-width="1" transform="rotate(-8)"/></g><path d="M208,193.5Q214,184.5 223,181.5" fill="none" stroke="#000" stroke-opacity=".4" stroke-width="5" stroke-linecap="round" transform="translate(2 5)" filter="url(#b2)"/><path d="M208,193.5Q214,184.5 223,181.5" fill="none" stroke="#ffd60a" stroke-width="4.2" stroke-linecap="round"/><path d="M226.0 178.5L210.8 177.1L217.9 182.6L218.0 191.5Z" fill="#ffd60a" stroke="#ffd60a" stroke-width="2" stroke-linejoin="round"/><path d="M283,280.5 Q324,216.5 262,167.5" fill="none" stroke="#000" stroke-opacity=".45" stroke-width="3.5" stroke-linecap="round" transform="translate(3 9)" filter="url(#b2)"/>
+<path d="M283,280.5 Q324,216.5 262,167.5" fill="none" stroke="#fff" stroke-width="2.6" stroke-linecap="round" stroke-dasharray="7 6"/>
+<path d="M262.0 167.5L266.8 180.8L268.6 172.7L276.0 169.1Z" fill="#fff" stroke="#fff" stroke-width="2" stroke-linejoin="round"/>
+<g transform="translate(195 163.5)">
+<ellipse cx="1.5" cy="7" rx="18" ry="12.5" fill="#000" opacity="0.72" filter="url(#b3)"/>
+<g transform="translate(0 0)">
+<circle r="19" fill="url(#kr)" stroke="#fff" stroke-opacity=".92" stroke-width="1.6"/>
+<circle r="19" fill="url(#gloss)"/>
+<circle r="15.2" fill="none" stroke="#fff" stroke-opacity=".16" stroke-width="1"/>
+<path d="M-17 6A18.4 18.4 0 0 0 17 6" fill="none" stroke="#000" stroke-opacity=".18" stroke-width="3"/>
+<text y="2" text-anchor="middle" font-family="Barlow Condensed" font-weight="700" font-size="23" fill="#000" fill-opacity=".3">4</text>
+<text y="1" text-anchor="middle" font-family="Barlow Condensed" font-weight="700" font-size="23" fill="#fff">4</text>
+<rect x="-9.9" y="9.5" width="19.8" height="12.5" rx="6.25" fill="#0b0d0f" fill-opacity=".88" stroke="#fff" stroke-opacity=".16" stroke-width=".7"/>
+<text y="18.6" text-anchor="middle" font-family="Barlow Condensed" font-weight="700" font-size="10.2" letter-spacing=".6" fill="#e9eef2">DF</text>
+
+</g></g><g transform="translate(195 208.5)">
+<ellipse cx="1.5" cy="7" rx="18" ry="12.5" fill="#000" opacity="0.72" filter="url(#b3)"/>
+<g transform="translate(0 0)">
+<circle r="19" fill="url(#kb)" stroke="#fff" stroke-opacity=".92" stroke-width="1.6"/>
+<circle r="19" fill="url(#gloss)"/>
+<circle r="15.2" fill="none" stroke="#fff" stroke-opacity=".16" stroke-width="1"/>
+<path d="M-17 6A18.4 18.4 0 0 0 17 6" fill="none" stroke="#000" stroke-opacity=".18" stroke-width="3"/>
+<text y="2" text-anchor="middle" font-family="Barlow Condensed" font-weight="700" font-size="23" fill="#000" fill-opacity=".3">9</text>
+<text y="1" text-anchor="middle" font-family="Barlow Condensed" font-weight="700" font-size="23" fill="#fff">9</text>
+<rect x="-9.9" y="9.5" width="19.8" height="12.5" rx="6.25" fill="#0b0d0f" fill-opacity=".88" stroke="#fff" stroke-opacity=".16" stroke-width=".7"/>
+<text y="18.6" text-anchor="middle" font-family="Barlow Condensed" font-weight="700" font-size="10.2" letter-spacing=".6" fill="#e9eef2">ST</text>
+
+</g></g><g transform="translate(150 253.5)">
+<ellipse cx="1.5" cy="7" rx="18" ry="12.5" fill="#000" opacity="0.72" filter="url(#b3)"/>
+<g transform="translate(0 0)">
+<circle r="19" fill="url(#kr)" stroke="#fff" stroke-opacity=".92" stroke-width="1.6"/>
+<circle r="19" fill="url(#gloss)"/>
+<circle r="15.2" fill="none" stroke="#fff" stroke-opacity=".16" stroke-width="1"/>
+<path d="M-17 6A18.4 18.4 0 0 0 17 6" fill="none" stroke="#000" stroke-opacity=".18" stroke-width="3"/>
+<text y="2" text-anchor="middle" font-family="Barlow Condensed" font-weight="700" font-size="23" fill="#000" fill-opacity=".3">10</text>
+<text y="1" text-anchor="middle" font-family="Barlow Condensed" font-weight="700" font-size="23" fill="#fff">10</text>
+<rect x="-9.9" y="9.5" width="19.8" height="12.5" rx="6.25" fill="#0b0d0f" fill-opacity=".88" stroke="#fff" stroke-opacity=".16" stroke-width=".7"/>
+<text y="18.6" text-anchor="middle" font-family="Barlow Condensed" font-weight="700" font-size="10.2" letter-spacing=".6" fill="#e9eef2">LS</text>
+
+</g></g><g transform="translate(240 253.5)">
+<ellipse cx="1.5" cy="7" rx="18" ry="12.5" fill="#000" opacity="0.72" filter="url(#b3)"/>
+<g transform="translate(0 0)">
+<circle r="19" fill="url(#kr)" stroke="#fff" stroke-opacity=".92" stroke-width="1.6"/>
+<circle r="19" fill="url(#gloss)"/>
+<circle r="15.2" fill="none" stroke="#fff" stroke-opacity=".16" stroke-width="1"/>
+<path d="M-17 6A18.4 18.4 0 0 0 17 6" fill="none" stroke="#000" stroke-opacity=".18" stroke-width="3"/>
+<text y="2" text-anchor="middle" font-family="Barlow Condensed" font-weight="700" font-size="23" fill="#000" fill-opacity=".3">6</text>
+<text y="1" text-anchor="middle" font-family="Barlow Condensed" font-weight="700" font-size="23" fill="#fff">6</text>
+<rect x="-9.9" y="9.5" width="19.8" height="12.5" rx="6.25" fill="#0b0d0f" fill-opacity=".88" stroke="#fff" stroke-opacity=".16" stroke-width=".7"/>
+<text y="18.6" text-anchor="middle" font-family="Barlow Condensed" font-weight="700" font-size="10.2" letter-spacing=".6" fill="#e9eef2">IC</text>
+
+</g></g><g transform="translate(285 298.5)">
+<ellipse cx="3" cy="13" rx="19" ry="13" fill="#000" opacity="0.68" filter="url(#b5)"/>
+<g transform="translate(0 -4)">
+<circle r="19" fill="url(#kb)" stroke="#fff" stroke-opacity=".92" stroke-width="1.6"/>
+<circle r="19" fill="url(#gloss)"/>
+<circle r="15.2" fill="none" stroke="#fff" stroke-opacity=".16" stroke-width="1"/>
+<path d="M-17 6A18.4 18.4 0 0 0 17 6" fill="none" stroke="#000" stroke-opacity=".18" stroke-width="3"/>
+<text y="2" text-anchor="middle" font-family="Barlow Condensed" font-weight="700" font-size="23" fill="#000" fill-opacity=".3">7</text>
+<text y="1" text-anchor="middle" font-family="Barlow Condensed" font-weight="700" font-size="23" fill="#fff">7</text>
+<rect x="-9.9" y="9.5" width="19.8" height="12.5" rx="6.25" fill="#0b0d0f" fill-opacity=".88" stroke="#fff" stroke-opacity=".16" stroke-width=".7"/>
+<text y="18.6" text-anchor="middle" font-family="Barlow Condensed" font-weight="700" font-size="10.2" letter-spacing=".6" fill="#e9eef2">WG</text>
+<ellipse cx="20" cy="20.5" rx="7" ry="2.6" fill="#000" opacity=".5" filter="url(#b2)"/><use href="#ball" x="20" y="12"/>
+</g></g><g transform="translate(150 343.5)">
+<ellipse cx="1.5" cy="7" rx="18" ry="12.5" fill="#000" opacity="0.72" filter="url(#b3)"/>
+<g transform="translate(0 0)">
+<circle r="19" fill="url(#kb)" stroke="#fff" stroke-opacity=".92" stroke-width="1.6"/>
+<circle r="19" fill="url(#gloss)"/>
+<circle r="15.2" fill="none" stroke="#fff" stroke-opacity=".16" stroke-width="1"/>
+<path d="M-17 6A18.4 18.4 0 0 0 17 6" fill="none" stroke="#000" stroke-opacity=".18" stroke-width="3"/>
+<text y="2" text-anchor="middle" font-family="Barlow Condensed" font-weight="700" font-size="23" fill="#000" fill-opacity=".3">10</text>
+<text y="1" text-anchor="middle" font-family="Barlow Condensed" font-weight="700" font-size="23" fill="#fff">10</text>
+<rect x="-9.9" y="9.5" width="19.8" height="12.5" rx="6.25" fill="#0b0d0f" fill-opacity=".88" stroke="#fff" stroke-opacity=".16" stroke-width=".7"/>
+<text y="18.6" text-anchor="middle" font-family="Barlow Condensed" font-weight="700" font-size="10.2" letter-spacing=".6" fill="#e9eef2">LS</text>
+
+</g></g><g transform="translate(195 388.5)">
+<ellipse cx="1.5" cy="7" rx="18" ry="12.5" fill="#000" opacity="0.72" filter="url(#b3)"/>
+<g transform="translate(0 0)">
+<circle r="19" fill="url(#kb)" stroke="#fff" stroke-opacity=".92" stroke-width="1.6"/>
+<circle r="19" fill="url(#gloss)"/>
+<circle r="15.2" fill="none" stroke="#fff" stroke-opacity=".16" stroke-width="1"/>
+<path d="M-17 6A18.4 18.4 0 0 0 17 6" fill="none" stroke="#000" stroke-opacity=".18" stroke-width="3"/>
+<text y="2" text-anchor="middle" font-family="Barlow Condensed" font-weight="700" font-size="23" fill="#000" fill-opacity=".3">6</text>
+<text y="1" text-anchor="middle" font-family="Barlow Condensed" font-weight="700" font-size="23" fill="#fff">6</text>
+<rect x="-9.9" y="9.5" width="19.8" height="12.5" rx="6.25" fill="#0b0d0f" fill-opacity=".88" stroke="#fff" stroke-opacity=".16" stroke-width=".7"/>
+<text y="18.6" text-anchor="middle" font-family="Barlow Condensed" font-weight="700" font-size="10.2" letter-spacing=".6" fill="#e9eef2">IC</text>
+
+</g></g><g transform="translate(105 388.5)">
+<ellipse cx="1.5" cy="7" rx="18" ry="12.5" fill="#000" opacity="0.72" filter="url(#b3)"/>
+<g transform="translate(0 0)">
+<circle r="19" fill="url(#kr)" stroke="#fff" stroke-opacity=".92" stroke-width="1.6"/>
+<circle r="19" fill="url(#gloss)"/>
+<circle r="15.2" fill="none" stroke="#fff" stroke-opacity=".16" stroke-width="1"/>
+<path d="M-17 6A18.4 18.4 0 0 0 17 6" fill="none" stroke="#000" stroke-opacity=".18" stroke-width="3"/>
+<text y="2" text-anchor="middle" font-family="Barlow Condensed" font-weight="700" font-size="23" fill="#000" fill-opacity=".3">7</text>
+<text y="1" text-anchor="middle" font-family="Barlow Condensed" font-weight="700" font-size="23" fill="#fff">7</text>
+<rect x="-9.9" y="9.5" width="19.8" height="12.5" rx="6.25" fill="#0b0d0f" fill-opacity=".88" stroke="#fff" stroke-opacity=".16" stroke-width=".7"/>
+<text y="18.6" text-anchor="middle" font-family="Barlow Condensed" font-weight="700" font-size="10.2" letter-spacing=".6" fill="#e9eef2">WG</text>
+
+</g></g><g transform="translate(240 433.5)">
+<ellipse cx="1.5" cy="7" rx="18" ry="12.5" fill="#000" opacity="0.72" filter="url(#b3)"/>
+<g transform="translate(0 0)">
+<circle r="19" fill="url(#kr)" stroke="#fff" stroke-opacity=".92" stroke-width="1.6"/>
+<circle r="19" fill="url(#gloss)"/>
+<circle r="15.2" fill="none" stroke="#fff" stroke-opacity=".16" stroke-width="1"/>
+<path d="M-17 6A18.4 18.4 0 0 0 17 6" fill="none" stroke="#000" stroke-opacity=".18" stroke-width="3"/>
+<text y="2" text-anchor="middle" font-family="Barlow Condensed" font-weight="700" font-size="23" fill="#000" fill-opacity=".3">9</text>
+<text y="1" text-anchor="middle" font-family="Barlow Condensed" font-weight="700" font-size="23" fill="#fff">9</text>
+<rect x="-9.9" y="9.5" width="19.8" height="12.5" rx="6.25" fill="#0b0d0f" fill-opacity=".88" stroke="#fff" stroke-opacity=".16" stroke-width=".7"/>
+<text y="18.6" text-anchor="middle" font-family="Barlow Condensed" font-weight="700" font-size="10.2" letter-spacing=".6" fill="#e9eef2">ST</text>
+
+</g></g><g transform="translate(195 478.5)">
+<ellipse cx="1.5" cy="7" rx="18" ry="12.5" fill="#000" opacity="0.72" filter="url(#b3)"/>
+<g transform="translate(0 0)">
+<circle r="19" fill="url(#kb)" stroke="#fff" stroke-opacity=".92" stroke-width="1.6"/>
+<circle r="19" fill="url(#gloss)"/>
+<circle r="15.2" fill="none" stroke="#fff" stroke-opacity=".16" stroke-width="1"/>
+<path d="M-17 6A18.4 18.4 0 0 0 17 6" fill="none" stroke="#000" stroke-opacity=".18" stroke-width="3"/>
+<text y="2" text-anchor="middle" font-family="Barlow Condensed" font-weight="700" font-size="23" fill="#000" fill-opacity=".3">4</text>
+<text y="1" text-anchor="middle" font-family="Barlow Condensed" font-weight="700" font-size="23" fill="#fff">4</text>
+<rect x="-9.9" y="9.5" width="19.8" height="12.5" rx="6.25" fill="#0b0d0f" fill-opacity=".88" stroke="#fff" stroke-opacity=".16" stroke-width=".7"/>
+<text y="18.6" text-anchor="middle" font-family="Barlow Condensed" font-weight="700" font-size="10.2" letter-spacing=".6" fill="#e9eef2">DF</text>
+
+</g></g><g transform="translate(240 163.5)"><circle r="19" fill="#3b86ff" fill-opacity=".8" stroke="#fff" stroke-opacity=".95" stroke-width="1.5" stroke-dasharray="3 3.2" stroke-linecap="round"/><text y="7" text-anchor="middle" class="bc" font-size="22" fill="#fff" fill-opacity=".75" font-family="Barlow Condensed" font-weight="700">9</text></g><g transform="translate(298.25 220.25)"><rect x="-23" y="-11.5" width="46" height="23" rx="11.5" fill="#000" opacity=".4" filter="url(#b2)" transform="translate(0 3)"/><rect x="-23" y="-11.5" width="46" height="23" rx="11.5" fill="#0e1113" fill-opacity=".9" stroke="#fff" stroke-opacity=".5" stroke-width="1"/><text x="0" y="5.6" text-anchor="middle" font-family="Barlow Condensed" font-weight="700" font-size="16" fill="#fff" letter-spacing=".3">72<tspan font-size="11" dy="-1.5">%</tspan></text></g>
+<rect width="390" height="844" fill="url(#vig)"/></svg>
+<div class="abs" style="left:0;top:0;width:390px;height:100px;background:linear-gradient(180deg,rgba(6,12,9,.6),rgba(6,12,9,0));z-index:5"></div>
+<div class="status"><span>9:41</span><span style="display:flex;gap:6px;align-items:center"><svg width="18" height="11" viewBox="0 0 18 11" fill="#fff"><rect x="0" y="7" width="3" height="4" rx=".8"/><rect x="5" y="5" width="3" height="6" rx=".8"/><rect x="10" y="2.5" width="3" height="8.5" rx=".8"/><rect x="15" y="0" width="3" height="11" rx=".8"/></svg><svg width="16" height="11" viewBox="0 0 16 11" fill="none" stroke="#fff" stroke-width="1.7" stroke-linecap="round"><path d="M1.5 4.2a9.5 9.5 0 0 1 13 0M3.8 6.6a6.2 6.2 0 0 1 8.4 0"/><circle cx="8" cy="9.2" r="1" fill="#fff" stroke="none"/></svg><svg width="26" height="12" viewBox="0 0 26 12" fill="none"><rect x=".5" y=".5" width="22" height="11" rx="3.2" stroke="#fff" opacity=".5"/><rect x="2" y="2" width="19" height="8" rx="2" fill="#fff"/><rect x="24" y="4" width="1.6" height="4" rx=".8" fill="#fff" opacity=".5"/></svg></span></div>
+<div class="abs glass menu"><svg width="18" height="18" viewBox="0 0 24 24" stroke="#fff" stroke-width="2.2" stroke-linecap="round"><path d="M4 7h16M4 12h16M4 17h10"/></svg></div>
+<div class="abs glass bug"><div class="tm"><i class="chip" style="background:var(--blue);margin-left:12px"></i>蒼嵐</div><div class="sc bc">1<em>–</em>0</div><div class="tm r"><i class="chip" style="background:var(--red);margin-right:12px"></i>紅蓮</div></div>
+<div class="abs glass tim"><div class="t"><span class="n bc">0:42</span><span class="tt">T 7/20</span></div><div class="pb"><i></i></div></div>
+<div class="abs glass sheet"><div class="grab"></div>
+<div class="hd"><div class="av bc">7</div><div class="nm"><h2>ウイング <span class="bc">#7</span></h2><p><span class="rp">WG</span>ボール保持</p></div>
+<div class="tag"><svg width="13" height="13" viewBox="0 0 24 24" fill="#ffd60a"><path d="m12 2.5 2.9 6.2 6.6.8-4.9 4.6 1.3 6.6L12 17.4 6.1 20.7l1.3-6.6L2.5 9.5l6.6-.8Z"/></svg>パスマスター</div></div>
+<div class="stats"><div class="st"><div class="sr"><span class="sl">パス</span><span class="sv bc">75</span></div><div class="bar"><i style="width:75%"></i></div></div><div class="st"><div class="sr"><span class="sl">クロス</span><span class="sv bc hi">85</span></div><div class="bar"><i style="width:85%" class="hi"></i></div></div><div class="st"><div class="sr"><span class="sl">フィジカル</span><span class="sv bc">40</span></div><div class="bar"><i style="width:40%"></i></div></div><div class="st"><div class="sr"><span class="sl">シュート</span><span class="sv bc">55</span></div><div class="bar"><i style="width:55%"></i></div></div></div>
+<div class="seg"><div class="sg"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v18M3 12h18M12 3l-3 3M12 3l3 3M12 21l-3-3M12 21l3-3M3 12l3-3M3 12l3 3M21 12l-3-3M21 12l-3 3"/></svg><span>移動</span></div><div class="sg on"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="5" cy="17" r="2.6"/><circle cx="19" cy="7" r="2.6"/><path d="M7.4 15.6C11 13 12 11 16.4 8.2M13.6 7.4l2.9.8-.9 2.9" /></svg><span>パス</span></div><div class="sg"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19C5 9 11 5 19 6"/><path d="M15.5 3.2 19.2 6l-3.2 3.6"/><circle cx="4" cy="19" r="1.4" fill="currentColor"/></svg><span>クロス</span></div><div class="sg"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 20V9h18v11"/><path d="M3 9l3-4h12l3 4M9 9V5M15 9V5"/><circle cx="12" cy="16" r="2.4"/></svg><span>シュート</span></div><div class="sg"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3 4.5 6v5.5c0 4.4 3 7.7 7.5 9.5 4.5-1.8 7.5-5.1 7.5-9.5V6Z"/><path d="m8.8 12 2.4 2.4 4-4.6"/></svg><span>キープ</span></div></div>
+<div class="go"><b>作戦を実行</b><div class="cnt"><span class="bc">3/5</span>指示済み<span class="dots"><i class="on"></i><i class="on"></i><i class="on"></i><i></i><i></i></span></div></div>
+</div><div class="home"></div></body></html>

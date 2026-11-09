@@ -1,4 +1,4 @@
-import type { TokenView } from '../viewTypes';
+import type { TokenLayout, TokenView } from '../viewTypes';
 import { cx, cy } from '../Pitch/pitchGeometry';
 import './PlayerToken.css';
 
@@ -9,6 +9,8 @@ interface Props {
   passTarget: boolean;
   interactive: boolean;
   onTap: (id: string) => void;
+  /** Set when an opponent shares the cell: diagonal offset + 0.8 scale. */
+  layout?: TokenLayout;
   /** Visual duplicate drawn above the radial scrim (no test id, no pointer events). */
   clone?: boolean;
 }
@@ -26,7 +28,16 @@ export function BallIcon({ r = 0.15 }: { r?: number }) {
   );
 }
 
-export function PlayerToken({ token, selected, inspected, passTarget, interactive, onTap, clone }: Props) {
+const SOLO: TokenLayout = { dx: 0, dy: 0, s: 1 };
+const placeStyle = (token: TokenView, l: TokenLayout): React.CSSProperties => {
+  const style: React.CSSProperties = {
+    transform: `translate(${cx(token.x) + l.dx}px, ${cy(token.y) + l.dy}px) scale(${l.s})`,
+  };
+  if (token.moveMs !== undefined) (style as Record<string, unknown>)['--move-ms'] = `${token.moveMs}ms`;
+  return style;
+};
+
+export function PlayerToken({ token, selected, inspected, passTarget, interactive, onTap, layout, clone }: Props) {
   const cls = [
     'token',
     `token--${token.team}`,
@@ -35,12 +46,13 @@ export function PlayerToken({ token, selected, inspected, passTarget, interactiv
     passTarget && 'is-pass-target',
     token.clash && 'is-clash',
     token.tag?.kind === 'lose' && 'is-lose',
-    token.ease === 'back' && 'is-back',
+    layout && 'is-shared',
   ]
     .filter(Boolean)
     .join(' ');
-  const style: React.CSSProperties = { transform: `translate(${cx(token.x)}px, ${cy(token.y)}px)` };
-  if (token.moveMs !== undefined) (style as Record<string, unknown>)['--move-ms'] = `${token.moveMs}ms`;
+  const style = placeStyle(token, layout ?? SOLO);
+  // shared cell: the user's (blue) hit area is the larger one so ambiguous taps pick their own player
+  const hitR = layout ? (token.team === 'blue' ? 0.44 : 0.22) : 0.5;
   return (
     <g
       className={cls}
@@ -62,14 +74,14 @@ export function PlayerToken({ token, selected, inspected, passTarget, interactiv
         <ellipse className="token__shadow" cx={0.03} cy={0.34} rx={0.37} ry={0.13} />
         {selected && (
           <g className="token__sel">
-            <circle className="token__ring token__ring--gold" r={0.57} />
-            <circle className="token__ring token__ring--white" r={0.5} />
+            <circle className="token__ring token__ring--gold" r={layout ? 0.46 : 0.57} />
+            <circle className="token__ring token__ring--white" r={layout ? 0.41 : 0.5} />
           </g>
         )}
         {token.tag?.kind === 'win' && <circle className="token__win-ring" r={0.52} />}
         {inspected && <circle className="token__inspect-ring" r={0.5} />}
         {passTarget && <circle className="token__target-ring" r={0.54} />}
-        <circle className="token__hit" r={0.5} />
+        <circle className="token__hit" r={hitR} />
         <circle className="token__body" r={0.4} />
         <ellipse className="token__gloss" cx={-0.11} cy={-0.18} rx={0.2} ry={0.11} transform="rotate(-28 -0.11 -0.18)" />
         <text className="token__abbr" y={0.02}>
@@ -86,18 +98,16 @@ export function PlayerToken({ token, selected, inspected, passTarget, interactiv
 }
 
 /** WIN / LOSE tag; rendered in its own top layer so no token can cover it. */
-export function DuelTag({ token }: { token: TokenView }) {
+export function DuelTag({ token, layout }: { token: TokenView; layout?: TokenLayout }) {
   if (!token.tag) return null;
   const tw = token.tag.label.length > 4 ? 1.6 : 0.98;
-  const style: React.CSSProperties = { transform: `translate(${cx(token.x)}px, ${cy(token.y)}px)` };
-  if (token.moveMs !== undefined) (style as Record<string, unknown>)['--move-ms'] = `${token.moveMs}ms`;
+  // shared cell: red's tag goes above the pair, blue's below, so the two plates never overlap
+  const l = layout ?? SOLO;
+  const style = placeStyle(token, { dx: l.dx, dy: l.dy, s: 1 });
+  const ty = layout ? (token.team === 'red' ? -0.62 : 0.62) : -0.8;
   return (
-    <g
-      className={`token tag-pos${token.ease === 'back' ? ' is-back' : ''}`}
-      style={style}
-      pointerEvents="none"
-    >
-      <g className={`tag tag--${token.tag.kind} tag--${token.team}`} transform="translate(0 -0.8)">
+    <g className="token tag-pos" style={style} pointerEvents="none">
+      <g className={`tag tag--${token.tag.kind} tag--${token.team}`} transform={`translate(0 ${ty})`}>
         <g className="tag__pop" data-testid={`duel-${token.tag.kind}-${token.id}`}>
           <rect className="tag__plate" x={-tw / 2} y={-0.19} width={tw} height={0.38} rx={0.19} />
           {token.tag.kind === 'win' && (

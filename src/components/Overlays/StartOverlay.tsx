@@ -40,6 +40,7 @@ export function StartOverlay({ timerOn, seconds, onToggleTimer, onStart }: Props
             <i>3</i>「ターン実行」で敵と同時に動き出す！
           </li>
         </ol>
+        <p className="howto__note">敵と同じマスにも並べる。競り合いはボールがあるマスだけ、負けてもその場に残る。</p>
         <label className="toggle">
           <span>作戦タイマー（{seconds}秒）</span>
           <input type="checkbox" checked={timerOn} onChange={(e) => onToggleTimer(e.target.checked)} />

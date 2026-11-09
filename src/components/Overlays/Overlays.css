@@ -78,6 +78,13 @@
   font-size: 13px;
   line-height: 1.4;
 }
+.howto__note {
+  margin: 8px 2px 0;
+  font-size: 11.5px;
+  line-height: 1.45;
+  color: var(--text-dim, rgba(255, 255, 255, 0.72));
+  text-align: left;
+}
 .howto li {
   display: flex;
   align-items: center;
