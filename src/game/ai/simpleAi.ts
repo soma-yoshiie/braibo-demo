@@ -72,17 +72,43 @@ function enemyReachers(c: Ctx): Map<string, PlayerState[]> {
 // Offence
 // ---------------------------------------------------------------------------
 
+/** Advancement (from our side) of the k-th last enemy defender, i.e. the offside line. -1 if none. */
+function foeAdvs(c: Ctx): number {
+  const k = RULES.offside.lastDefenders;
+  const advs = c.foes.map((f) => advancement(c.team, f.pos)).sort((a, b) => b - a);
+  return advs.length >= k ? (advs[k - 1] as number) : -1;
+}
+
 function planOffBall(c: Ctx, players: PlayerState[], anchor: Vec, holding = false): void {
   const goal = goalTarget(c.team);
   const order = [...players].sort((a, b) => dist(a.pos, goal) - dist(b.pos, goal) || a.index - b.index);
   const foes = foePositions(c);
   const foeMap = c.foes.map((f) => f.pos);
+  const lastAdv = foeAdvs(c);
+  const carrierRole = holding ? c.foes && c.me.find((m) => vecEq(m.pos, anchor)) : undefined;
+  const crossSetup =
+    !!carrierRole &&
+    getCharacter(carrierRole.charId).role === 'wing' &&
+    BOARD.wideColumns.includes(anchor.x) &&
+    advancement(c.team, anchor) >= 6;
   for (const p of order) {
+    const role = getCharacter(p.charId).role;
     let best = p.pos;
     let bestV = -Infinity;
     for (const t of candidates(c, p)) {
       let v = positionValue(c.state, p, t, matesExcept(c, p), foes, anchor) + noise(c) * 0.5;
-      if (holding && isOffsidePosition(c.team, t, anchor, foeMap)) v -= c.W.offside;
+      if (holding) {
+        const off = isOffsidePosition(c.team, t, anchor, foeMap);
+        if (off) v -= c.W.offside;
+        const a = advancement(c.team, t);
+        const striking = role === 'striker' || role === 'longShooter';
+        if (striking && advancement(c.team, anchor) >= 4 && lastAdv >= 4) {
+          if (a === lastAdv) v += c.W.holdLine;
+          else if (a === lastAdv - 1) v += c.W.holdLine * 0.6;
+        }
+        if (crossSetup && !off && role !== 'wing' && role !== 'physicalDefender' && BOARD.centralColumns.includes(t.x) && a >= BOARD.rows - BOARD.crossZoneRows)
+          v += c.W.crossZone;
+      }
       if (v > bestV) {
         bestV = v;
         best = t;

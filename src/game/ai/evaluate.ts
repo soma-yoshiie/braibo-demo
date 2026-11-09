@@ -16,8 +16,8 @@ export const AI_WEIGHTS = {
   defenderAnchor: 0.06, // physicalDefender: per row away from its home line
   defenderHomeRow: 3.5, // home line, in advancement rows
   shotScale: 4, // value of 1.0 goal probability when comparing ball actions
-  crossScale: 1.2,
-  crossBonus: 0.3,
+  crossScale: 1.6,
+  crossBonus: 0.6,
   backwardPass: 0.1,
   danger: 0.25, // risk of an enemy reaching the cell next turn
   dangerAdjacent: 0.15,
@@ -34,7 +34,9 @@ export const AI_WEIGHTS = {
   crossLoss: 1, // possession-loss penalty for a lost aerial
   crossMinAerial: 0.35,
   crossMargin: 0.3,
-  offside: 0.5, // off-ball cell that would be offside
+  offside: 1.2, // off-ball cell that would be offside
+  holdLine: 0.25, // striker/long shooter level with (or one behind) the offside line
+  crossZone: 0.3, // central teammate in the cross zone while a wing is wide
   trap: 0.15, // deepest defender stepping up (offside trap)
   receiverRisk: 3, // defenders: expected goals via a pass to a receiver
   mark: 0.6, // defenders: standing next to the top receiver

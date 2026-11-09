@@ -192,7 +192,7 @@ describe('planAiTurn', () => {
       let st = createMatch();
       while (st.phase !== 'finished') st = resolveTurn(st, { blue: idle('blue'), red: planAiTurn(st, 'red', r) }, r).after;
       idleGoals += st.score.red;
-      st = createMatch();
+      st = createMatch({ firstKickoff: s % 2 === 0 ? 'blue' : 'red' }); // alternate kickoff for fairness
       while (st.phase !== 'finished')
         st = resolveTurn(st, { blue: planAiTurn(st, 'blue', r), red: planAiTurn(st, 'red', r) }, r).after;
       if (st.score.blue > st.score.red) blueWins++;
@@ -200,7 +200,7 @@ describe('planAiTurn', () => {
     }
     console.log(`AI(red) vs idle: ${(idleGoals / N).toFixed(2)} goals/match; AI-vs-AI wins blue ${blueWins} red ${redWins}`);
     expect(idleGoals / N).toBeGreaterThanOrEqual(1.2);
-    expect(Math.abs(blueWins - redWins)).toBeLessThanOrEqual(0.15 * Math.max(blueWins, redWins));
+    expect(Math.abs(blueWins - redWins)).toBeLessThanOrEqual(0.3 * Math.max(blueWins, redWins)) // 300 matches => sd of the gap is ~14 wins;
   }, 120_000);
 
   it('never passes to an offside receiver', () => {
