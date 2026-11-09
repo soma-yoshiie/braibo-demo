@@ -2,7 +2,8 @@ import { describe, expect, it } from 'vitest';
 import { cellsOnSegment, laneOffset, neighbors8, inBounds } from './geometry';
 import { availableMoveTargets, isLegalMove, legalMoveTargets } from './moves';
 import { estimateCross, estimatePass, estimateShot, estimateSpacePass, isCrossValid } from './estimates';
-import { duelWinProbability, passMaxDistance, shotGoalProbability } from './probability';
+import { isOffsidePosition } from './offside';
+import { duelWinProbability, passAccuracy, passMaxDistance, shotGoalProbability } from './probability';
 import { held, plans, scene } from '../testUtils';
 import { getCharacter } from '../data/characters';
 
@@ -88,6 +89,53 @@ describe('moves', () => {
   });
 });
 
+describe('isOffsidePosition', () => {
+  const d1 = [{ x: 2, y: 3 }, { x: 4, y: 5 }, { x: 1, y: 6 }];
+  const on = (r: number, b: number, defs = d1, cfg = { enabled: true, lastDefenders: 1 }) =>
+    isOffsidePosition('blue', { x: 3, y: r }, { x: 3, y: b }, defs, cfg);
+  it('blue truth table', () => {
+    expect(on(2, 6)).toBe(true); // beyond last defender (y3) and ball
+    expect(on(3, 6)).toBe(false); // level with the last defender
+    expect(on(4, 6)).toBe(false); // behind last defender
+    expect(on(2, 2)).toBe(false); // level with ball
+    expect(on(1, 2, [{ x: 0, y: 0 }])).toBe(false); // defender deeper than receiver
+    expect(isOffsidePosition('blue', { x: 3, y: 5 }, { x: 3, y: 8 }, [{ x: 0, y: 7 }])).toBe(false); // own half
+    expect(isOffsidePosition('blue', { x: 3, y: 4 }, { x: 3, y: 8 }, [{ x: 0, y: 6 }])).toBe(true); // y=4 is opp half
+    expect(on(3, 1)).toBe(false); // backward pass
+  });
+  it('red is mirrored', () => {
+    const ds = [{ x: 2, y: 6 }, { x: 4, y: 4 }];
+    expect(isOffsidePosition('red', { x: 3, y: 7 }, { x: 3, y: 3 }, ds)).toBe(true);
+    expect(isOffsidePosition('red', { x: 3, y: 6 }, { x: 3, y: 3 }, ds)).toBe(false);
+    expect(isOffsidePosition('red', { x: 3, y: 5 }, { x: 3, y: 3 }, [{ x: 0, y: 2 }])).toBe(true); // y5 is opp half
+    expect(isOffsidePosition('red', { x: 3, y: 4 }, { x: 3, y: 1 }, [{ x: 0, y: 2 }])).toBe(false); // own half
+    expect(isOffsidePosition('red', { x: 3, y: 7 }, { x: 3, y: 8 }, ds)).toBe(false); // backward
+  });
+  it('lastDefenders = 2 uses the second last', () => {
+    const cfg = { enabled: true, lastDefenders: 2 };
+    expect(on(2, 6, d1, cfg)).toBe(true); // 2nd smallest y = 5
+    expect(on(4, 6, d1, cfg)).toBe(true); // 4 < 5
+    expect(on(5, 6, d1, cfg)).toBe(false);
+    expect(on(2, 6, [{ x: 0, y: 3 }], cfg)).toBe(false); // fewer than k defenders
+  });
+  it('can be disabled', () => {
+    expect(on(2, 6, d1, { enabled: false, lastDefenders: 1 })).toBe(false);
+  });
+  it('estimates flag offside and zero out pComplete / pGoal', () => {
+    const s = scene({ 'blue-0': { x: 3, y: 6 }, 'blue-1': { x: 3, y: 2 }, 'red-4': { x: 5, y: 3 }, 'red-3': { x: 1, y: 4 } }, held('blue-0'));
+    const e = estimatePass(s, 'blue-0', 'blue-1');
+    expect(e.offside).toBe(true);
+    expect(e.pComplete).toBe(0);
+    expect(estimatePass(s, 'blue-0', 'blue-1', undefined, undefined, { 'red-4': { x: 5, y: 1 } }).offside).toBe(false);
+    expect(estimateSpacePass(s, 'blue-0', { x: 3, y: 2 }).offside).toBe(true);
+    expect(estimateSpacePass(s, 'blue-0', { x: 2, y: 2 }).offside).toBe(false); // empty cell
+    const c = scene({ 'blue-1': { x: 1, y: 4 }, 'blue-0': { x: 3, y: 1 }, 'red-4': { x: 5, y: 3 } }, held('blue-1'));
+    const ce = estimateCross(c, 'blue-1', 'blue-0');
+    expect(ce.offside).toBe(true);
+    expect(ce.pGoal).toBe(0);
+  });
+});
+
 describe('probability and estimates', () => {
   it('duel clamps and carrier bonus', () => {
     expect(duelWinProbability(50, 50)).toBe(0.5);
@@ -96,8 +144,11 @@ describe('probability and estimates', () => {
     expect(duelWinProbability(1, 100)).toBe(0.15);
   });
   it('passMaster extends range', () => {
-    expect(passMaxDistance([])).toBe(6);
-    expect(passMaxDistance(['passMaster'])).toBe(8);
+    expect(passMaxDistance([])).toBe(5);
+    expect(passMaxDistance(['passMaster'])).toBe(7);
+    expect(passMaxDistance([], 'lofted')).toBe(8);
+    expect(passMaxDistance(['passMaster'], 'lofted')).toBe(10);
+    expect(passAccuracy(4, 50, [], 'lofted')).toBeLessThan(passAccuracy(4, 50, []));
   });
   it('shot stat blend', () => {
     const st = getCharacter('striker').stats;
@@ -120,17 +171,17 @@ describe('probability and estimates', () => {
     expect(blocked.pGoal).toBeCloseTo(blocked.pGoalIfUnblocked * (1 - blocked.pBlocked));
   });
   it('estimatePass range and interceptors', () => {
-    const s = scene({ 'blue-0': { x: 3, y: 9 }, 'blue-1': { x: 3, y: 1 }, 'red-3': { x: 3, y: 5 } }, held('blue-0'));
+    const s = scene({ 'blue-0': { x: 3, y: 9 }, 'blue-1': { x: 3, y: 1 }, 'red-3': { x: 3, y: 5 }, 'red-4': { x: 6, y: 0 } }, held('blue-0'));
     const e = estimatePass(s, 'blue-0', 'blue-1');
     expect(e.inRange).toBe(false);
     expect(e.pComplete).toBe(0);
-    const s2 = scene({ 'blue-0': { x: 3, y: 5 }, 'blue-1': { x: 3, y: 2 }, 'red-3': { x: 3, y: 3 } }, held('blue-0'));
+    const s2 = scene({ 'blue-0': { x: 3, y: 5 }, 'blue-1': { x: 3, y: 2 }, 'red-3': { x: 3, y: 3 }, 'red-4': { x: 6, y: 0 } }, held('blue-0'));
     const e2 = estimatePass(s2, 'blue-0', 'blue-1');
     expect(e2.interceptors).toHaveLength(1);
     expect(e2.pComplete).toBeCloseTo(e2.pAccurate * (1 - e2.pIntercepted));
   });
   it('estimateSpacePass carries the penalty and respects range', () => {
-    const s = scene({ 'blue-0': { x: 3, y: 5 }, 'blue-1': { x: 3, y: 2 } }, held('blue-0'));
+    const s = scene({ 'blue-0': { x: 3, y: 5 }, 'blue-1': { x: 3, y: 2 }, 'red-4': { x: 6, y: 0 } }, held('blue-0'));
     const normal = estimatePass(s, 'blue-0', 'blue-1');
     const space = estimateSpacePass(s, 'blue-0', { x: 3, y: 2 });
     expect(space.pAccurate).toBeLessThan(normal.pAccurate);

@@ -1,4 +1,4 @@
-import type { SkillId, Stats } from '../types';
+import type { PassStyle, SkillId, Stats } from '../types';
 import { RULES } from './config';
 
 const clamp = (v: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, v));
@@ -10,15 +10,21 @@ export function duelWinProbability(statA: number, statB: number, opts: { carrier
   return clamp(r.base + (statA - statB) / r.physicalDivisor + bonus, r.min, r.max);
 }
 
-export function passMaxDistance(skills: readonly SkillId[]): number {
-  return RULES.pass.maxDistance + (has(skills, 'passMaster') ? RULES.skills.passMasterExtraDistance : 0);
+export function passMaxDistance(skills: readonly SkillId[], style: PassStyle = 'ground'): number {
+  return RULES.pass[style].maxDistance + (has(skills, 'passMaster') ? RULES.skills.passMasterExtraDistance : 0);
 }
 
-export function passAccuracy(distance: number, passStat: number, skills: readonly SkillId[]): number {
+export function passAccuracy(
+  distance: number,
+  passStat: number,
+  skills: readonly SkillId[],
+  style: PassStyle = 'ground',
+): number {
   const r = RULES.pass;
+  const s = r[style];
   const bonus = has(skills, 'passMaster') ? RULES.skills.passMasterAccuracyBonus : 0;
   return clamp(
-    r.base - r.falloffPerCell * Math.max(0, distance - 1) + (passStat - 50) / r.statDivisor + bonus,
+    s.base - s.falloffPerCell * Math.max(0, distance - 1) + (passStat - 50) / r.statDivisor + bonus,
     r.min,
     r.max,
   );

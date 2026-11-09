@@ -34,6 +34,8 @@ export const AI_WEIGHTS = {
   crossLoss: 1, // possession-loss penalty for a lost aerial
   crossMinAerial: 0.35,
   crossMargin: 0.3,
+  offside: 0.5, // off-ball cell that would be offside
+  trap: 0.15, // deepest defender stepping up (offside trap)
   receiverRisk: 3, // defenders: expected goals via a pass to a receiver
   mark: 0.6, // defenders: standing next to the top receiver
 } as const;

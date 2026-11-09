@@ -3,6 +3,7 @@ import { BOARD, RULES, forwardDir, goalTarget, otherTeam } from '../rules/config
 import { dist, vecEq } from '../rules/geometry';
 import { legalMoveTargets } from '../rules/moves';
 import { estimateCross, estimatePass, estimateShot, isCrossValid } from '../rules/estimates';
+import { isOffsidePosition } from '../rules/offside';
 import { getCharacter } from '../data/characters';
 import { ballHolder, playersOf } from '../engine/match';
 import { AI_WEIGHTS, advancement, chebyshev, countNear, key, positionValue } from './evaluate';
@@ -71,15 +72,17 @@ function enemyReachers(c: Ctx): Map<string, PlayerState[]> {
 // Offence
 // ---------------------------------------------------------------------------
 
-function planOffBall(c: Ctx, players: PlayerState[], anchor: Vec): void {
+function planOffBall(c: Ctx, players: PlayerState[], anchor: Vec, holding = false): void {
   const goal = goalTarget(c.team);
   const order = [...players].sort((a, b) => dist(a.pos, goal) - dist(b.pos, goal) || a.index - b.index);
   const foes = foePositions(c);
+  const foeMap = c.foes.map((f) => f.pos);
   for (const p of order) {
     let best = p.pos;
     let bestV = -Infinity;
     for (const t of candidates(c, p)) {
-      const v = positionValue(c.state, p, t, matesExcept(c, p), foes, anchor) + noise(c) * 0.5;
+      let v = positionValue(c.state, p, t, matesExcept(c, p), foes, anchor) + noise(c) * 0.5;
+      if (holding && isOffsidePosition(c.team, t, anchor, foeMap)) v -= c.W.offside;
       if (v > bestV) {
         bestV = v;
         best = t;
@@ -118,6 +121,7 @@ function planCarrier(c: Ctx, carrier: PlayerState): void {
       const adv = advancement(team, tp) - advancement(team, d);
       if (isCrossValid(team, d, tp)) {
         const ce = estimateCross(state, carrier.id, t.id, d, tp);
+        if (ce.offside) continue;
         const contested = ce.defenderId !== undefined;
         const cv =
           ce.pGoal * W.shotScale * W.crossScale +
@@ -127,14 +131,16 @@ function planCarrier(c: Ctx, carrier: PlayerState): void {
         if (contested && ce.pWinAerial < W.crossMinAerial) lateCrosses.push({ dest: d, action: { kind: 'cross', targetId: t.id }, v: cv + noise(c) });
         else consider(d, { kind: 'cross', targetId: t.id }, cv);
       }
-      const pe = estimatePass(state, carrier.id, t.id, d, tp);
-      if (!pe.inRange) continue;
       const tv = positionValue(state, t, tp, [d, ...mates.filter((m) => m.id !== t.id).map((m) => c.pos[m.id])], foes, d);
-      consider(
-        d,
-        { kind: 'pass', targetId: t.id },
-        pe.pComplete * (tv + 0.2 + W.passForward * Math.max(0, adv)) - (adv < 0 ? W.backwardPass : 0) - dng * 0.3,
-      );
+      for (const style of ['ground', 'lofted'] as const) {
+        const pe = estimatePass(state, carrier.id, t.id, d, tp, undefined, style);
+        if (!pe.inRange || pe.offside) continue;
+        consider(
+          d,
+          { kind: 'pass', targetId: t.id, style },
+          pe.pComplete * (tv + 0.2 + W.passForward * Math.max(0, adv)) - (adv < 0 ? W.backwardPass : 0) - dng * 0.3,
+        );
+      }
     }
   }
   for (const lc of lateCrosses) if (lc.v > best.v + W.crossMargin) best = lc;
@@ -216,8 +222,17 @@ function planDefenders(c: Ctx, defenders: PlayerState[], carrier: PlayerState, g
     .filter((f) => f.id !== carrier.id)
     .sort((a, b) => advancement(b.team, b.pos) - advancement(a.team, a.pos))[0];
   const order = [...defenders].sort((a, b) => dist(a.pos, ownGoal) - dist(b.pos, ownGoal) || a.index - b.index);
+  const byDepth = [...c.me].sort((a, b) => advancement(c.team, a.pos) - advancement(c.team, b.pos) || a.index - b.index);
+  const deepest = byDepth[0];
+  const trapOn =
+    advancement(carrier.team, carrier.pos) >= 5 &&
+    byDepth.length > 1 &&
+    advancement(c.team, byDepth[1].pos) - advancement(c.team, deepest.pos) > 1;
+  const shotRiskAt = (hyp: Record<PlayerId, Vec>): number =>
+    top.reduce((s, g) => s + g.w * estimateShot(state, carrier.id, g.cell, hyp).pGoal, 0);
   for (const p of order) {
     const isDf = getCharacter(p.charId).role === 'physicalDefender';
+    const stayRisk = trapOn && p.id === deepest.id ? shotRiskAt({ ...c.pos, [p.id]: p.pos }) : Infinity;
     const topReceiver = receiverThreats(c, carrier, c.pos).sort((a, b) => b.threat - a.threat)[0];
     let best = p.pos;
     let bestV = -Infinity;
@@ -226,6 +241,7 @@ function planDefenders(c: Ctx, defenders: PlayerState[], carrier: PlayerState, g
       let risk = 0;
       for (const g of top) risk += g.w * estimateShot(state, carrier.id, g.cell, hyp).pGoal;
       let v = -W.shotRisk * risk;
+      if (p.id === deepest.id && trapOn && advancement(c.team, t) === advancement(c.team, p.pos) + 1 && risk <= stayRisk + 1e-9) v += W.trap;
       v -= W.receiverRisk * receiverRisk(c, carrier, hyp);
       v += W.mark * markBonus(topReceiver, c, t, isDf);
       if (mate) {
@@ -276,7 +292,7 @@ export function planAiTurn(state: MatchState, team: TeamId, rng: Rng, options: A
   const holder = ballHolder(state);
 
   if (holder && holder.team === team) {
-    planOffBall(c, me.filter((m) => m.id !== holder.id), holder.pos);
+    planOffBall(c, me.filter((m) => m.id !== holder.id), holder.pos, true);
     planCarrier(c, holder);
   } else if (holder) {
     planDefence(c, holder, undefined);

@@ -30,8 +30,9 @@ export function describeEvent(event: TurnEvent, state: MatchState): string {
     case 'pickup':
       return `${n(event.playerId)} がボールを拾った`;
     case 'pass': {
+      const kindName = event.style === 'lofted' ? '浮き玉パス' : 'ゴロパス';
       if (event.space) {
-        const head = `${n(event.passerId)} がスペースへパス`;
+        const head = `${n(event.passerId)} がスペースへ${kindName}`;
         switch (event.outcome) {
           case 'intercepted':
             return event.interceptorId ? `${head} → ${n(event.interceptorId)} がカット！` : `${head} → カットされた`;
@@ -46,9 +47,10 @@ export function describeEvent(event: TurnEvent, state: MatchState): string {
         }
       }
       if (event.outcome === 'intercepted' && event.interceptorId)
-        return `${n(event.interceptorId)} がパスをカット！`;
-      if (event.outcome === 'complete' && event.targetId) return `${n(event.passerId)} → ${n(event.targetId)} パス成功`;
-      return `${n(event.passerId)} のパスが乱れた${event.loosePos ? ` ${pos(event.loosePos)} にこぼれ球` : ''}`;
+        return `${n(event.interceptorId)} が${kindName}をカット！`;
+      if (event.outcome === 'complete' && event.targetId)
+        return `${n(event.passerId)} → ${n(event.targetId)} ${kindName}成功`;
+      return `${n(event.passerId)} の${kindName}が乱れた${event.loosePos ? ` ${pos(event.loosePos)} にこぼれ球` : ''}`;
     }
     case 'cross': {
       const head = `${n(event.passerId)} → ${n(event.targetId)} クロス`;
@@ -63,6 +65,8 @@ export function describeEvent(event: TurnEvent, state: MatchState): string {
           return `${head}が通った`;
       }
     }
+    case 'offside':
+      return `オフサイド！ ${n(event.receiverId)} の飛び出しが早すぎた → ${n(event.toPlayerId)} のボール`;
     case 'shot': {
       const what = event.kind === 'header' ? 'ヘディングシュート' : 'シュート';
       if (event.outcome === 'blocked')

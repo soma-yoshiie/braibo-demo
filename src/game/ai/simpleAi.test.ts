@@ -4,7 +4,8 @@ import { createMatch, ballHolder, playersOf } from '../engine/match';
 import { resolveTurn } from '../engine/resolve';
 import { createRng } from '../engine/rng';
 import { legalMoveTargets } from '../rules/moves';
-import { estimateShot } from '../rules/estimates';
+import { estimatePass, estimateShot } from '../rules/estimates';
+import { isOffsidePosition } from '../rules/offside';
 import { vecEq } from '../rules/geometry';
 import { planAiTurn } from './simpleAi';
 
@@ -201,4 +202,62 @@ describe('planAiTurn', () => {
     expect(idleGoals / N).toBeGreaterThanOrEqual(1.2);
     expect(Math.abs(blueWins - redWins)).toBeLessThanOrEqual(0.15 * Math.max(blueWins, redWins));
   }, 120_000);
+
+  it('never passes to an offside receiver', () => {
+    const base = createMatch();
+    const state = withPositions(
+      base,
+      {
+        'red-0': { x: 3, y: 4 },
+        'red-1': { x: 3, y: 8 }, // beyond the last blue defender
+        'red-2': { x: 1, y: 3 },
+        'red-3': { x: 5, y: 3 },
+        'red-4': { x: 3, y: 1 },
+        'blue-0': { x: 2, y: 5 },
+        'blue-1': { x: 4, y: 5 },
+        'blue-2': { x: 0, y: 6 },
+        'blue-3': { x: 6, y: 6 },
+        'blue-4': { x: 3, y: 6 },
+      },
+      { kind: 'held', playerId: 'red-0' },
+    );
+    const foes: Vec[] = playersOf(state, 'blue').map((p) => p.pos);
+    for (let seed = 0; seed < 25; seed++) {
+      const plan = planAiTurn(state, 'red', createRng(seed));
+      const a = plan.ballAction;
+      if (a && (a.kind === 'pass' || a.kind === 'cross')) {
+        const t = playersOf(state, 'red').find((p) => p.id === a.targetId)!;
+        const tp = plan.moves[t.id] ?? t.pos;
+        const cp = plan.moves['red-0'] ?? { x: 3, y: 4 };
+        expect(isOffsidePosition('red', tp, cp, foes)).toBe(false);
+      }
+    }
+  });
+
+  it('uses a lofted pass over a defender blocking a 6-cell lane', () => {
+    const base = createMatch();
+    const state = withPositions(
+      base,
+      {
+        'red-0': { x: 3, y: 1 },
+        'red-1': { x: 3, y: 7 },
+        'red-2': { x: 0, y: 0 },
+        'red-3': { x: 6, y: 0 },
+        'red-4': { x: 0, y: 1 },
+        'blue-0': { x: 3, y: 4 },
+        'blue-1': { x: 1, y: 3 },
+        'blue-2': { x: 5, y: 3 },
+        'blue-3': { x: 2, y: 6 },
+        'blue-4': { x: 3, y: 9 },
+      },
+      { kind: 'held', playerId: 'red-0' },
+    );
+    const g = estimatePass(state, 'red-0', 'red-1', undefined, undefined, undefined, 'ground');
+    const l = estimatePass(state, 'red-0', 'red-1', undefined, undefined, undefined, 'lofted');
+    expect(l.pComplete).toBeGreaterThan(g.pComplete);
+    for (let seed = 0; seed < 20; seed++) {
+      const a = planAiTurn(state, 'red', createRng(seed), { randomness: 0 }).ballAction;
+      if (a?.kind === 'pass' && a.targetId === 'red-1') expect(a.style).toBe('lofted');
+    }
+  });
 });

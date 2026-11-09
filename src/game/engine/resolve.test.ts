@@ -1,3 +1,6 @@
+import { getCharacter } from '../data/characters';
+import { estimatePass } from '../rules/estimates';
+import { interceptProbability } from '../rules/probability';
 import { describe, expect, it } from 'vitest';
 import { resolveTurn } from './resolve';
 import { createMatch, ballHolder, getPlayer } from './match';
@@ -116,7 +119,7 @@ describe('movement', () => {
 });
 
 describe('passes', () => {
-  const base = { 'blue-0': { x: 3, y: 5 }, 'blue-1': { x: 3, y: 2 } };
+  const base = { 'blue-0': { x: 3, y: 5 }, 'blue-1': { x: 3, y: 2 }, 'red-4': { x: 6, y: 0 } };
   const pass = { ballAction: { kind: 'pass', targetId: 'blue-1' } } as const;
 
   it('complete', () => {
@@ -145,7 +148,7 @@ describe('passes', () => {
     expect(ballHolder(r.after)?.id).toBe('blue-0');
   });
   it('uses final positions (receiver moves into range)', () => {
-    const s = scene({ 'blue-0': { x: 3, y: 5 }, 'blue-1': { x: 3, y: 2 } }, held('blue-0'));
+    const s = scene({ 'blue-0': { x: 3, y: 5 }, 'blue-1': { x: 3, y: 2 }, 'red-4': { x: 6, y: 0 } }, held('blue-0'));
     const r = resolveTurn(s, plans({ ...pass, moves: { 'blue-1': { x: 3, y: 1 } } }), fixedRng([0.5]));
     expect(ev(r.events, 'pass')[0]).toMatchObject({ to: { x: 3, y: 1 }, outcome: 'complete' });
   });
@@ -212,7 +215,7 @@ describe('crosses', () => {
     expect(r.after.ball.kind).toBe('loose');
   });
   it('invalid cross is processed as a pass', () => {
-    const s = scene({ 'blue-1': { x: 3, y: 6 }, 'blue-0': { x: 3, y: 3 } }, held('blue-1'));
+    const s = scene({ 'blue-1': { x: 3, y: 6 }, 'blue-0': { x: 3, y: 3 }, 'red-4': { x: 6, y: 0 } }, held('blue-1'));
     const r = resolveTurn(s, plans({ ballAction: { kind: 'cross', targetId: 'blue-0' } }), fixedRng([0.5]));
     expect(ev(r.events, 'pass')[0]).toMatchObject({ outcome: 'complete' });
     expect(ev(r.events, 'cross')).toHaveLength(0);
@@ -285,17 +288,17 @@ describe('match end, purity, determinism, log', () => {
     expect(a).toEqual(b);
   });
   it('describes events in Japanese', () => {
-    const s = scene({ 'blue-0': { x: 3, y: 5 }, 'blue-1': { x: 3, y: 2 }, 'red-3': { x: 3, y: 3 } }, held('blue-0'));
+    const s = scene({ 'blue-0': { x: 3, y: 5 }, 'blue-1': { x: 3, y: 2 }, 'red-3': { x: 3, y: 3 }, 'red-4': { x: 6, y: 0 } }, held('blue-0'));
     const r = resolveTurn(s, plans({ ballAction: { kind: 'pass', targetId: 'blue-1' } }), fixedRng([0.0]));
     const lines = r.events.map((e) => describeEvent(e, s)).filter(Boolean);
-    expect(lines).toContain('赤 インターセプター がパスをカット！');
+    expect(lines).toContain('赤 インターセプター がゴロパスをカット！');
     const g = describeEvent({ type: 'goal', team: 'blue', scorerId: 'blue-0' }, s);
     expect(g).toBe('GOAL! 青 ストライカー');
   });
 });
 
 describe('space pass', () => {
-  const base = { 'blue-0': { x: 3, y: 5 }, 'blue-1': { x: 2, y: 2 } };
+  const base = { 'blue-0': { x: 3, y: 5 }, 'blue-1': { x: 2, y: 2 }, 'red-4': { x: 6, y: 0 } };
   const sp = (x: number, y: number) => ({ ballAction: { kind: 'spacePass', target: { x, y } } }) as const;
 
   it('completes to a teammate who moved onto the target cell', () => {
@@ -303,7 +306,7 @@ describe('space pass', () => {
     expect(ev(r.events, 'pass')[0]).toMatchObject({ space: true, outcome: 'complete', receiverId: 'blue-1' });
     expect(ballHolder(r.after)?.id).toBe('blue-1');
     expect(getPlayer(r.after, 'blue-1').flags.receivedPassTurn).toBe(1);
-    expect(describeEvent(ev(r.events, 'pass')[0] as TurnEvent, r.after)).toContain('スペースへパス');
+    expect(describeEvent(ev(r.events, 'pass')[0] as TurnEvent, r.after)).toContain('スペースへゴロパス');
   });
   it('goes to an enemy standing on the target', () => {
     const s = scene({ ...base, 'red-3': { x: 3, y: 2 } }, held('blue-0'));
@@ -345,5 +348,109 @@ describe('space pass', () => {
       expect(ev(r.events, 'actionCancelled')[0]).toMatchObject({ reason: 'invalidTarget' });
       expect(ballHolder(r.after)?.id).toBe('blue-0');
     }
+  });
+});
+
+describe('lofted passes', () => {
+  const lob = { ballAction: { kind: 'pass', targetId: 'blue-1', style: 'lofted' } } as const;
+  const far = { 'blue-0': { x: 3, y: 9 }, 'blue-1': { x: 3, y: 2 }, 'red-4': { x: 6, y: 0 } }; // distance 7
+
+  it('ignores a mid-lane interceptor', () => {
+    const s = scene({ ...far, 'red-3': { x: 3, y: 6 } }, held('blue-0'));
+    const r = resolveTurn(s, plans(lob), fixedRng([0.0]));
+    expect(ev(r.events, 'pass')[0]).toMatchObject({ style: 'lofted', outcome: 'complete' });
+    expect(ballHolder(r.after)?.id).toBe('blue-1');
+  });
+  it('is intercepted by a defender adjacent to the target (aerial stat)', () => {
+    const s = scene({ ...far, 'red-3': { x: 3, y: 3 } }, held('blue-0'));
+    const r = resolveTurn(s, plans(lob), fixedRng([0.0]));
+    expect(ev(r.events, 'pass')[0]).toMatchObject({ outcome: 'intercepted', interceptorId: 'red-3', style: 'lofted' });
+    const e = estimatePass(s, 'blue-0', 'blue-1', undefined, undefined, undefined, 'lofted');
+    const def = getCharacter(getPlayer(s, 'red-3').charId).stats;
+    expect(e.interceptors[0]?.pIntercept).toBeCloseTo(interceptProbability(def.aerial, 0));
+  });
+  it('is intercepted by a defender adjacent to the passer (intercept stat)', () => {
+    const s = scene({ ...far, 'red-3': { x: 3, y: 8 } }, held('blue-0'));
+    const r = resolveTurn(s, plans(lob), fixedRng([0.0]));
+    expect(ev(r.events, 'pass')[0]).toMatchObject({ outcome: 'intercepted', interceptorId: 'red-3' });
+    const e = estimatePass(s, 'blue-0', 'blue-1', undefined, undefined, undefined, 'lofted');
+    const def = getCharacter(getPlayer(s, 'red-3').charId).stats;
+    expect(e.interceptors[0]?.pIntercept).toBeCloseTo(interceptProbability(def.intercept, 0));
+  });
+  it('max distance: 8 accepted, 9 cancelled; ground 6 cancelled', () => {
+    const ok = scene({ 'blue-0': { x: 3, y: 9 }, 'blue-1': { x: 3, y: 1 }, 'red-4': { x: 6, y: 0 } }, held('blue-0'));
+    expect(ev(resolveTurn(ok, plans(lob), fixedRng([0.5])).events, 'pass')[0]).toMatchObject({ outcome: 'complete' });
+    const no = scene({ 'blue-0': { x: 3, y: 9 }, 'blue-1': { x: 3, y: 0 }, 'red-4': { x: 6, y: 0 } }, held('blue-0'));
+    const r = resolveTurn(no, plans(lob), fixedRng([0.5]));
+    expect(ev(r.events, 'pass')).toHaveLength(0);
+    expect(ev(r.events, 'actionCancelled')[0]).toMatchObject({ reason: 'outOfRange' });
+    const g = scene({ 'blue-0': { x: 3, y: 9 }, 'blue-1': { x: 3, y: 3 }, 'red-4': { x: 6, y: 0 } }, held('blue-0'));
+    const rg = resolveTurn(g, plans({ ballAction: { kind: 'pass', targetId: 'blue-1' } }), fixedRng([0.5]));
+    expect(ev(rg.events, 'actionCancelled')[0]).toMatchObject({ reason: 'outOfRange' });
+  });
+  it('uses the lofted accuracy (roll between lofted and ground accuracy fails the lob only)', () => {
+    const s = scene({ 'blue-0': { x: 3, y: 6 }, 'blue-1': { x: 3, y: 2 }, 'red-4': { x: 6, y: 0 } }, held('blue-0'));
+    const g = estimatePass(s, 'blue-0', 'blue-1');
+    const l = estimatePass(s, 'blue-0', 'blue-1', undefined, undefined, undefined, 'lofted');
+    expect(l.pAccurate).toBeLessThan(g.pAccurate);
+    const roll = (g.pAccurate + l.pAccurate) / 2;
+    const rg = resolveTurn(s, plans({ ballAction: { kind: 'pass', targetId: 'blue-1' } }), fixedRng([roll]));
+    expect(ev(rg.events, 'pass')[0]).toMatchObject({ style: 'ground', outcome: 'complete' });
+    const rl = resolveTurn(s, plans(lob), fixedRng([roll, 0.0]));
+    expect(ev(rl.events, 'pass')[0]).toMatchObject({ style: 'lofted', outcome: 'failed' });
+  });
+  it('log distinguishes ground and lofted', () => {
+    const s = scene({ 'blue-0': { x: 3, y: 6 }, 'blue-1': { x: 3, y: 2 }, 'red-4': { x: 6, y: 0 } }, held('blue-0'));
+    const rl = resolveTurn(s, plans(lob), fixedRng([0.0]));
+    expect(describeEvent(ev(rl.events, 'pass')[0] as TurnEvent, s)).toContain('浮き玉パス');
+  });
+});
+
+describe('offside', () => {
+  const off = { 'blue-0': { x: 3, y: 6 }, 'blue-1': { x: 3, y: 2 }, 'red-4': { x: 5, y: 3 }, 'red-3': { x: 1, y: 4 } };
+  it('offside pass -> offside event, nearest defender gets the ball, no pass event, no rng', () => {
+    const s = scene(off, held('blue-0'));
+    const rng = fixedRng([]);
+    const r = resolveTurn(s, plans({ ballAction: { kind: 'pass', targetId: 'blue-1' } }), rng);
+    expect(ev(r.events, 'pass')).toHaveLength(0);
+    expect(ev(r.events, 'offside')[0]).toEqual({
+      type: 'offside', team: 'blue', passerId: 'blue-0', receiverId: 'blue-1', toPlayerId: 'red-4',
+      from: { x: 3, y: 6 }, to: { x: 3, y: 2 }, style: 'ground',
+    });
+    expect(ballHolder(r.after)?.id).toBe('red-4');
+    expect(getPlayer(r.after, 'red-4').flags.wonBallTurn).toBe(1);
+    const line = describeEvent(ev(r.events, 'offside')[0] as TurnEvent, s);
+    expect(line).toContain('オフサイド');
+  });
+  it('is judged on final positions (defence steps up -> onside)', () => {
+    const s = scene({ ...off, 'red-4': { x: 5, y: 1 } }, held('blue-0'));
+    const r = resolveTurn(s, plans({ ballAction: { kind: 'pass', targetId: 'blue-1' } }), fixedRng([0.5]));
+    expect(ev(r.events, 'offside')).toHaveLength(0);
+    expect(ev(r.events, 'pass')).toHaveLength(1);
+  });
+  it('offside cross', () => {
+    const pos = { 'blue-1': { x: 1, y: 4 }, 'blue-0': { x: 3, y: 1 }, 'red-4': { x: 5, y: 3 } };
+    const r = resolveTurn(scene(pos, held('blue-1')), plans({ ballAction: { kind: 'cross', targetId: 'blue-0' } }), fixedRng([]));
+    expect(ev(r.events, 'offside')[0]).toMatchObject({ receiverId: 'blue-0', toPlayerId: 'red-4', style: 'lofted' });
+    expect(ev(r.events, 'cross')).toHaveLength(0);
+    expect(ballHolder(r.after)?.id).toBe('red-4');
+  });
+  it('space pass to a cell where an offside teammate stands -> offside', () => {
+    const r = resolveTurn(
+      scene(off, held('blue-0')),
+      plans({ ballAction: { kind: 'spacePass', target: { x: 3, y: 2 } } }),
+      fixedRng([]),
+    );
+    expect(ev(r.events, 'offside')[0]).toMatchObject({ receiverId: 'blue-1', toPlayerId: 'red-4' });
+    expect(ev(r.events, 'pass')).toHaveLength(0);
+  });
+  it('space pass into an empty cell beyond the defence is NOT offside (loose ball)', () => {
+    const r = resolveTurn(
+      scene(off, held('blue-0')),
+      plans({ ballAction: { kind: 'spacePass', target: { x: 2, y: 2 } } }),
+      fixedRng([0.0]),
+    );
+    expect(ev(r.events, 'offside')).toHaveLength(0);
+    expect(ev(r.events, 'pass')[0]).toMatchObject({ space: true, outcome: 'loose' });
   });
 });
