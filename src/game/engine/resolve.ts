@@ -41,7 +41,7 @@ import {
   duelWinProbability,
   headerGoalProbability,
   passAccuracy,
-    shotGoalProbability,
+  shotGoalProbability,
 } from '../rules/probability';
 import { aerialDefender, estimatePass, estimateSpacePass, isCrossValid, laneInterceptors } from '../rules/estimates';
 import { isOffsidePosition } from '../rules/offside';
@@ -317,7 +317,7 @@ export function resolveBallAction(
     const nearest = [...enemies].sort(
       (a, b) => dist(at(a.id), at(receiverId)) - dist(at(b.id), at(receiverId)) || a.index - b.index,
     )[0] as PlayerState;
-    give(nearest.id, true);
+    give(nearest.id, false); // free-kick award: not a ball win (no wonBallTurn / counter)
     events.push({
       type: 'offside', team: passer.team, passerId, receiverId, toPlayerId: nearest.id,
       from: copy(from), to: copy(to), style,

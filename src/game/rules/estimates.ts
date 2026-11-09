@@ -172,7 +172,7 @@ export function estimatePass(
 
 /**
  * Pass aimed at a cell. Accuracy carries RULES.pass.spacePenalty; pComplete is 0 out of range or when target == passer cell.
- * Offside only when a teammate currently stands on the target cell (that teammate is judged).
+ * Offside only when a teammate stands (in `teammatePositions` if given, else currently) on the target cell (that teammate is judged).
  */
 export function estimateSpacePass(
   state: MatchState,
@@ -181,11 +181,14 @@ export function estimateSpacePass(
   passerPos?: Vec,
   defenderPositions?: PositionMap,
   style: PassStyle = 'ground',
+  teammatePositions?: PositionMap,
 ): PassEstimate {
   const passer = get(state, passerId);
   const from = passerPos ?? passer.pos;
   const defs = defenderPositions ?? enemyPositions(state, passer.team);
-  const mate = state.players.find((p) => p.team === passer.team && p.id !== passerId && vecEq(p.pos, target));
+  const mate = state.players.find(
+    (p) => p.team === passer.team && p.id !== passerId && vecEq(teammatePositions?.[p.id] ?? p.pos, target),
+  );
   const offside = mate ? isOffsidePosition(passer.team, target, from, posList(defs)) : false;
   const e = passEstimate(state, passer, from, target, defs, RULES.pass.spacePenalty, style, offside);
   if (vecEq(from, target)) return { ...e, inRange: false, pComplete: 0 };

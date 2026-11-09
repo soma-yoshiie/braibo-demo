@@ -418,7 +418,7 @@ describe('offside', () => {
       from: { x: 3, y: 6 }, to: { x: 3, y: 2 }, style: 'ground',
     });
     expect(ballHolder(r.after)?.id).toBe('red-4');
-    expect(getPlayer(r.after, 'red-4').flags.wonBallTurn).toBe(1);
+    expect(getPlayer(r.after, 'red-4').flags.wonBallTurn).toBeUndefined();
     const line = describeEvent(ev(r.events, 'offside')[0] as TurnEvent, s);
     expect(line).toContain('オフサイド');
   });

@@ -121,6 +121,14 @@ describe('isOffsidePosition', () => {
   it('can be disabled', () => {
     expect(on(2, 6, d1, { enabled: false, lastDefenders: 1 })).toBe(false);
   });
+  it('estimateSpacePass judges the teammate in teammatePositions', () => {
+    const s = scene({ 'blue-0': { x: 3, y: 6 }, 'blue-1': { x: 3, y: 2 }, 'red-4': { x: 5, y: 3 }, 'red-3': { x: 1, y: 4 } }, held('blue-0'));
+    const t = { x: 3, y: 2 };
+    expect(estimateSpacePass(s, 'blue-0', t, undefined, undefined, 'ground', { 'blue-1': { x: 3, y: 5 } }).offside).toBe(false);
+    const s2 = scene({ 'blue-0': { x: 3, y: 6 }, 'blue-1': { x: 3, y: 5 }, 'red-4': { x: 5, y: 3 }, 'red-3': { x: 1, y: 4 } }, held('blue-0'));
+    expect(estimateSpacePass(s2, 'blue-0', t).offside).toBe(false);
+    expect(estimateSpacePass(s2, 'blue-0', t, undefined, undefined, 'ground', { 'blue-1': t }).offside).toBe(true);
+  });
   it('estimates flag offside and zero out pComplete / pGoal', () => {
     const s = scene({ 'blue-0': { x: 3, y: 6 }, 'blue-1': { x: 3, y: 2 }, 'red-4': { x: 5, y: 3 }, 'red-3': { x: 1, y: 4 } }, held('blue-0'));
     const e = estimatePass(s, 'blue-0', 'blue-1');
