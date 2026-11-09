@@ -55,9 +55,20 @@ export const RULES = {
   },
   // ---- passes -------------------------------------------------------------
   pass: {
-    maxDistance: 6, // euclidean, in cells
-    base: 0.97,
-    falloffPerCell: 0.05, // applied to (distance - 1)
+    /** ゴロ: short and accurate, interceptable anywhere on the lane. */
+    ground: {
+      maxDistance: 5, // euclidean, in cells
+      base: 0.97,
+      falloffPerCell: 0.05, // applied to (distance - 1)
+    },
+    /** 浮き玉: long and less accurate, interceptable only near the kicker or near the landing point. */
+    lofted: {
+      maxDistance: 8,
+      base: 0.86,
+      falloffPerCell: 0.045,
+      /** Lane cells within this distance of the passer (uses `intercept`) or of the target (uses `aerial`) may intercept. */
+      endZoneRadius: 1.5,
+    },
     statDivisor: 400,
     min: 0.3,
     max: 0.98,
@@ -73,6 +84,15 @@ export const RULES = {
       min: 0.05,
       max: 0.9,
     },
+  },
+  // ---- offside ------------------------------------------------------------
+  offside: {
+    enabled: true,
+    /**
+     * The receiver is offside when nearer the goal line than the k-th last defender
+     * (1 = the deepest defender, since there is no goalkeeper; 2 = real-football rule).
+     */
+    lastDefenders: 1,
   },
   // ---- crosses ------------------------------------------------------------
   cross: {

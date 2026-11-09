@@ -123,11 +123,14 @@ export interface MatchState {
 // Plans (input of a turn)
 // ---------------------------------------------------------------------------
 
+/** ground = ゴロ (short, accurate, interceptable anywhere on the lane); lofted = 浮き玉 (long, less accurate, interceptable only near both ends). */
+export type PassStyle = 'ground' | 'lofted';
+
 export type BallActionPlan =
   | { kind: 'keep' }
-  | { kind: 'pass'; targetId: PlayerId }
+  | { kind: 'pass'; targetId: PlayerId; style?: PassStyle } // style defaults to 'ground'
   /** Pass toward an empty cell ("through ball"). Whoever stands there after movement gets it; nobody => loose ball. */
-  | { kind: 'spacePass'; target: Vec }
+  | { kind: 'spacePass'; target: Vec; style?: PassStyle }
   | { kind: 'cross'; targetId: PlayerId }
   | { kind: 'shoot' };
 
@@ -173,6 +176,7 @@ export type TurnEvent =
       targetId?: PlayerId;
       /** True when the pass was aimed at a cell rather than a player. */
       space?: boolean;
+      style: PassStyle;
       from: Vec;
       to: Vec;
       /**
@@ -207,6 +211,20 @@ export type TurnEvent =
       outcome: 'goal' | 'blocked' | 'missed';
       blockerId?: PlayerId;
       pGoal: number; // P(goal | not blocked)
+    }
+  /**
+   * The intended receiver was in an offside position when the pass/cross was played (judged at final positions).
+   * The pass is void and the ball is awarded to `toPlayerId` (defending team).
+   */
+  | {
+      type: 'offside';
+      team: TeamId; // attacking team that was caught offside
+      passerId: PlayerId;
+      receiverId: PlayerId;
+      toPlayerId: PlayerId;
+      from: Vec;
+      to: Vec;
+      style: PassStyle;
     }
   /** A planned pass/cross could not be attempted (e.g. receiver ended out of range). The carrier keeps the ball. */
   | {
@@ -247,19 +265,23 @@ export interface ShotEstimate {
 }
 
 export interface PassEstimate {
+  style: PassStyle;
   distance: number;
   pAccurate: number;
   pIntercepted: number;
-  /** pAccurate * (1 - pIntercepted) */
+  /** pAccurate * (1 - pIntercepted); 0 when out of range or offside */
   pComplete: number;
   interceptors: { playerId: PlayerId; pIntercept: number }[];
   inRange: boolean;
+  /** Receiver would be offside given the defender positions used for the estimate. */
+  offside: boolean;
 }
 
 export interface CrossEstimate {
   distance: number;
   pDelivery: number;
   valid: boolean; // cross conditions satisfied from these positions
+  offside: boolean; // receiver would be offside (pGoal = 0)
   defenderId?: PlayerId;
   pWinAerial: number; // 1 if uncontested
   pHeaderGoal: number; // 0 if out of header range
