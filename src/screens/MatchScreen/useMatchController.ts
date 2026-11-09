@@ -15,10 +15,11 @@ import {
 } from '../../game/rules/estimates';
 import { dist } from '../../game/rules/geometry';
 import { passMaxDistance } from '../../game/rules/probability';
-import { BOARD, MATCH, goalTarget } from '../../game/rules/config';
+import { BOARD, MATCH, RULES, goalTarget } from '../../game/rules/config';
 import type {
   BallActionPlan,
   MatchState,
+  PassStyle,
   PlayerId,
   Rng,
   TeamId,
@@ -44,6 +45,8 @@ import type {
 export type Phase = 'start' | 'planning' | 'resolving' | 'finished';
 type PickMode = 'pass' | 'cross' | null;
 export interface HintView {
+  /** Show the [ゴロ | 浮き玉] segmented control. */
+  styleToggle?: PassStyle;
   text?: string;
   sub?: string;
   warn?: boolean;
@@ -108,6 +111,7 @@ export function useMatchController() {
   const [selectedId, setSelectedId] = useState<PlayerId>(() => defaultSelection(state));
   const [inspectId, setInspectId] = useState<PlayerId | null>(null);
   const [pick, setPick] = useState<PickMode>(null);
+  const [passStyle, setPassStyleState] = useState<PassStyle>('ground');
   const [timerOn, setTimerOn] = useState(MATCH.planningSeconds > 0);
   const [timeLeft, setTimeLeft] = useState(TIMER_SECONDS);
   const [log, setLog] = useState<LogLine[]>([]);
@@ -165,15 +169,19 @@ export function useMatchController() {
 
   const holderPos = blueHolder ? posOf(blueHolder.id) : undefined;
 
-  const passCandidates: PassTargetView[] = useMemo(() => {
-    if (!blueHolder || !holderPos) return [];
-    return blues
-      .filter((p) => p.id !== blueHolder.id)
-      .map((p) => {
-        const e = estimatePass(state, blueHolder.id, p.id, holderPos, posOf(p.id));
-        return { id: p.id, label: pct(e.pComplete), enabled: e.inRange };
-      });
+  const passBy: Record<PassStyle, PassTargetView[]> = useMemo(() => {
+    const build = (style: PassStyle): PassTargetView[] => {
+      if (!blueHolder || !holderPos) return [];
+      return blues
+        .filter((p) => p.id !== blueHolder.id)
+        .map((p) => {
+          const e = estimatePass(state, blueHolder.id, p.id, holderPos, posOf(p.id), undefined, style);
+          return { id: p.id, label: pct(e.pComplete), enabled: e.inRange, offside: e.offside };
+        });
+    };
+    return { ground: build('ground'), lofted: build('lofted') };
   }, [blueHolder, holderPos, blues, state, posOf]);
+  const passCandidates = passBy[passStyle];
 
   const crossCandidates: PassTargetView[] = useMemo(() => {
     if (!blueHolder || !holderPos) return [];
@@ -181,27 +189,31 @@ export function useMatchController() {
       .filter((p) => p.id !== blueHolder.id && isCrossValid('blue', holderPos, posOf(p.id)))
       .map((p) => {
         const e = estimateCross(state, blueHolder.id, p.id, holderPos, posOf(p.id));
-        return { id: p.id, label: pct(e.pGoal), enabled: true };
+        return { id: p.id, label: pct(e.pGoal), enabled: true, offside: e.offside };
       });
   }, [blueHolder, holderPos, blues, state, posOf]);
 
   // space-pass candidates: every in-range cell except the carrier's own planned cell. Cells where a teammate
   // will be (planned or standing) are included: tapping them converts to a normal pass to that teammate.
-  const spaceAll: SpaceCellView[] = useMemo(() => {
-    if (!blueHolder || !holderPos) return [];
-    const range = passMaxDistance(getCharacter(blueHolder.charId).skills);
-    const redCells = new Set(state.players.filter((p) => p.team === 'red').map((p) => `${p.pos.x},${p.pos.y}`));
-    const out: SpaceCellView[] = [];
-    for (let y = 0; y < BOARD.rows; y++) {
-      for (let x = 0; x < BOARD.cols; x++) {
-        const c = { x, y };
-        if (sameVec(c, holderPos)) continue;
-        if (dist(holderPos, c) > range) continue;
-        out.push({ x, y, enemy: redCells.has(`${x},${y}`) });
+  const spaceBy: Record<PassStyle, SpaceCellView[]> = useMemo(() => {
+    const build = (style: PassStyle): SpaceCellView[] => {
+      if (!blueHolder || !holderPos) return [];
+      const range = passMaxDistance(getCharacter(blueHolder.charId).skills, style);
+      const redCells = new Set(state.players.filter((p) => p.team === 'red').map((p) => `${p.pos.x},${p.pos.y}`));
+      const out: SpaceCellView[] = [];
+      for (let y = 0; y < BOARD.rows; y++) {
+        for (let x = 0; x < BOARD.cols; x++) {
+          const c = { x, y };
+          if (sameVec(c, holderPos)) continue;
+          if (dist(holderPos, c) > range) continue;
+          out.push({ x, y, enemy: redCells.has(`${x},${y}`) });
+        }
       }
-    }
-    return out;
+      return out;
+    };
+    return { ground: build('ground'), lofted: build('lofted') };
   }, [blueHolder, holderPos, state]);
+  const spaceAll = spaceBy[passStyle];
 
   /** Teammate (not the carrier) who will stand on `c` after planning. */
   const mateAt = useCallback(
@@ -209,24 +221,31 @@ export function useMatchController() {
     [blues, blueHolder, posOf],
   );
 
-  const canPass = passCandidates.some((c) => c.enabled) || spaceAll.length > 0;
+  const canPass =
+    passBy.ground.some((c) => c.enabled) ||
+    passBy.lofted.some((c) => c.enabled) ||
+    spaceBy.ground.length > 0 ||
+    spaceBy.lofted.length > 0;
   const canCross = crossCandidates.length > 0;
 
   // action actually used (invalid targets fall back to keep)
   const effectiveAction: BallActionPlan = useMemo(() => {
     if (!blueHolder) return { kind: 'keep' };
     if (ballAction.kind === 'pass') {
-      return passCandidates.some((c) => c.id === ballAction.targetId && c.enabled) ? ballAction : { kind: 'keep' };
+      const list = passBy[ballAction.style ?? 'ground'];
+      return list.some((c) => c.id === ballAction.targetId && c.enabled) ? ballAction : { kind: 'keep' };
     }
     if (ballAction.kind === 'spacePass') {
       const t = ballAction.target;
-      return spaceAll.some((c) => c.x === t.x && c.y === t.y) ? ballAction : { kind: 'keep' };
+      return spaceBy[ballAction.style ?? 'ground'].some((c) => c.x === t.x && c.y === t.y)
+        ? ballAction
+        : { kind: 'keep' };
     }
     if (ballAction.kind === 'cross') {
       return crossCandidates.some((c) => c.id === ballAction.targetId) ? ballAction : { kind: 'keep' };
     }
     return ballAction;
-  }, [ballAction, blueHolder, passCandidates, crossCandidates, spaceAll]);
+  }, [ballAction, blueHolder, passBy, crossCandidates, spaceBy]);
 
   const shootPct = useMemo(() => {
     if (!blueHolder || !holderPos) return 0;
@@ -239,9 +258,16 @@ export function useMatchController() {
     }
   }, [ballAction, effectiveAction]);
 
-  const spaceLabel = useMemo(() => {
+  const spaceEst = useMemo(() => {
     if (!blueHolder || !holderPos || effectiveAction.kind !== 'spacePass') return undefined;
-    return pct(estimateSpacePass(state, blueHolder.id, effectiveAction.target, holderPos).pComplete);
+    return estimateSpacePass(
+      state,
+      blueHolder.id,
+      effectiveAction.target,
+      holderPos,
+      undefined,
+      effectiveAction.style ?? 'ground',
+    );
   }, [blueHolder, holderPos, effectiveAction, state]);
 
   const ballArrow: ArrowView | null = useMemo(() => {
@@ -251,18 +277,51 @@ export function useMatchController() {
       return { from: holderPos, to: goalTarget('blue'), style: 'shoot', label: pct(shootPct) };
     }
     if (a.kind === 'pass') {
-      const c = passCandidates.find((x) => x.id === a.targetId);
-      return { from: holderPos, to: posOf(a.targetId), style: 'pass', label: c?.label };
+      const lofted = a.style === 'lofted';
+      const c = passBy[a.style ?? 'ground'].find((x) => x.id === a.targetId);
+      return {
+        from: holderPos,
+        to: posOf(a.targetId),
+        style: lofted ? 'lofted' : 'pass',
+        label: c?.offside ? 'OFFSIDE?' : c?.label,
+        glyph: lofted ? '⌒' : '→',
+        warn: c?.offside,
+      };
     }
     if (a.kind === 'spacePass') {
-      return { from: holderPos, to: a.target, style: 'pass', label: spaceLabel };
+      const lofted = a.style === 'lofted';
+      return {
+        from: holderPos,
+        to: a.target,
+        style: lofted ? 'lofted' : 'pass',
+        label: spaceEst?.offside ? 'OFFSIDE?' : spaceEst ? pct(spaceEst.pComplete) : undefined,
+        glyph: lofted ? '⌒' : '→',
+        warn: spaceEst?.offside,
+      };
     }
     if (a.kind === 'cross') {
       const c = crossCandidates.find((x) => x.id === a.targetId);
-      return { from: holderPos, to: posOf(a.targetId), style: 'cross', label: c?.label };
+      return {
+        from: holderPos,
+        to: posOf(a.targetId),
+        style: 'cross',
+        label: c?.offside ? 'OFFSIDE?' : c?.label,
+        warn: c?.offside,
+      };
     }
     return null;
-  }, [planning, blueHolder, holderPos, effectiveAction, shootPct, passCandidates, crossCandidates, posOf, spaceLabel]);
+  }, [planning, blueHolder, holderPos, effectiveAction, shootPct, passBy, crossCandidates, posOf, spaceEst]);
+
+  /** Row edge (svg y) of the defending team's last defender, only when it lies in the attacking half. */
+  const offsideLine: number | null = useMemo(() => {
+    if (!planning || !pick) return null;
+    const reds = state.players.filter((p) => p.team === 'red');
+    if (reds.length === 0) return null;
+    const k = RULES.offside.lastDefenders;
+    if (!RULES.offside.enabled || k < 1 || reds.length < k) return null;
+    const row = reds.map((p) => p.pos.y).sort((x, y) => x - y)[k - 1] as number;
+    return row + 0.5 < BOARD.rows / 2 ? row : null;
+  }, [planning, pick, state]);
 
   // ---------- actions ----------
   const resetPlanning = useCallback((s: MatchState) => {
@@ -334,6 +393,11 @@ export function useMatchController() {
     [menuOpen, menuAt],
   );
 
+  const setPassStyle = useCallback((st: PassStyle) => {
+    setPassStyleState(st);
+    setBallAction((a) => (a.kind === 'pass' || a.kind === 'spacePass' ? { ...a, style: st } : a));
+  }, []);
+
   const spaceHas = useCallback((c: Vec) => spaceAll.some((s2) => sameVec(s2, c)), [spaceAll]);
 
   /** Pass-pick tap on a cell: a teammate's (planned) cell becomes a normal pass, anything else a space pass. */
@@ -342,18 +406,20 @@ export function useMatchController() {
       if (!spaceHas(cell)) return;
       const mate = mateAt(cell);
       if (mate) {
-        if (passCandidates.some((c) => c.id === mate.id && c.enabled)) setBallAction({ kind: 'pass', targetId: mate.id });
-      } else setBallAction({ kind: 'spacePass', target: { ...cell } });
+        if (passCandidates.some((c) => c.id === mate.id && c.enabled)) setBallAction({ kind: 'pass', targetId: mate.id, style: passStyle });
+      } else setBallAction({ kind: 'spacePass', target: { ...cell }, style: passStyle });
     },
-    [spaceHas, mateAt, passCandidates],
+    [spaceHas, mateAt, passCandidates, passStyle],
   );
 
   const pickMate = useCallback(
     (id: PlayerId) => {
       const list = pick === 'pass' ? passCandidates : crossCandidates;
-      if (pick && list.some((c) => c.id === id && c.enabled)) setBallAction({ kind: pick, targetId: id });
+      if (pick && list.some((c) => c.id === id && c.enabled)) {
+        setBallAction(pick === 'pass' ? { kind: 'pass', targetId: id, style: passStyle } : { kind: 'cross', targetId: id });
+      }
     },
-    [pick, passCandidates, crossCandidates],
+    [pick, passCandidates, crossCandidates, passStyle],
   );
 
   const onPlayerTap = useCallback(
@@ -567,8 +633,8 @@ export function useMatchController() {
 
       // (b) ball events
       const flights = result.events.filter(
-        (e): e is Extract<TurnEvent, { type: 'pass' | 'cross' | 'shot' }> =>
-          e.type === 'pass' || e.type === 'cross' || e.type === 'shot',
+        (e): e is Extract<TurnEvent, { type: 'pass' | 'cross' | 'shot' | 'offside' }> =>
+          e.type === 'pass' || e.type === 'cross' || e.type === 'shot' || e.type === 'offside',
       );
       const firstFlight = flights[0];
       if (firstFlight) {
@@ -587,8 +653,14 @@ export function useMatchController() {
         let sub: string | undefined;
         let winner: TeamId | undefined;
         let goal = false;
+        let flag = false;
         const actor = teamOf(ev.type === 'shot' ? ev.shooterId : ev.passerId);
-        if (ev.type === 'pass') {
+        if (ev.type === 'offside') {
+          dest = ev.to;
+          winner = teamOf(ev.toPlayerId);
+          text = 'オフサイド！';
+          flag = true;
+        } else if (ev.type === 'pass') {
           dest =
             ev.outcome === 'intercepted' && ev.interceptorId
               ? mid[ev.interceptorId] ?? ev.to
@@ -639,11 +711,12 @@ export function useMatchController() {
         }
         // flight
         const isCross = ev.type === 'cross';
+        const lofted = (ev.type === 'pass' || ev.type === 'offside') && ev.style === 'lofted';
         const flightMs = T(FLIGHT_MS);
         setBallDisp({ kind: 'free', pos: { ...ev.from }, snap: true });
         await wait(60);
         if (!alive()) return;
-        if (isCross) {
+        if (isCross || lofted) {
           const d = dist(ev.from, dest);
           const arc = Math.max(0.8, Math.min(2.2, d * 0.35));
           setTrajectory({ from: { ...ev.from }, to: dest, arc });
@@ -665,7 +738,7 @@ export function useMatchController() {
           if (ballAerial) setBallDisp({ kind: 'held', id: ballAerial.winnerId });
           aerialShown = true;
         }
-        setBanner({ id: nextId(), text, sub, big, team: winner ?? actor });
+        setBanner({ id: nextId(), text, sub, big, team: winner ?? actor, flag });
         if (goal) {
           setGoalFx(nextId());
           setShownScore({ ...scoreAfter });
@@ -676,11 +749,12 @@ export function useMatchController() {
         setBanner(null);
         setGoalFx(null);
         setTrajectory(null);
+        if (ev.type === 'offside') setBallDisp({ kind: 'held', id: ev.toPlayerId });
         if (aerialShown) {
           setFx({});
           setBursts([]);
         }
-        if (i + 1 < flights.length) {
+        if (i + 1 < flights.length && ev.type !== 'offside') {
           // next flight starts from the receiver / header position
           setBallExtra({ arc: 0, flightKey: 0, ms: 0 });
           setBallDisp({ kind: 'free', pos: dest, snap: true });
@@ -848,6 +922,11 @@ export function useMatchController() {
         enabled: canPass,
         active: act === 'pass' || act === 'spacePass',
         onTap: () => {
+          setPassStyleState(
+            effectiveAction.kind === 'pass' || effectiveAction.kind === 'spacePass'
+              ? (effectiveAction.style ?? 'ground')
+              : 'ground',
+          );
           setPick('pass');
           close();
         },
@@ -901,7 +980,7 @@ export function useMatchController() {
   const hint: HintView | null = notice
     ? { text: notice, warn: true }
     : planning && pick === 'pass'
-      ? { text: 'パス先（味方 or スペース）をタップ', sub: '※相手の現在位置での推定値' }
+      ? { styleToggle: passStyle, text: 'パス先（味方 or スペース）をタップ', sub: '※相手の現在位置での推定値' }
       : planning && pick === 'cross'
         ? { text: 'クロス先をタップ（％=得点率）', sub: '※相手の現在位置での推定値' }
         : planning && blueHolder && effectiveAction.kind === 'shoot'
@@ -934,6 +1013,9 @@ export function useMatchController() {
     moveTargets,
     passTargets,
     spaceCells,
+    offsideLine,
+    passStyle,
+    setPassStyle,
     picking: planning && pick !== null,
     planViews,
     ballArrow,

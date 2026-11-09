@@ -27,6 +27,8 @@ interface Props {
   spaceCells: SpaceCellView[];
   /** Picking a pass / cross target: enemy tokens stop eating taps so space cells under them work. */
   picking: boolean;
+  /** svg y of the defending team's last-defender line (null = hidden). */
+  offsideLine?: number | null;
   plans: PlanView[];
   ballArrow: ArrowView | null;
   bursts: BurstView[];
@@ -51,6 +53,7 @@ export function Pitch({
   passTargets,
   spaceCells,
   picking,
+  offsideLine,
   plans,
   ballArrow,
   bursts,
@@ -102,6 +105,30 @@ export function Pitch({
       })}
     </g>
   );
+  const ghostLayer = (
+    <g>
+      {movers.map((p) => (
+        <g
+          key={`g-${p.id}`}
+          className="ghost"
+          data-testid={`ghost-${p.id}`}
+          transform={`translate(${cx(p.to.x)} ${cy(p.to.y)})`}
+          onClick={
+            interactive
+              ? (e) => {
+                  e.stopPropagation();
+                  onGhostTap(p.id);
+                }
+              : undefined
+          }
+        >
+          <circle className="ghost__hit" r={0.5} />
+          <circle className="ghost__body" r={0.38} />
+          <text className="ghost__abbr">{p.abbr}</text>
+        </g>
+      ))}
+    </g>
+  );
   const radialPos = radial
     ? radialLayout(radial, radial.items.length, {
         targets: moveTargets,
@@ -124,6 +151,9 @@ export function Pitch({
         </marker>
         <marker id="arrow-accent" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="4" markerHeight="4" orient="auto">
           <path d="M0,1 L9,5 L0,9 z" fill="#f6dc93" />
+        </marker>
+        <marker id="arrow-sky" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="4" markerHeight="4" orient="auto">
+          <path d="M0,1 L9,5 L0,9 z" fill="#8fe0ff" />
         </marker>
         <pattern id="net" width="0.2" height="0.2" patternUnits="userSpaceOnUse">
           <path d="M0 0 L0.2 0.2 M0.2 0 L0 0.2" stroke="rgba(255,255,255,0.45)" strokeWidth="0.02" />
@@ -219,6 +249,19 @@ export function Pitch({
       {/* legal move targets */}
       {targetLayer}
 
+      {/* offside line (last defender row) while picking a pass / cross target */}
+      {offsideLine != null && (
+        <line
+          className="offside-line"
+          data-testid="offside-line"
+          pointerEvents="none"
+          x1={0}
+          x2={W}
+          y1={offsideLine}
+          y2={offsideLine}
+        />
+      )}
+
       {/* trajectory of a flying ball */}
       {trajectory && <Trajectory t={trajectory} />}
 
@@ -236,27 +279,6 @@ export function Pitch({
           />
         ))}
       </g>
-
-      {/* radial scrim: dims everything above; selected token, targets, ghosts and the menu are redrawn on top */}
-      {radial && (
-        <g pointerEvents="none" data-testid="radial-scrim">
-          <rect className="scrim" x={VIEW.x} y={VIEW.y} width={VIEW.w} height={VIEW.h} />
-          {targetLayer}
-          {tokens
-            .filter((t) => t.id === selectedId)
-            .map((t) => (
-              <PlayerToken
-                key={`clone-${t.id}`}
-                clone
-                token={t}
-                selected
-                passTarget={false}
-                interactive={false}
-                onTap={onPlayerTap}
-              />
-            ))}
-        </g>
-      )}
 
       {/* above-token overlay: tackle rings, space-pass markers, ghosts, check badges */}
       <g className="overlay-top">
@@ -289,28 +311,7 @@ export function Pitch({
               </g>
             ))}
         </g>
-        <g>
-          {movers.map((p) => (
-            <g
-              key={`g-${p.id}`}
-              className="ghost"
-              data-testid={`ghost-${p.id}`}
-              transform={`translate(${cx(p.to.x)} ${cy(p.to.y)})`}
-              onClick={
-                interactive
-                  ? (e) => {
-                      e.stopPropagation();
-                      onGhostTap(p.id);
-                    }
-                  : undefined
-              }
-            >
-              <circle className="ghost__hit" r={0.5} />
-              <circle className="ghost__body" r={0.38} />
-              <text className="ghost__abbr">{p.abbr}</text>
-            </g>
-          ))}
-        </g>
+        {!radial && ghostLayer}
       </g>
 
       {/* duel WIN / LOSE tags (above every token) */}
@@ -348,11 +349,26 @@ export function Pitch({
           if (!t0) return null;
           const planned = movers.find((m) => m.id === p.id);
           const t = planned ? { x: planned.to.x, y: planned.to.y } : t0;
+          // top-row receivers: put the label below the token so the hint strip never covers it
+          const dy = t.y < 1 ? 0.78 : -0.78;
+          if (p.offside) {
+            return (
+              <g
+                key={`pl-${p.id}`}
+                className="offside-badge"
+                data-testid={`offside-${p.id}`}
+                transform={`translate(${cx(t.x)} ${cy(t.y) + dy})`}
+              >
+                <rect x={-0.55} y={-0.17} width={1.1} height={0.34} rx={0.07} />
+                <text>OFFSIDE</text>
+              </g>
+            );
+          }
           return (
             <g
               key={`pl-${p.id}`}
               className={`pct${p.enabled ? '' : ' pct--off'}`}
-              transform={`translate(${cx(t.x)} ${cy(t.y) - 0.78})`}
+              transform={`translate(${cx(t.x)} ${cy(t.y) + dy})`}
             >
               <rect x={-0.4} y={-0.17} width={0.8} height={0.34} rx={0.17} />
               <text>{p.label}</text>
@@ -379,6 +395,28 @@ export function Pitch({
         ))}
       </g>
 
+      {/* radial scrim: dims everything above; selected token, targets, ghosts and the menu are redrawn on top */}
+      {radial && (
+        <g pointerEvents="none" data-testid="radial-scrim">
+          <rect className="scrim" x={VIEW.x} y={VIEW.y} width={VIEW.w} height={VIEW.h} />
+          {targetLayer}
+          {tokens
+            .filter((t) => t.id === selectedId)
+            .map((t) => (
+              <PlayerToken
+                key={`clone-${t.id}`}
+                clone
+                token={t}
+                selected
+                passTarget={false}
+                interactive={false}
+                onTap={onPlayerTap}
+              />
+            ))}
+        </g>
+      )}
+      {radial && ghostLayer}
+
       {/* radial action menu */}
       {radial && <RadialMenu menu={radial} positions={radialPos} />}
     </svg>
@@ -402,22 +440,35 @@ function Trajectory({ t }: { t: TrajectoryView }) {
 function BallArrow({ arrow }: { arrow: ArrowView }) {
   const a = { x: cx(arrow.from.x), y: cy(arrow.from.y) };
   const b = { x: cx(arrow.to.x), y: cy(arrow.to.y) };
+  const arcs = arrow.style === 'cross' || arrow.style === 'lofted';
   const end = shorten(a, b, arrow.style === 'shoot' ? 0.1 : 0.45);
-  const mid = { x: (a.x + end.x) / 2, y: (a.y + end.y) / 2 };
+  const len = Math.hypot(end.x - a.x, end.y - a.y);
+  const lift = arcs ? Math.max(0.8, Math.min(2.2, len * 0.35)) : 0;
+  // quadratic control point lifted perpendicular-ish (screen up) like the flight trajectory
+  const c = { x: (a.x + end.x) / 2, y: (a.y + end.y) / 2 - lift };
+  const mid = arcs ? { x: (a.x + 2 * c.x + end.x) / 4, y: (a.y + 2 * c.y + end.y) / 4 } : { x: (a.x + end.x) / 2, y: (a.y + end.y) / 2 };
+  const text = arrow.label ? `${arrow.glyph ? `${arrow.glyph} ` : ''}${arrow.label}` : '';
+  const w = Math.max(0.8, text.length * 0.2 + 0.3);
+  const cls = `ball-arrow ball-arrow--${arrow.style}${arrow.warn ? ' ball-arrow--warn' : ''}`;
   return (
-    <g pointerEvents="none" data-testid="ball-arrow">
-      <line
-        className={`ball-arrow ball-arrow--${arrow.style}`}
-        x1={a.x}
-        y1={a.y}
-        x2={end.x}
-        y2={end.y}
-        markerEnd="url(#arrow-accent)"
-      />
+    <g pointerEvents="none" data-testid="ball-arrow" data-style={arrow.style}>
+      {arcs ? (
+        <path
+          className={cls}
+          fill="none"
+          d={`M${a.x} ${a.y} Q${c.x} ${c.y} ${end.x} ${end.y}`}
+          markerEnd={arrow.style === 'lofted' ? 'url(#arrow-sky)' : 'url(#arrow-accent)'}
+        />
+      ) : (
+        <line className={cls} x1={a.x} y1={a.y} x2={end.x} y2={end.y} markerEnd="url(#arrow-accent)" />
+      )}
       {arrow.label && (
-        <g className="ball-arrow__label" transform={`translate(${mid.x} ${mid.y})`}>
-          <rect x={-0.4} y={-0.17} width={0.8} height={0.34} rx={0.17} />
-          <text>{arrow.label}</text>
+        <g
+          className={`ball-arrow__label${arrow.warn ? ' ball-arrow__label--warn' : ''}${arrow.style === 'lofted' ? ' ball-arrow__label--lofted' : ''}`}
+          transform={`translate(${mid.x} ${mid.y})`}
+        >
+          <rect x={-w / 2} y={-0.17} width={w} height={0.34} rx={0.17} />
+          <text>{text}</text>
         </g>
       )}
     </g>

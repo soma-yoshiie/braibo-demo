@@ -47,7 +47,7 @@
 }
 
 .scrim {
-  fill: rgba(5, 10, 20, 0.35);
+  fill: rgba(5, 10, 20, 0.62);
 }
 .tackle-ring {
   fill: none;
@@ -351,4 +351,47 @@
   .ball__lob {
     animation: none;
   }
+}
+
+/* v0.3: lofted pass, offside */
+.ball-arrow--lofted {
+  stroke: #8fe0ff;
+  stroke-dasharray: 0.2 0.14;
+}
+.ball-arrow--warn {
+  stroke: var(--warn, #ffb020);
+}
+.ball-arrow__label--lofted rect {
+  stroke: #8fe0ff;
+}
+.ball-arrow__label--warn rect {
+  stroke: var(--warn, #ffb020);
+}
+.ball-arrow__label--warn text {
+  fill: var(--warn, #ffb020);
+}
+.offside-line {
+  stroke: #ffd400;
+  stroke-width: 0.06;
+  stroke-dasharray: 0.3 0.18;
+  opacity: 0.9;
+}
+.offside-badge rect {
+  fill: #111;
+  stroke: #ffd400;
+  stroke-width: 0.045;
+}
+.offside-badge text {
+  fill: #ffd400;
+  font-family: var(--font-num);
+  font-size: 0.23px;
+  font-weight: 800;
+  letter-spacing: 0.02px;
+  text-anchor: middle;
+  dominant-baseline: central;
+}
+.radial__pill {
+  fill: rgba(8, 16, 36, 0.92);
+  stroke: rgba(255, 255, 255, 0.18);
+  stroke-width: 0.02;
 }

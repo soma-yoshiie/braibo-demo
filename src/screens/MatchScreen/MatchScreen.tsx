@@ -39,6 +39,7 @@ export function MatchScreen() {
           passTargets={m.passTargets}
           spaceCells={m.spaceCells}
           picking={m.picking}
+          offsideLine={m.offsideLine}
           plans={m.planViews}
           ballArrow={m.ballArrow}
           bursts={m.bursts}
@@ -50,10 +51,26 @@ export function MatchScreen() {
         />
         {m.hint && (
           <div
-            className={`hint${m.hint.warn ? ' hint--warn' : ''}`}
+            className={`hint${m.hint.warn ? ' hint--warn' : ''}${m.hint.styleToggle ? ' hint--bottom' : ''}`}
             data-testid={m.hint.warn ? 'notice' : 'hint'}
           >
             {m.hint.text && <b>{m.hint.text}</b>}
+            {m.hint.styleToggle && (
+              <div className="seg" role="group" aria-label="パスの種類">
+                {(['ground', 'lofted'] as const).map((st) => (
+                  <button
+                    key={st}
+                    type="button"
+                    className={`seg__btn seg__btn--${st}${m.hint?.styleToggle === st ? ' is-on' : ''}`}
+                    aria-pressed={m.hint?.styleToggle === st}
+                    data-testid={`pass-style-${st}`}
+                    onClick={() => m.setPassStyle(st)}
+                  >
+                    {st === 'ground' ? '→ ゴロ' : '⌒ 浮き玉'}
+                  </button>
+                ))}
+              </div>
+            )}
             {m.hint.sub && <span>{m.hint.sub}</span>}
           </div>
         )}

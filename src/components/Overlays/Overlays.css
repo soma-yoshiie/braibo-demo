@@ -460,3 +460,11 @@
     animation-duration: 0.14s;
   }
 }
+
+.banner__flag {
+  display: inline-block;
+  width: 0.8em;
+  height: 0.95em;
+  margin-right: 8px;
+  vertical-align: -0.12em;
+}

@@ -68,6 +68,7 @@ export function RadialMenu({ menu, positions }: { menu: RadialMenuView; position
         const pref: 'start' | 'end' = ux > 0.55 ? 'start' : ux < -0.55 ? 'end' : p.x < BOARD.cols / 2 ? 'start' : 'end';
         const other = pref === 'start' ? 'end' : 'start';
         const side: 'start' | 'end' | 'middle' = fits(pref) ? pref : fits(other) ? other : 'middle';
+        const tw = Math.max(it.label.length * 0.225, (it.sub?.length ?? 0) * 0.17);
         const sx = side === 'start' ? 1 : -1;
         const lx = side === 'middle' ? ux * 0.2 : sx * (R + 0.08);
         const ly =
@@ -110,6 +111,14 @@ export function RadialMenu({ menu, positions }: { menu: RadialMenuView; position
               transform={`translate(${lx} ${ly})`}
               pointerEvents="none"
             >
+              <rect
+                className="radial__pill"
+                x={side === 'start' ? -0.07 : side === 'end' ? -tw + 0.07 : -tw / 2 - 0.07}
+                y={it.sub ? -0.27 : -0.15}
+                width={tw + 0.14}
+                height={it.sub ? 0.54 : 0.3}
+                rx={0.15}
+              />
               <text textAnchor={side} y={it.sub ? -0.12 : 0}>
                 {it.label}
               </text>

@@ -43,14 +43,20 @@ export interface ArrowView {
   from: Vec;
   /** Target in cell coordinates (may be off-board for shots). */
   to: Vec;
-  style: 'pass' | 'cross' | 'shoot';
+  style: 'pass' | 'lofted' | 'cross' | 'shoot';
   label?: string;
+  /** Small glyph shown before the label (→ / ⌒). */
+  glyph?: string;
+  /** Warning colour (OFFSIDE?). */
+  warn?: boolean;
 }
 
 export interface PassTargetView {
   id: PlayerId;
   label: string;
   enabled: boolean;
+  /** Receiver would be offside: show the OFFSIDE badge instead of the percentage. */
+  offside?: boolean;
 }
 
 /** Impact burst at a duel position. */
