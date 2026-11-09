@@ -332,12 +332,12 @@ export function Pitch({
         }}
         pointerEvents="none"
       >
+        <ellipse className="ball__shadow" cx={0.03} cy={0.12} rx={0.2} ry={0.09} />
         <g
           key={ball.kind === 'free' ? ball.flightKey ?? 0 : 0}
           className={ball.kind === 'free' && ball.arc && !ball.snap ? 'ball__lob' : undefined}
           style={{ ['--lob-h' as string]: ball.kind === 'free' && ball.arc ? `${-ball.arc}px` : undefined }}
         >
-          <ellipse className="ball__shadow" cx={0.03} cy={0.12} rx={0.2} ry={0.09} />
           <BallIcon r={0.2} />
         </g>
       </g>

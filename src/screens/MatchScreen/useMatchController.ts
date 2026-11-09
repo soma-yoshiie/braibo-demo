@@ -45,8 +45,8 @@ import type {
 export type Phase = 'start' | 'planning' | 'resolving' | 'finished';
 type PickMode = 'pass' | 'cross' | null;
 export interface HintView {
-  /** Show the [ゴロ | 浮き玉] segmented control. */
-  styleToggle?: PassStyle;
+  /** Single slim line (text only). */
+  slim?: boolean;
   text?: string;
   sub?: string;
   warn?: boolean;
@@ -267,8 +267,9 @@ export function useMatchController() {
       holderPos,
       undefined,
       effectiveAction.style ?? 'ground',
+      Object.fromEntries(blues.map((p) => [p.id, posOf(p.id)])),
     );
-  }, [blueHolder, holderPos, effectiveAction, state]);
+  }, [blueHolder, holderPos, effectiveAction, state, blues, posOf]);
 
   const ballArrow: ArrowView | null = useMemo(() => {
     if (!planning || !blueHolder || !holderPos) return null;
@@ -320,7 +321,8 @@ export function useMatchController() {
     const k = RULES.offside.lastDefenders;
     if (!RULES.offside.enabled || k < 1 || reds.length < k) return null;
     const row = reds.map((p) => p.pos.y).sort((x, y) => x - y)[k - 1] as number;
-    return row + 0.5 < BOARD.rows / 2 ? row : null;
+    // defenders still in the attackers' own half: offside only applies past the halfway line
+    return Math.min(row, BOARD.rows / 2);
   }, [planning, pick, state]);
 
   // ---------- actions ----------
@@ -393,10 +395,21 @@ export function useMatchController() {
     [menuOpen, menuAt],
   );
 
-  const setPassStyle = useCallback((st: PassStyle) => {
-    setPassStyleState(st);
-    setBallAction((a) => (a.kind === 'pass' || a.kind === 'spacePass' ? { ...a, style: st } : a));
-  }, []);
+  /** The toggle sets the style for new picks; a stored action follows only if still in range for the new style. */
+  const setPassStyle = useCallback(
+    (st: PassStyle) => {
+      setPassStyleState(st);
+      const a = ballAction;
+      if (a.kind !== 'pass' && a.kind !== 'spacePass') return;
+      const ok =
+        a.kind === 'pass'
+          ? passBy[st].some((c) => c.id === a.targetId && c.enabled)
+          : spaceBy[st].some((c) => c.x === a.target.x && c.y === a.target.y);
+      if (ok) setBallAction({ ...a, style: st });
+      else showNotice(st === 'ground' ? 'ゴロでは届かない距離です' : '浮き玉の射程外です');
+    },
+    [ballAction, passBy, spaceBy, showNotice],
+  );
 
   const spaceHas = useCallback((c: Vec) => spaceAll.some((s2) => sameVec(s2, c)), [spaceAll]);
 
@@ -980,9 +993,9 @@ export function useMatchController() {
   const hint: HintView | null = notice
     ? { text: notice, warn: true }
     : planning && pick === 'pass'
-      ? { styleToggle: passStyle, text: 'パス先（味方 or スペース）をタップ', sub: '※相手の現在位置での推定値' }
+      ? { slim: true, text: 'パス先（味方 or スペース）をタップ' }
       : planning && pick === 'cross'
-        ? { text: 'クロス先をタップ（％=得点率）', sub: '※相手の現在位置での推定値' }
+        ? { slim: true, text: 'クロス先をタップ（％=得点率）' }
         : planning && blueHolder && effectiveAction.kind === 'shoot'
           ? { sub: '※相手の現在位置での推定値' }
           : null;
@@ -1014,6 +1027,7 @@ export function useMatchController() {
     passTargets,
     spaceCells,
     offsideLine,
+    passStyleBar: planning && pick === 'pass' ? passStyle : null,
     passStyle,
     setPassStyle,
     picking: planning && pick !== null,

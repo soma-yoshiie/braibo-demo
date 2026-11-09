@@ -67,6 +67,7 @@
 }
 
 .seg {
+  flex: 0 0 auto;
   display: flex;
   gap: 0;
   margin: 3px 0 2px;
@@ -79,7 +80,7 @@
   appearance: none;
   border: 0;
   margin: 0;
-  padding: 5px 16px;
+  padding: 5px 11px;
   min-height: 30px;
   background: rgba(7, 13, 26, 0.9);
   color: var(--text-dim, #b8c2d8);
@@ -87,6 +88,20 @@
   font-size: 12.5px;
   font-weight: 800;
   cursor: pointer;
+  white-space: nowrap;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+/* Narrow phones: drop the glyph so both labels fit on one line between the bar buttons. */
+@media (max-width: 389px) {
+  .seg__glyph {
+    display: none;
+  }
+  .seg__btn {
+    padding: 5px 9px;
+    font-size: 12px;
+  }
 }
 .seg__btn.is-on {
   background: var(--gold, #e5bd5a);
@@ -97,8 +112,10 @@
   color: #04202e;
 }
 
-/* pass-style toggle lives at the bottom of the board (thumb reach; never covers the attacking rows) */
-.hint--bottom {
-  top: auto;
-  bottom: 4px;
+.hint--slim {
+  flex-direction: row;
+  padding: 2px 12px;
+  height: 26px;
+  align-items: center;
+  font-size: 11.5px;
 }
