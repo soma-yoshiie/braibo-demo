@@ -4,10 +4,12 @@ interface Props {
   timerOn: boolean;
   seconds: number;
   onToggleTimer: (v: boolean) => void;
+  throughOn: boolean;
+  onToggleThrough: (v: boolean) => void;
   onStart: () => void;
 }
 
-export function StartOverlay({ timerOn, seconds, onToggleTimer, onStart }: Props) {
+export function StartOverlay({ timerOn, seconds, onToggleTimer, throughOn, onToggleThrough, onStart }: Props) {
   return (
     <div className="overlay overlay--start" data-testid="start-overlay">
       <div className="card card--start">
@@ -41,9 +43,24 @@ export function StartOverlay({ timerOn, seconds, onToggleTimer, onStart }: Props
           </li>
         </ol>
         <p className="howto__note">敵と同じマスにも並べる。競り合いはボールがあるマスだけ、負けてもその場に残る。</p>
+        {throughOn && (
+          <p className="howto__note howto__note--through">
+            スルーパス（空きマスへのパス）は動く前に蹴る。オフサイドは今の位置で決まる。
+          </p>
+        )}
         <label className="toggle">
           <span>作戦タイマー（{seconds}秒）</span>
           <input type="checkbox" checked={timerOn} onChange={(e) => onToggleTimer(e.target.checked)} />
+          <i className="toggle__track" />
+        </label>
+        <label className="toggle">
+          <span>先出しスルーパス（新ルール）</span>
+          <input
+            type="checkbox"
+            checked={throughOn}
+            onChange={(e) => onToggleThrough(e.target.checked)}
+            data-testid="through-toggle"
+          />
           <i className="toggle__track" />
         </label>
         <button className="gbtn gbtn--gold cta" onClick={onStart} data-testid="start-button">

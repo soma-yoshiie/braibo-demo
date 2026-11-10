@@ -29,7 +29,7 @@ import type {
   TurnResult,
   Vec,
 } from '../types';
-import { BOARD, RULES, goalTarget, otherTeam } from '../rules/config';
+import { BOARD, RULES, goalTarget, otherTeam, throughPassMode } from '../rules/config';
 import { getCharacter } from '../data/characters';
 import { cellsOnSegment, dist, inBounds, neighbors8, vecEq } from '../rules/geometry';
 import { getEffectiveStats, isLegalMove } from '../rules/moves';
@@ -39,10 +39,18 @@ import {
   crossDelivery,
   duelWinProbability,
   headerGoalProbability,
+  interceptProbability,
   passAccuracy,
   shotGoalProbability,
 } from '../rules/probability';
-import { aerialDefender, estimatePass, estimateSpacePass, isCrossValid, laneInterceptors } from '../rules/estimates';
+import {
+  aerialDefender,
+  estimatePass,
+  estimateSpacePass,
+  estimateThroughPass,
+  isCrossValid,
+  laneInterceptors,
+} from '../rules/estimates';
 import { isOffsidePosition } from '../rules/offside';
 import { kickoffState } from './match';
 
@@ -56,6 +64,30 @@ function player(state: MatchState, id: PlayerId): PlayerState {
   const p = state.players.find((q) => q.id === id);
   if (!p) throw new Error(`Unknown player: ${id}`);
   return p;
+}
+
+/**
+ * v0.5 early through pass (DESIGN.md §5): in 'early' mode a held-ball spacePass is kicked BEFORE movement.
+ * Returns undefined when this turn has no such action. `cancelled` is set when the target is unusable
+ * (the turn then plays as a normal keep turn).
+ */
+interface EarlyKick {
+  passerId: PlayerId;
+  target: Vec;
+  style: PassStyle;
+  cancelled?: 'invalidTarget' | 'outOfRange';
+}
+function earlyKick(state: MatchState, plans: TurnPlans): EarlyKick | undefined {
+  if (throughPassMode(state) !== 'early' || state.ball.kind !== 'held') return undefined;
+  const passer = player(state, state.ball.playerId);
+  const action = plans[passer.team].ballAction;
+  if (!action || action.kind !== 'spacePass') return undefined;
+  const style = action.style ?? 'ground';
+  const base = { passerId: passer.id, target: action.target, style };
+  const tgt = action.target;
+  if (!tgt || !inBounds(tgt) || vecEq(tgt, passer.pos)) return { ...base, cancelled: 'invalidTarget' };
+  if (!estimateThroughPass(state, passer.id, tgt, style).inRange) return { ...base, cancelled: 'outOfRange' };
+  return base;
 }
 
 export interface MovementResult {
@@ -74,16 +106,19 @@ export function resolveMovement(state: MatchState, plans: TurnPlans, rng: Rng): 
   const origin: Positions = {};
   const dest: Positions = {};
   const flags: FlagMap = {};
+  const early = earlyKick(state, plans);
+  // Early through pass in flight: the kicker does not move and nobody holds the ball (no ball duel).
+  const inFlight = early && !early.cancelled ? early.passerId : undefined;
   for (const p of state.players) {
     origin[p.id] = copy(p.pos);
     const planned = plans[p.team].moves[p.id];
-    dest[p.id] = planned && isLegalMove(state, p.id, planned) ? copy(planned) : copy(p.pos);
+    dest[p.id] = p.id !== inFlight && planned && isLegalMove(state, p.id, planned) ? copy(planned) : copy(p.pos);
     flags[p.id] = { ...p.flags };
   }
   // Destinations as planned (after legality normalisation); used by the swap check.
   const planned: Positions = {};
   for (const id of Object.keys(dest)) planned[id] = copy(dest[id] as Vec);
-  let holder: PlayerId | undefined = state.ball.kind === 'held' ? state.ball.playerId : undefined;
+  let holder: PlayerId | undefined = state.ball.kind === 'held' && !inFlight ? state.ball.playerId : undefined;
   const stays = (id: PlayerId) => vecEq(dest[id] as Vec, origin[id] as Vec);
 
   const physical = (id: PlayerId) => getEffectiveStats(state, player(state, id)).physical;
@@ -215,7 +250,7 @@ export function resolveMovement(state: MatchState, plans: TurnPlans, rng: Rng): 
   }
 
   // ---- loose ball pickup -------------------------------------------------------
-  let ball: BallState = holder ? { kind: 'held', playerId: holder } : state.ball;
+  let ball: BallState = holder ? { kind: 'held', playerId: holder } : state.ball; // in flight: still marked as the kicker's
   if (ball.kind === 'loose') {
     const pos = ball.pos;
     const picker = state.players.find((p) => vecEq(dest[p.id] as Vec, pos));
@@ -255,6 +290,12 @@ export function resolveBallAction(
   const passer = player(state, passerId);
   const action = plans[passer.team].ballAction;
   if (!action || action.kind === 'keep') return res();
+  const early = earlyKick(state, plans);
+  if (early?.cancelled) {
+    // Same as legacy: reported after the movement events, and only if the kicker still holds the ball.
+    events.push({ type: 'actionCancelled', playerId: passerId, action: 'pass', reason: early.cancelled });
+    return res();
+  }
 
   const pos = moved.positions;
   const at = (id: PlayerId) => pos[id] as Vec;
@@ -394,6 +435,69 @@ export function resolveBallAction(
       }
     }
     return headerOrShot(passerId, from, 'shot', pGoal);
+  }
+
+  if (early) {
+    // ---- v0.5 early through pass: kick (turn-start positions) -> [movement already done] -> receive ----
+    const tgt = early.target;
+    const style = early.style;
+    const startFoes: Positions = Object.fromEntries(enemies.map((e) => [e.id, copy(e.pos)]));
+    const est = estimateThroughPass(state, passerId, tgt, style);
+    const base = {
+      type: 'pass' as const, passerId, space: true, early: true as const, style,
+      from: copy(passer.pos), to: copy(tgt), pSuccess: est.pComplete,
+    };
+    const rolled = new Set<PlayerId>(); // one roll per defender per turn: lane-roll misses skip the marker roll
+    for (const i of laneInterceptors(state, startFoes, passer.pos, tgt, style, { markers: false })) {
+      rolled.add(i.playerId);
+      if (rng.next() < i.pIntercept) {
+        give(i.playerId, true);
+        events.push({ ...base, outcome: 'intercepted', interceptorId: i.playerId });
+        return res();
+      }
+    }
+    if (!(rng.next() < est.pAccurate)) {
+      const idx = events.length;
+      const { loosePos } = scatter(tgt);
+      events.splice(idx, 0, { ...base, outcome: 'failed', loosePos });
+      return res();
+    }
+    const here = state.players.filter((p) => vecEq(at(p.id), tgt));
+    const mate = here.find((p) => p.team === passer.team);
+    const foe = here.find((p) => p.team !== passer.team);
+    if (mate) {
+      // Offside is judged entirely on turn-start positions (the line the planner saw).
+      if (isOffsidePosition(passer.team, mate.pos, passer.pos, enemies.map((e) => e.pos))) {
+        const nearest = [...enemies].sort(
+          (a, b) => dist(at(a.id), at(mate.id)) - dist(at(b.id), at(mate.id)) || a.index - b.index,
+        )[0] as PlayerState;
+        give(nearest.id, false);
+        events.push({
+          type: 'offside', team: passer.team, passerId, receiverId: mate.id, toPlayerId: nearest.id,
+          from: copy(passer.pos), to: copy(tgt), style, early: true,
+        });
+        return res();
+      }
+      if (foe && !rolled.has(foe.id)) {
+        const stats = getEffectiveStats(state, foe);
+        const pMark = interceptProbability(style === 'ground' ? stats.intercept : stats.aerial, 0);
+        if (rng.next() < pMark) {
+          give(foe.id, true);
+          events.push({ ...base, outcome: 'intercepted', interceptorId: foe.id, marked: true });
+          return res();
+        }
+      }
+      give(mate.id, false);
+      (flags[mate.id] as PlayerFlags).receivedPassTurn = state.turn;
+      events.push({ ...base, outcome: 'complete', receiverId: mate.id });
+    } else if (foe) {
+      give(foe.id, true);
+      events.push({ ...base, outcome: 'toEnemy', receiverId: foe.id });
+    } else {
+      ball = { kind: 'loose', pos: copy(tgt) };
+      events.push({ ...base, outcome: 'loose', loosePos: copy(tgt) });
+    }
+    return res();
   }
 
   if (action.kind === 'spacePass') {

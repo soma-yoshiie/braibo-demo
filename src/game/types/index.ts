@@ -117,7 +117,18 @@ export interface MatchState {
   phase: MatchPhase;
   /** Team that took the most recent kickoff. */
   kickoffTeam: TeamId;
+  /**
+   * v0.5 rule switch for space passes (DESIGN.md §5). Missing = RULES.throughPass.defaultMode.
+   * Always read it through `throughPassMode(state)`.
+   */
+  throughPass?: ThroughPassMode;
 }
+
+/**
+ * early: a space pass is kicked BEFORE movement from turn-start positions (offside judged there too).
+ * legacy: v0.4 behaviour (kicked after movement, judged on final positions).
+ */
+export type ThroughPassMode = 'early' | 'legacy';
 
 // ---------------------------------------------------------------------------
 // Plans (input of a turn)
@@ -198,6 +209,10 @@ export type TurnEvent =
       interceptorId?: PlayerId;
       loosePos?: Vec;
       pSuccess: number;
+      /** v0.5: early through pass (kicked before movement; `from` is the kicker's turn-start cell). */
+      early?: boolean;
+      /** v0.5 early only: `intercepted` by a tight marker ON the target cell after movement (not on the lane at the kick). */
+      marked?: boolean;
     }
   | {
       type: 'cross';
@@ -233,6 +248,8 @@ export type TurnEvent =
       from: Vec;
       to: Vec;
       style: PassStyle;
+      /** v0.5: early through pass, judged on turn-start positions (`from` is the kicker's turn-start cell). */
+      early?: boolean;
     }
   /** A planned pass/cross could not be attempted (e.g. receiver ended out of range). The carrier keeps the ball. */
   | {

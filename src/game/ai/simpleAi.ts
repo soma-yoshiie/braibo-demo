@@ -1,8 +1,8 @@
-import type { MatchState, PlayerId, PlayerState, Rng, TeamId, TeamPlan, Vec } from '../types';
-import { BOARD, RULES, forwardDir, goalTarget, otherTeam } from '../rules/config';
+import type { MatchState, PassStyle, PlayerId, PlayerState, Rng, TeamId, TeamPlan, Vec } from '../types';
+import { BOARD, RULES, forwardDir, goalTarget, otherTeam, throughPassMode } from '../rules/config';
 import { dist, vecEq } from '../rules/geometry';
 import { legalMoveTargets } from '../rules/moves';
-import { estimateCross, estimatePass, estimateShot, isCrossValid } from '../rules/estimates';
+import { estimateCross, estimatePass, estimateShot, estimateThroughPass, isCrossValid } from '../rules/estimates';
 import { isOffsidePosition } from '../rules/offside';
 import { getCharacter } from '../data/characters';
 import { ballHolder, playersOf } from '../engine/match';
@@ -36,6 +36,8 @@ interface Ctx {
   pos: Record<PlayerId, Vec>;
   planned: Set<PlayerId>;
 }
+
+const throughMode = (c: Ctx): boolean => throughPassMode(c.state) === 'early';
 
 const noise = (c: Ctx): number => (c.rng.next() * 2 - 1) * c.opt.randomness;
 
@@ -101,7 +103,7 @@ function planOffBall(c: Ctx, players: PlayerState[], anchor: Vec, holding = fals
       let v = positionValue(c.state, p, t, matesExcept(c, p), foes, anchor) + noise(c) * 0.5;
       if (holding) {
         const off = isOffsidePosition(c.team, t, anchor, foeMap);
-        if (off) v -= c.W.offside;
+        if (off) v -= throughMode(c) ? c.W.offsideEarly : c.W.offside;
         const a = advancement(c.team, t);
         const striking = role === 'striker' || role === 'longShooter';
         if (striking && advancement(c.team, anchor) >= 4 && lastAdv >= 4) {
@@ -120,7 +122,8 @@ function planOffBall(c: Ctx, players: PlayerState[], anchor: Vec, holding = fals
   }
 }
 
-function planCarrier(c: Ctx, carrier: PlayerState): void {
+/** Plans the carrier's cell and ball action; returns the value of the chosen option. */
+function planCarrier(c: Ctx, carrier: PlayerState): number {
   const { W, state, team } = c;
   const foes = foePositions(c);
   const reachers = enemyReachers(c);
@@ -174,6 +177,62 @@ function planCarrier(c: Ctx, carrier: PlayerState): void {
   for (const lc of lateCrosses) if (lc.v > best.v + W.crossMargin) best = lc;
   place(c, carrier, best.dest);
   c.plan.ballAction = best.action ?? { kind: 'keep' };
+  return best.v;
+}
+
+// ---------------------------------------------------------------------------
+// v0.5 early through pass (offence)
+// ---------------------------------------------------------------------------
+
+interface ThroughOption {
+  runner: PlayerState;
+  target: Vec;
+  style: PassStyle;
+  v: number;
+}
+
+/**
+ * Best "onside teammate runs to a cell, the carrier (standing still) kicks there first" option.
+ * Runners must be onside NOW (the line is judged on turn-start positions).
+ */
+function bestThrough(c: Ctx, carrier: PlayerState): ThroughOption | undefined {
+  const { W, state } = c;
+  const foes = foePositions(c);
+  const reachers = enemyReachers(c);
+  let danger = W.dangerAdjacent * countNear(carrier.pos, foes);
+  for (const f of reachers.get(key(carrier.pos)) ?? []) danger += W.danger * (phys(f) / (phys(f) + phys(carrier)));
+  let best: ThroughOption | undefined;
+  for (const runner of c.me) {
+    if (runner.id === carrier.id) continue;
+    if (isOffsidePosition(c.team, runner.pos, carrier.pos, foes)) continue;
+    const others = c.me.filter((m) => m.id !== runner.id && m.id !== carrier.id).map((m) => m.pos);
+    for (const t of legalMoveTargets(state, runner.id)) {
+      if (c.reserved.has(key(t)) || vecEq(t, carrier.pos)) continue;
+      // A through pass is a run forward of the ball; sideways / backward ones are ordinary passes.
+      if (advancement(c.team, t) - advancement(c.team, carrier.pos) < W.tpMinAdvance) continue;
+      const nGo = (reachers.get(key(t)) ?? []).length;
+      const contested = 1 - Math.pow(1 - W.tpFoeGo, nGo);
+      const arrival =
+        positionValue(state, runner, t, [carrier.pos, ...others], foes, carrier.pos) +
+        W.tpShot * estimateShot(state, runner.id, t).pGoal;
+      for (const style of ['ground', 'lofted'] as const) {
+        const pe = estimateThroughPass(state, carrier.id, t, style);
+        if (!pe.inRange || pe.pComplete < W.tpMinP) continue;
+        const v =
+          Math.pow(pe.pComplete, W.tpPExp) * (1 - contested * W.tpMark) * (arrival + 0.2) + W.tpBonus - danger * 0.3 + noise(c);
+        if (!best || v > best.v) best = { runner, target: t, style, v };
+      }
+    }
+  }
+  return best;
+}
+
+/** Carrier stays, the runner goes to the target, everybody else positions normally. */
+function planThrough(c: Ctx, carrier: PlayerState, o: ThroughOption): void {
+  place(c, carrier, carrier.pos);
+  place(c, o.runner, o.target);
+  planOffBall(c, c.me.filter((m) => !c.planned.has(m.id)), carrier.pos, true);
+  c.plan.ballAction = { kind: 'spacePass', target: o.target, style: o.style };
 }
 
 // ---------------------------------------------------------------------------
@@ -242,6 +301,36 @@ function markBonus(top: { r: PlayerState; threat: number } | undefined, c: Ctx, 
   return top.threat * near * (isDf && dist(top.r.pos, goalTarget(otherTeam(c.team))) <= 4 ? 1.5 : 1);
 }
 
+/**
+ * Where an onside enemy runner is most likely to be sent by an early through pass: the cells the enemy
+ * would rank highest with the same evaluation the attacking AI uses. `p` = the carrier's delivery chance,
+ * `share` = this cell's share of the (top 3) attractiveness.
+ */
+function throughThreats(c: Ctx, carrier: PlayerState): { cell: Vec; p: number; share: number }[] {
+  const mine = c.me.map((m) => m.pos);
+  const foeMates = c.foes.filter((f) => f.id !== carrier.id);
+  const out = new Map<string, { cell: Vec; p: number; w: number }>();
+  for (const f of foeMates) {
+    if (isOffsidePosition(carrier.team, f.pos, carrier.pos, mine)) continue;
+    const others = foeMates.filter((m) => m.id !== f.id).map((m) => m.pos);
+    for (const t of legalMoveTargets(c.state, f.id)) {
+      if (advancement(carrier.team, t) - advancement(carrier.team, carrier.pos) < c.W.tpMinAdvance) continue;
+      let arrival: number | undefined;
+      for (const style of ['ground', 'lofted'] as const) {
+        const p = estimateThroughPass(c.state, carrier.id, t, style).pComplete;
+        if (p < c.W.tpMinP) continue;
+        arrival ??= positionValue(c.state, f, t, [carrier.pos, ...others], mine, carrier.pos) + c.W.tpShot * estimateShot(c.state, f.id, t).pGoal;
+        const w = p * Math.max(0.05, arrival + 0.2);
+        const old = out.get(key(t));
+        if (!old || w > old.w) out.set(key(t), { cell: t, p, w });
+      }
+    }
+  }
+  const top = [...out.values()].sort((a, b) => b.w - a.w).slice(0, 3);
+  const total = top.reduce((s, x) => s + x.w, 0);
+  return top.map((x) => ({ cell: x.cell, p: x.p, share: x.w / total }));
+}
+
 function planDefenders(c: Ctx, defenders: PlayerState[], carrier: PlayerState, guesses: Guess[]): void {
   const { W, state } = c;
   const ownGoal = goalTarget(otherTeam(c.team));
@@ -256,6 +345,10 @@ function planDefenders(c: Ctx, defenders: PlayerState[], carrier: PlayerState, g
     advancement(carrier.team, carrier.pos) >= 5 &&
     byDepth.length > 1 &&
     advancement(c.team, byDepth[1].pos) - advancement(c.team, deepest.pos) > 1;
+  // v0.5: against an early through pass the deepest defender either steps up (trap) or drops back and covers.
+  const threats = throughMode(c) ? throughThreats(c, carrier) : [];
+  const threat = threats.length ? (threats[0] as { p: number }).p * c.W.coverThreat : 0;
+  const cover = threat > 0 && c.rng.next() < Math.min(c.W.coverMax, c.W.coverBase + c.W.coverScale * threat);
   const shotRiskAt = (hyp: Record<PlayerId, Vec>): number =>
     top.reduce((s, g) => s + g.w * estimateShot(state, carrier.id, g.cell, hyp).pGoal, 0);
   for (const p of order) {
@@ -269,7 +362,16 @@ function planDefenders(c: Ctx, defenders: PlayerState[], carrier: PlayerState, g
       let risk = 0;
       for (const g of top) risk += g.w * estimateShot(state, carrier.id, g.cell, hyp).pGoal;
       let v = -W.shotRisk * risk;
-      if (p.id === deepest.id && trapOn && advancement(c.team, t) === advancement(c.team, p.pos) + 1 && risk <= stayRisk + 1e-9) v += W.trap;
+      if (!cover && p.id === deepest.id && trapOn && advancement(c.team, t) === advancement(c.team, p.pos) + 1 && risk <= stayRisk + 1e-9) v += throughMode(c) ? W.trapEarly : W.trap;
+      if (cover && (p.id === deepest.id || W.coverAll > 0)) {
+        for (const th of threats) {
+          // A target a teammate already stands on (planned) is covered; do not pile on.
+          if (c.me.some((m) => m.id !== p.id && c.planned.has(m.id) && chebyshev(c.pos[m.id] as Vec, th.cell) === 0)) continue;
+          const d = chebyshev(t, th.cell);
+          v += W.coverCell * th.share * (d === 0 ? 1 : d === 1 ? W.coverNear : 0);
+        }
+        if (p.id === deepest.id) v += W.coverBack * (advancement(c.team, p.pos) - advancement(c.team, t));
+      }
       v -= W.receiverRisk * receiverRisk(c, carrier, hyp);
       v += W.mark * markBonus(topReceiver, c, t, isDf);
       if (mate) {
@@ -301,9 +403,9 @@ function planDefence(c: Ctx, carrier: PlayerState, presser: PlayerState | undefi
 // Entry point
 // ---------------------------------------------------------------------------
 
-export function planAiTurn(state: MatchState, team: TeamId, rng: Rng, options: AiOptions = {}): TeamPlan {
+function makeCtx(state: MatchState, team: TeamId, rng: Rng, options: AiOptions): Ctx {
   const me = playersOf(state, team);
-  const c: Ctx = {
+  return {
     state,
     team,
     rng,
@@ -316,12 +418,23 @@ export function planAiTurn(state: MatchState, team: TeamId, rng: Rng, options: A
     pos: Object.fromEntries(me.map((m) => [m.id, m.pos])),
     planned: new Set(),
   };
+}
+
+export function planAiTurn(state: MatchState, team: TeamId, rng: Rng, options: AiOptions = {}): TeamPlan {
+  let c = makeCtx(state, team, rng, options);
+  const me = c.me;
   if (state.phase === 'finished') return c.plan;
   const holder = ballHolder(state);
 
   if (holder && holder.team === team) {
+    // v0.5: evaluate the through pass on the untouched state, then keep it only if it beats the ordinary plan.
+    const through = throughMode(c) ? bestThrough(c, holder) : undefined;
     planOffBall(c, me.filter((m) => m.id !== holder.id), holder.pos, true);
-    planCarrier(c, holder);
+    const normal = planCarrier(c, holder);
+    if (through && through.v > normal + c.W.tpMargin) {
+      c = makeCtx(state, team, rng, options);
+      planThrough(c, holder, through);
+    }
   } else if (holder) {
     planDefence(c, holder, undefined);
   } else if (state.ball.kind === 'loose') {

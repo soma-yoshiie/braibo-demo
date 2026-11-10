@@ -40,6 +40,25 @@ export const AI_WEIGHTS = {
   trap: 0.15, // deepest defender stepping up (offside trap)
   receiverRisk: 3, // defenders: expected goals via a pass to a receiver
   mark: 0.6, // defenders: standing next to the top receiver
+  // ---- v0.5 early through pass (used only when throughPassMode === 'early') ----
+  offsideEarly: 1.2, // off-ball cell that would be offside, in early mode (a foot pass is still judged on final positions)
+  trapEarly: 0.15, // `trap` in early mode (stepping up is one of the two answers to a through pass)
+  tpBonus: -0.3, // flat bonus for a through-pass option
+  tpMargin: 1.3, // a through pass must beat the best ordinary option by this much (tuned so it is a special move, ~3 per game)
+  tpShot: 2.5, // extra weight on the shot chance at the arrival cell (xg is already in positionValue)
+  tpFoeGo: 0.3, // chance that each enemy able to reach the target cell goes there
+  tpMark: 0, // fraction of the value lost when an enemy can share the target cell (0 = neutral; negative values make the AI seek contested cells, so keep it >= 0)
+  tpMinAdvance: 1, // the target must be at least this many rows ahead of the carrier
+  tpPExp: 0.5, // exponent on the delivery chance (< 1 = takes riskier through passes; 0.5 gives ~40% success)
+  tpMinP: 0.05, // ignore through passes whose delivery chance is below this
+  coverThreat: 1, // defence: scale on the best enemy through-pass delivery chance
+  coverBase: 0.1, // defence: base chance that the deepest defender drops back instead of stepping up
+  coverScale: 1.2, // defence: added chance per unit of threat
+  coverMax: 0.85,
+  coverCell: 2, // defence: value of standing on / next to a likely arrival cell
+  coverBack: 0.05, // defence: per row dropped back
+  coverAll: 1, // defence: >0 = every defender may cover a target cell, not just the deepest
+  coverNear: 0.4, // defence: value of standing next to a target cell, relative to standing on it
 } as const;
 
 export const key = (v: Vec): string => `${v.x},${v.y}`;

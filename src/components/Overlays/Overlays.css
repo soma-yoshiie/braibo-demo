@@ -85,6 +85,9 @@
   color: var(--text-dim, rgba(255, 255, 255, 0.72));
   text-align: left;
 }
+.howto__note--through {
+  margin-top: -8px;
+}
 .howto li {
   display: flex;
   align-items: center;

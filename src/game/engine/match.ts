@@ -1,9 +1,9 @@
-import type { MatchState, PlayerId, PlayerState, TeamId, Vec } from '../types';
+import type { MatchState, PlayerId, PlayerState, TeamId, ThroughPassMode, Vec } from '../types';
 import { BOARD, MATCH, type MatchConfig } from '../rules/config';
 import { DEFAULT_FORMATION, formationPos, type FormationSlot } from '../data/formations';
 import { vecEq } from '../rules/geometry';
 
-export type CreateMatchOptions = Partial<MatchConfig> & { formation?: FormationSlot[] };
+export type CreateMatchOptions = Partial<MatchConfig> & { formation?: FormationSlot[]; throughPass?: ThroughPassMode };
 
 const TEAMS: TeamId[] = ['blue', 'red'];
 
@@ -31,6 +31,7 @@ export function createMatch(options: CreateMatchOptions = {}): MatchState {
     ball: { kind: 'held', playerId: `${firstKickoff}-0` },
     phase: 'planning',
     kickoffTeam: firstKickoff,
+    ...(options.throughPass ? { throughPass: options.throughPass } : {}),
   }, firstKickoff, formation);
 }
 

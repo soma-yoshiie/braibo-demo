@@ -105,6 +105,7 @@ export function laneInterceptors(
   from: Vec,
   to: Vec,
   style: PassStyle,
+  opts: { markers?: boolean } = {},
 ): { playerId: PlayerId; pIntercept: number }[] {
   const out: { playerId: PlayerId; pIntercept: number }[] = [];
   const radius = RULES.pass.lofted.endZoneRadius;
@@ -120,6 +121,7 @@ export function laneInterceptors(
   }
   // Tight markers (v0.4): enemies sharing the receiver's / target cell roll last, at offset 0.
   // Enemies in the kicker's cell never intercept (cellsOnSegment excludes both endpoints).
+  if (opts.markers === false) return out;
   for (const id of Object.keys(defs)) {
     const pos = defs[id];
     if (!pos || !vecEq(pos, to)) continue;
@@ -202,6 +204,43 @@ export function estimateSpacePass(
   const e = passEstimate(state, passer, from, target, defs, RULES.pass.spacePenalty, style, offside);
   if (vecEq(from, target)) return { ...e, inRange: false, pComplete: 0 };
   return e;
+}
+
+/**
+ * v0.5 early through pass (DESIGN.md §5): kicked before movement, so everything uses CURRENT positions
+ * and the result is exact, not a guess. `pComplete` = P(the ball arrives on the target cell)
+ * = accuracy x (1 - lane interception); the contest on the target cell is not included.
+ * `receiverId`: the teammate meant to run onto the ball; `offside` is true (and pComplete 0) when that
+ * player is in an offside position right now.
+ */
+export function estimateThroughPass(
+  state: MatchState,
+  passerId: PlayerId,
+  target: Vec,
+  style: PassStyle = 'ground',
+  receiverId?: PlayerId,
+): PassEstimate {
+  const passer = get(state, passerId);
+  const from = passer.pos;
+  const defs = enemyPositions(state, passer.team);
+  const offside = receiverId ? isOffsidePosition(passer.team, get(state, receiverId).pos, from, posList(defs)) : false;
+  const skills = getCharacter(passer.charId).skills;
+  const distance = dist(from, target);
+  const inRange = !vecEq(from, target) && distance <= passMaxDistance(skills, style);
+  const base = passAccuracy(distance, getEffectiveStats(state, passer).pass, skills, style);
+  const pAccurate = Math.min(RULES.pass.max, Math.max(RULES.pass.min, base - RULES.pass.spacePenalty));
+  const interceptors = laneInterceptors(state, defs, from, target, style, { markers: false });
+  const pIntercepted = complement(interceptors.map((i) => i.pIntercept));
+  return {
+    style,
+    distance,
+    pAccurate,
+    pIntercepted,
+    pComplete: inRange && !offside ? pAccurate * (1 - pIntercepted) : 0,
+    interceptors,
+    inRange,
+    offside,
+  };
 }
 
 export function isCrossValid(team: TeamId, passerPos: Vec, targetPos: Vec): boolean {

@@ -376,6 +376,22 @@
   stroke-dasharray: 0.3 0.18;
   opacity: 0.9;
 }
+.offside-line--own {
+  stroke: #8fd8ff;
+}
+.offpos rect {
+  fill: #111;
+  stroke: #ffd400;
+  stroke-width: 0.035;
+}
+.offpos text {
+  fill: #ffd400;
+  font-family: var(--font-num);
+  font-size: 0.17px;
+  font-weight: 800;
+  text-anchor: middle;
+  dominant-baseline: central;
+}
 .offside-badge rect {
   fill: #111;
   stroke: #ffd400;

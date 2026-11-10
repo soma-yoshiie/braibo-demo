@@ -40,6 +40,9 @@ export function MatchScreen() {
           spaceCells={m.spaceCells}
           picking={m.picking}
           offsideLine={m.offsideLine}
+          offsideLineOwn={m.offsideLineOwn}
+          offPosIds={m.offPosIds}
+          throughEarly={m.throughEarly}
           plans={m.planViews}
           ballArrow={m.ballArrow}
           bursts={m.bursts}
@@ -77,6 +80,8 @@ export function MatchScreen() {
           timerOn={m.timerOn}
           seconds={TIMER_SECONDS}
           onToggleTimer={m.setTimerOn}
+          throughOn={m.throughOn}
+          onToggleThrough={m.setThrough}
           onStart={m.start}
         />
       )}

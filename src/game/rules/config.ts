@@ -85,6 +85,11 @@ export const RULES = {
       max: 0.9,
     },
   },
+  // ---- through pass (v0.5) -------------------------------------------------
+  throughPass: {
+    /** Used when MatchState.throughPass is missing. 'legacy' restores the v0.4 space pass. */
+    defaultMode: 'early' as 'early' | 'legacy',
+  },
   // ---- offside ------------------------------------------------------------
   offside: {
     enabled: true,
@@ -150,6 +155,11 @@ export const RULES = {
     blockMasterBonus: 0.1,
   },
 } as const;
+
+/** Space-pass rule in force for this match (DESIGN.md §5). */
+export function throughPassMode(state: { throughPass?: 'early' | 'legacy' }): 'early' | 'legacy' {
+  return state.throughPass ?? RULES.throughPass.defaultMode;
+}
 
 /** Goal target point (center of the goal mouth, half a cell beyond the end line). */
 export function goalTarget(attackingTeam: 'blue' | 'red', board: BoardConfig = BOARD) {

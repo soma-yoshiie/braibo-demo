@@ -31,7 +31,9 @@ export function describeEvent(event: TurnEvent, state: MatchState): string {
     case 'pass': {
       const kindName = event.style === 'lofted' ? '浮き玉パス' : 'ゴロパス';
       if (event.space) {
-        const head = `${n(event.passerId)} がスペースへ${kindName}`;
+        const head = event.early
+          ? `${n(event.passerId)} がスルーパス（${event.style === 'lofted' ? '浮き玉' : 'ゴロ'}）`
+          : `${n(event.passerId)} がスペースへ${kindName}`;
         switch (event.outcome) {
           case 'intercepted':
             return event.interceptorId ? `${head} → ${n(event.interceptorId)} がカット！` : `${head} → カットされた`;
@@ -65,7 +67,7 @@ export function describeEvent(event: TurnEvent, state: MatchState): string {
       }
     }
     case 'offside':
-      return `オフサイド！ ${n(event.receiverId)} の飛び出しが早すぎた → ${n(event.toPlayerId)} のボール`;
+      return `オフサイド！${event.early ? '（蹴った時点の位置で）' : ''} ${n(event.receiverId)} の飛び出しが早すぎた → ${n(event.toPlayerId)} のボール`;
     case 'shot': {
       const what = event.kind === 'header' ? 'ヘディングシュート' : 'シュート';
       if (event.outcome === 'blocked')

@@ -11,12 +11,14 @@ import {
   estimatePass,
   estimateShot,
   estimateSpacePass,
+  estimateThroughPass,
   isCrossValid,
 } from '../../game/rules/estimates';
+import { isOffsidePosition } from '../../game/rules/offside';
 import { restSlot } from '../../components/Pitch/pitchGeometry';
 import { dist } from '../../game/rules/geometry';
 import { passMaxDistance } from '../../game/rules/probability';
-import { BOARD, MATCH, RULES, goalTarget } from '../../game/rules/config';
+import { BOARD, MATCH, RULES, goalTarget, throughPassMode } from '../../game/rules/config';
 import type {
   BallActionPlan,
   MatchState,
@@ -62,6 +64,8 @@ const GOAL_MS = 1400;
 const CLASH_MS = 380;
 const DUEL_RESULT_MS = 900;
 const SETTLE_MS = 200;
+/** Early through pass intercepted on the lane: the ball reaches the interceptor before anyone moves. */
+const EARLY_STEAL_MS = 300;
 
 const prefersReducedMotion = (): boolean => {
   try {
@@ -94,13 +98,14 @@ interface Match {
   state: MatchState;
   rng: Rng;
 }
-function newMatch(): Match {
-  return { state: createMatch(), rng: createRng(randomSeed()) };
+function newMatch(early: boolean): Match {
+  return { state: createMatch({ throughPass: early ? 'early' : 'legacy' }), rng: createRng(randomSeed()) };
 }
+const DEFAULT_EARLY = RULES.throughPass.defaultMode === 'early';
 
 export function useMatchController() {
   const matchRef = useRef<Match | null>(null);
-  if (matchRef.current === null) matchRef.current = newMatch();
+  if (matchRef.current === null) matchRef.current = newMatch(DEFAULT_EARLY);
 
   const [state, setState] = useState<MatchState>(() => (matchRef.current as Match).state);
   const [phase, setPhase] = useState<Phase>('start');
@@ -113,6 +118,7 @@ export function useMatchController() {
   const [pick, setPick] = useState<PickMode>(null);
   const [passStyle, setPassStyleState] = useState<PassStyle>('ground');
   const [timerOn, setTimerOn] = useState(MATCH.planningSeconds > 0);
+  const [throughOn, setThroughOn] = useState(DEFAULT_EARLY);
   const [timeLeft, setTimeLeft] = useState(TIMER_SECONDS);
   const [log, setLog] = useState<LogLine[]>([]);
   const [logOpen, setLogOpen] = useState(false);
@@ -144,10 +150,32 @@ export function useMatchController() {
   const nextId = () => ++idRef.current;
 
   useEffect(() => {
+    // A remount / HMR keeps refs and state: if a turn was cut off mid-animation (cleanup bumped runRef so the
+    // run bailed out), drop the leftover busy flag and effects and return to planning on the last committed state.
+    if (busyRef.current) {
+      busyRef.current = false;
+      const cur = (matchRef.current as Match).state;
+      setFx({});
+      setBursts([]);
+      setBanner(null);
+      setTrajectory(null);
+      setGoalFx(null);
+      setShownScore(null);
+      setTopId(null);
+      setSpread(true);
+      setBallExtra({ arc: 0, flightKey: 0, ms: 0 });
+      setState(cur);
+      setDisp(posMap(cur));
+      setBallDisp(ballDispOf(cur));
+      resetPlanning(cur);
+      setTimeLeft(TIMER_SECONDS);
+      setPhase(cur.phase === 'finished' ? 'finished' : 'planning');
+    }
     return () => {
       runRef.current++;
       if (noticeTimer.current) clearTimeout(noticeTimer.current);
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   if (fatal) throw fatal;
@@ -160,6 +188,7 @@ export function useMatchController() {
   const holder = ballHolder(state);
   const blueHolder = holder && holder.team === 'blue' ? holder : undefined;
   const planning = phase === 'planning';
+  const early = throughPassMode(state) === 'early';
 
   // ---------- derived planning data ----------
   const moveTargets: Vec[] = useMemo(() => {
@@ -195,26 +224,28 @@ export function useMatchController() {
       });
   }, [blueHolder, holderPos, blues, state, posOf]);
 
-  // space-pass candidates: every in-range cell except the carrier's own planned cell. Cells where a teammate
-  // will be (planned or standing) are included: tapping them converts to a normal pass to that teammate.
+  // space-pass candidates: every in-range cell except the carrier's own cell. legacy: measured from the planned cell,
+  // and a teammate's cell converts to a normal pass. early (DESIGN-UI §13.2): the kick happens before movement, so
+  // the origin is the carrier's CURRENT cell and a teammate's destination stays a space pass (the through pass).
+  const spaceOrigin = early && blueHolder ? blueHolder.pos : holderPos;
   const spaceBy: Record<PassStyle, SpaceCellView[]> = useMemo(() => {
     const build = (style: PassStyle): SpaceCellView[] => {
-      if (!blueHolder || !holderPos) return [];
+      if (!blueHolder || !spaceOrigin) return [];
       const range = passMaxDistance(getCharacter(blueHolder.charId).skills, style);
       const redCells = new Set(state.players.filter((p) => p.team === 'red').map((p) => `${p.pos.x},${p.pos.y}`));
       const out: SpaceCellView[] = [];
       for (let y = 0; y < BOARD.rows; y++) {
         for (let x = 0; x < BOARD.cols; x++) {
           const c = { x, y };
-          if (sameVec(c, holderPos)) continue;
-          if (dist(holderPos, c) > range) continue;
+          if (sameVec(c, spaceOrigin)) continue;
+          if (dist(spaceOrigin, c) > range) continue;
           out.push({ x, y, enemy: redCells.has(`${x},${y}`) });
         }
       }
       return out;
     };
     return { ground: build('ground'), lofted: build('lofted') };
-  }, [blueHolder, holderPos, state]);
+  }, [blueHolder, spaceOrigin, state]);
   const spaceAll = spaceBy[passStyle];
 
   /** Teammate (not the carrier) who will stand on `c` after planning. */
@@ -262,6 +293,11 @@ export function useMatchController() {
 
   const spaceEst = useMemo(() => {
     if (!blueHolder || !holderPos || effectiveAction.kind !== 'spacePass') return undefined;
+    if (early) {
+      const t = effectiveAction.target;
+      const receiver = blues.find((p) => p.id !== blueHolder.id && sameVec(posOf(p.id), t));
+      return estimateThroughPass(state, blueHolder.id, t, effectiveAction.style ?? 'ground', receiver?.id);
+    }
     return estimateSpacePass(
       state,
       blueHolder.id,
@@ -271,7 +307,7 @@ export function useMatchController() {
       effectiveAction.style ?? 'ground',
       Object.fromEntries(blues.map((p) => [p.id, posOf(p.id)])),
     );
-  }, [blueHolder, holderPos, effectiveAction, state, blues, posOf]);
+  }, [blueHolder, holderPos, effectiveAction, state, blues, posOf, early]);
 
   const ballArrow: ArrowView | null = useMemo(() => {
     if (!planning || !blueHolder || !holderPos) return null;
@@ -294,10 +330,10 @@ export function useMatchController() {
     if (a.kind === 'spacePass') {
       const lofted = a.style === 'lofted';
       return {
-        from: holderPos,
+        from: early && blueHolder ? blueHolder.pos : holderPos,
         to: a.target,
         style: lofted ? 'lofted' : 'pass',
-        label: spaceEst?.offside ? 'OFFSIDE?' : spaceEst ? pct(spaceEst.pComplete) : undefined,
+        label: spaceEst?.offside ? (early ? 'OFFSIDE' : 'OFFSIDE?') : spaceEst ? pct(spaceEst.pComplete) : undefined,
         glyph: lofted ? '⌒' : '→',
         warn: spaceEst?.offside,
       };
@@ -313,19 +349,41 @@ export function useMatchController() {
       };
     }
     return null;
-  }, [planning, blueHolder, holderPos, effectiveAction, shootPct, passBy, crossCandidates, posOf, spaceEst]);
+  }, [planning, blueHolder, holderPos, effectiveAction, shootPct, passBy, crossCandidates, posOf, spaceEst, early]);
 
-  /** Row edge (svg y) of the defending team's last defender, only when it lies in the attacking half. */
-  const offsideLine: number | null = useMemo(() => {
-    if (!planning || !pick) return null;
-    const reds = state.players.filter((p) => p.team === 'red');
-    if (reds.length === 0) return null;
+  /**
+   * Offside line (svg y of a row edge) and whose line it is. legacy: only while picking a pass / cross target.
+   * early (DESIGN-UI §13.3): always while planning. Blue holds the ball: the red last-defender line (`foe`);
+   * red holds it: blue's own last line (`own`); loose ball: none. Clamped to the halfway line.
+   */
+  const offsideInfo: { y: number; own: boolean } | null = useMemo(() => {
+    if (!planning || (!early && !pick)) return null;
+    if (!RULES.offside.enabled) return null;
     const k = RULES.offside.lastDefenders;
-    if (!RULES.offside.enabled || k < 1 || reds.length < k) return null;
-    const row = reds.map((p) => p.pos.y).sort((x, y) => x - y)[k - 1] as number;
-    // defenders still in the attackers' own half: offside only applies past the halfway line
-    return Math.min(row, BOARD.rows / 2);
-  }, [planning, pick, state]);
+    if (k < 1) return null;
+    const half = BOARD.rows / 2;
+    const owner = holder ? holder.team : null;
+    if (!owner) return null;
+    if (!early && owner !== 'blue') return null;
+    const defTeam: TeamId = owner === 'blue' ? 'red' : 'blue';
+    const defs = state.players.filter((p) => p.team === defTeam);
+    if (defs.length < k) return null;
+    if (owner === 'blue') {
+      const row = defs.map((p) => p.pos.y).sort((x, y) => x - y)[k - 1] as number;
+      return { y: Math.min(row, half), own: false };
+    }
+    const row = defs.map((p) => p.pos.y).sort((x, y) => y - x)[k - 1] as number;
+    return { y: Math.max(row + 1, half), own: true };
+  }, [planning, early, pick, holder, state]);
+
+  /** early: blue teammates standing in an offside position right now (marked while picking a pass target). */
+  const offPosIds: PlayerId[] = useMemo(() => {
+    if (!planning || !early || pick !== 'pass' || !blueHolder) return [];
+    const reds = state.players.filter((p) => p.team === 'red').map((p) => p.pos);
+    return blues
+      .filter((p) => p.id !== blueHolder.id && isOffsidePosition('blue', p.pos, blueHolder.pos, reds))
+      .map((p) => p.id);
+  }, [planning, early, pick, blueHolder, blues, state]);
 
   // ---------- actions ----------
   const resetPlanning = useCallback((s: MatchState) => {
@@ -359,6 +417,11 @@ export function useMatchController() {
         return;
       }
       const next = { ...plans, [id]: to };
+      if (early && blueHolder?.id === id && effectiveAction.kind === 'spacePass' && !sameVec(to, self.pos)) {
+        // the through pass is kicked before movement, so the carrier cannot also run: the last tap wins
+        setBallAction({ kind: 'keep' });
+        showNotice('スルーパスは動かずに蹴ります');
+      }
       setPlans(next);
       setInspectId(null);
       setInfoId(null);
@@ -373,7 +436,7 @@ export function useMatchController() {
         }
       }
     },
-    [plans, blues, state, showNotice],
+    [plans, blues, state, showNotice, early, blueHolder, effectiveAction],
   );
 
   const selectBlue = useCallback((id: PlayerId, at: 'token' | 'ghost' = 'token') => {
@@ -415,16 +478,25 @@ export function useMatchController() {
 
   const spaceHas = useCallback((c: Vec) => spaceAll.some((s2) => sameVec(s2, c)), [spaceAll]);
 
-  /** Pass-pick tap on a cell: a teammate's (planned) cell becomes a normal pass, anything else a space pass. */
+  /**
+   * Pass-pick tap on a cell. legacy: a teammate's (planned) cell becomes a normal pass, anything else a space pass.
+   * early: always a space pass; the carrier's move is dropped (shown as "stay" with a check).
+   */
   const pickCell = useCallback(
     (cell: Vec) => {
       if (!spaceHas(cell)) return;
+      if (early) {
+        if (!blueHolder) return;
+        setBallAction({ kind: 'spacePass', target: { ...cell }, style: passStyle });
+        setPlans((pl) => ({ ...pl, [blueHolder.id]: { ...blueHolder.pos } }));
+        return;
+      }
       const mate = mateAt(cell);
       if (mate) {
         if (passCandidates.some((c) => c.id === mate.id && c.enabled)) setBallAction({ kind: 'pass', targetId: mate.id, style: passStyle });
       } else setBallAction({ kind: 'spacePass', target: { ...cell }, style: passStyle });
     },
-    [spaceHas, mateAt, passCandidates, passStyle],
+    [spaceHas, mateAt, passCandidates, passStyle, early, blueHolder],
   );
 
   const pickMate = useCallback(
@@ -443,7 +515,8 @@ export function useMatchController() {
       const p = state.players.find((x) => x.id === id);
       if (!p) return;
       if (pick) {
-        const vacated = p.team === 'blue' && id in plans && !sameVec(plans[id], p.pos);
+        // early: a teammate's token is always a normal-pass target (the through pass goes via the cell / ghost)
+        const vacated = !early && p.team === 'blue' && id in plans && !sameVec(plans[id], p.pos);
         if (p.team === 'blue' && !vacated) pickMate(id);
         else if (pick === 'pass') pickCell(p.pos); // enemy token or a teammate's vacated cell = space pass
         setPick(null);
@@ -468,21 +541,23 @@ export function useMatchController() {
       }
       selectBlue(id);
     },
-    [planning, pick, plans, state, moveTargets, selectedId, setDest, selectBlue, toggleMenu, pickMate, pickCell],
+    [planning, pick, plans, state, moveTargets, selectedId, setDest, selectBlue, toggleMenu, pickMate, pickCell, early],
   );
 
   const onGhostTap = useCallback(
     (id: PlayerId) => {
       if (!planning) return;
       if (pick) {
-        pickMate(id);
+        // early: the ghost cell is the through-pass target itself
+        if (early && pick === 'pass' && plans[id]) pickCell(plans[id]);
+        else pickMate(id);
         setPick(null);
         return;
       }
       if (id === selectedId) toggleMenu('ghost');
       else selectBlue(id, 'ghost');
     },
-    [planning, pick, selectedId, selectBlue, toggleMenu, pickMate],
+    [planning, pick, selectedId, selectBlue, toggleMenu, pickMate, pickCell, early, plans],
   );
 
   const onCellTap = useCallback(
@@ -599,15 +674,26 @@ export function useMatchController() {
         return f;
       };
 
+      type FlightEv = Extract<TurnEvent, { type: 'pass' | 'cross' | 'shot' | 'offside' }>;
+      const flights = result.events.filter(
+        (e): e is FlightEv => e.type === 'pass' || e.type === 'cross' || e.type === 'shot' || e.type === 'offside',
+      );
+      // v0.5 early through pass: the kick comes first and everyone moves while the ball flies (no duel this turn)
+      const earlyEv = flights.find((e) => (e.type === 'pass' || e.type === 'offside') && e.early === true);
+
       // clear plan markers, then (a) walk to the meeting cells (shared cells are not laid out side by side yet)
       setPlans({});
       setBallAction({ kind: 'keep' });
       setSpread(false);
-      setDisp(groundDuel ? clash : mid);
-      await wait(T(MOVE_MS) + 80);
-      if (!alive()) return;
+      if (!earlyEv) {
+        setDisp(groundDuel ? clash : mid);
+        await wait(T(MOVE_MS) + 80);
+        if (!alive()) return;
+      }
 
-      if (groundDuel) {
+      if (earlyEv) {
+        // nothing to do here: the movement is played together with the flight below
+      } else if (groundDuel) {
         // (a2) impact -> WIN / LOSE tags while both settle side by side in the cell (swap: onto their new cells)
         await showClash([groundDuel], clashAt);
         if (!alive()) return;
@@ -628,10 +714,6 @@ export function useMatchController() {
       }
 
       // (b) ball events
-      const flights = result.events.filter(
-        (e): e is Extract<TurnEvent, { type: 'pass' | 'cross' | 'shot' | 'offside' }> =>
-          e.type === 'pass' || e.type === 'cross' || e.type === 'shot' || e.type === 'offside',
-      );
       const firstFlight = flights[0];
       if (firstFlight) {
         const owner = firstFlight.type === 'shot' ? firstFlight.shooterId : firstFlight.passerId;
@@ -657,9 +739,14 @@ export function useMatchController() {
           text = 'オフサイド！';
           flag = true;
         } else if (ev.type === 'pass') {
+          // early: the lane is judged on turn-start positions, so the ball goes to where the interceptor STANDS now
           dest =
             ev.outcome === 'intercepted' && ev.interceptorId
-              ? mid[ev.interceptorId] ?? ev.to
+              ? ev.early && !ev.marked
+                ? before[ev.interceptorId] ?? ev.to
+                : ev.early
+                  ? ev.to // marked on the target cell: the ball flies all the way there
+                  : mid[ev.interceptorId] ?? ev.to
               : ev.outcome === 'failed' || ev.outcome === 'loose'
                 ? ev.loosePos ?? ev.to
                 : ev.to;
@@ -667,7 +754,9 @@ export function useMatchController() {
           if (ev.outcome === 'toEnemy') winner = ev.receiverId ? teamOf(ev.receiverId) : actor === 'blue' ? 'red' : 'blue';
           text =
             ev.outcome === 'complete'
-              ? 'パス成功'
+              ? ev.early
+                ? 'スルーパス成功！'
+                : 'パス成功'
               : ev.outcome === 'intercepted'
                 ? 'インターセプト！'
                 : ev.outcome === 'toEnemy'
@@ -711,9 +800,11 @@ export function useMatchController() {
         const flightMs = T(FLIGHT_MS);
         // start from the kicker's displayed slot (offset when an opponent shares the cell), not the cell centre
         const kicker = ev.type === 'shot' ? ev.shooterId : ev.passerId;
+        const isEarly = ev === earlyEv;
+        const kickPos = isEarly ? before : mid;
         const kickerOffset = (() => {
-          const mate = Object.keys(mid).find((id) => id !== kicker && teamOf(id) !== teamOf(kicker) && sameVec(mid[id], mid[kicker]));
-          if (!mate || !sameVec(mid[kicker], ev.from)) return { x: 0, y: 0 };
+          const mate = Object.keys(kickPos).find((id) => id !== kicker && teamOf(id) !== teamOf(kicker) && sameVec(kickPos[id], kickPos[kicker]));
+          if (!mate || !sameVec(kickPos[kicker], ev.from)) return { x: 0, y: 0 };
           const sl = restSlot(teamOf(kicker), ev.from);
           return { x: sl.dx, y: sl.dy };
         })();
@@ -722,18 +813,41 @@ export function useMatchController() {
         setBallDisp({ kind: 'free', pos: from, snap: true });
         await wait(60);
         if (!alive()) return;
+        // early: the ball flies for as long as the movement (300ms to a lane interceptor, who then carries it along)
+        // lane cut (no `marked`): the ball reaches the interceptor's start cell first; a mark on the target cell flies the full leg
+        const stealer =
+          isEarly && ev.type === 'pass' && ev.outcome === 'intercepted' && ev.interceptorId && !ev.marked
+            ? ev.interceptorId
+            : undefined;
+        const markerId =
+          isEarly && ev.type === 'pass' && ev.outcome === 'intercepted' && ev.marked ? ev.interceptorId : undefined;
+        const legMs = isEarly ? T(stealer ? EARLY_STEAL_MS : MOVE_MS) : flightMs;
         if (isCross || lofted) {
           const d = dist(from, dest);
           const arc = Math.max(0.8, Math.min(2.2, d * 0.35));
           setTrajectory({ from, to: dest, arc });
           setBallDisp({ kind: 'free', pos: dest, snap: false });
-          setBallExtra({ arc, flightKey: nextId(), ms: flightMs });
+          setBallExtra({ arc, flightKey: nextId(), ms: legMs });
         } else {
-          setBallExtra({ arc: 0, flightKey: nextId(), ms: flightMs });
+          setBallExtra({ arc: 0, flightKey: nextId(), ms: legMs });
           setBallDisp({ kind: 'free', pos: dest, snap: false });
         }
-        await wait(flightMs + 40);
+        if (isEarly && !stealer) setDisp(mid);
+        await wait(legMs + 40);
         if (!alive()) return;
+        if (isEarly && stealer) {
+          setBallDisp({ kind: 'held', id: stealer });
+          setTrajectory(null);
+          setDisp(mid);
+          await wait(T(MOVE_MS) + 40);
+          if (!alive()) return;
+        }
+        if (markerId) setBallDisp({ kind: 'held', id: markerId });
+        if (isEarly) {
+          setSpread(true);
+          await wait(T(SETTLE_MS));
+          if (!alive()) return;
+        }
         // aerial duel on a delivered cross
         let aerialShown = false;
         if (isCross && ev.outcome !== 'failed' && aerialDuels.length > 0) {
@@ -817,29 +931,47 @@ export function useMatchController() {
     setPhase('planning');
   }, []);
 
+  /** Start a fresh match with the given rule mode and show the start screen. */
+  const resetMatch = useCallback(
+    (on: boolean) => {
+      runRef.current++;
+      const m = newMatch(on);
+      matchRef.current = m;
+      setState(m.state);
+      setSpread(true);
+      setTopId(null);
+      setDisp(posMap(m.state));
+      setBallDisp(ballDispOf(m.state));
+      setLog([]);
+      setBanner(null);
+      setFx({});
+      setBursts([]);
+      setTrajectory(null);
+      setGoalFx(null);
+      setShownScore(null);
+      setBallExtra({ arc: 0, flightKey: 0, ms: 0 });
+      setLogOpen(false);
+      resetPlanning(m.state);
+      setTimeLeft(TIMER_SECONDS);
+      setPhase('start');
+    },
+    [resetPlanning],
+  );
+
   const restart = useCallback(() => {
     if (busyRef.current) return;
-    runRef.current++;
-    const m = newMatch();
-    matchRef.current = m;
-    setState(m.state);
-    setSpread(true);
-    setTopId(null);
-    setDisp(posMap(m.state));
-    setBallDisp(ballDispOf(m.state));
-    setLog([]);
-    setBanner(null);
-    setFx({});
-    setBursts([]);
-    setTrajectory(null);
-    setGoalFx(null);
-    setShownScore(null);
-    setBallExtra({ arc: 0, flightKey: 0, ms: 0 });
-    setLogOpen(false);
-    resetPlanning(m.state);
-    setTimeLeft(TIMER_SECONDS);
-    setPhase('start');
-  }, [resetPlanning]);
+    resetMatch(throughOn);
+  }, [resetMatch, throughOn]);
+
+  /** Start-screen toggle: the rule mode lives in the match state, so a new match is built with it. */
+  const setThrough = useCallback(
+    (on: boolean) => {
+      if (busyRef.current) return;
+      setThroughOn(on);
+      resetMatch(on);
+    },
+    [resetMatch],
+  );
 
   // ---------- view models ----------
   const reducedNow = prefersReducedMotion();
@@ -888,7 +1020,11 @@ export function useMatchController() {
   const passTargets: PassTargetView[] = planning && pick ? (pick === 'pass' ? passCandidates : crossCandidates) : [];
   // markers are hidden under teammates' planned cells (their % badge sits at the ghost instead)
   const spaceCells: SpaceCellView[] =
-    planning && pick === 'pass' ? spaceAll.filter((c) => !mateAt(c)) : [];
+    planning && pick === 'pass'
+      ? spaceAll.filter((c) =>
+          early ? !blues.some((p) => p.id !== blueHolder?.id && sameVec(p.pos, c)) : !mateAt(c),
+        )
+      : [];
 
   const infoPlayer = infoId ? state.players.find((p) => p.id === infoId) : undefined;
   const info: InfoView | null = infoPlayer
@@ -990,12 +1126,14 @@ export function useMatchController() {
   const hint: HintView | null = notice
     ? { text: notice, warn: true }
     : planning && pick === 'pass'
-      ? { slim: true, text: 'パス先（味方 or スペース）をタップ' }
+      ? { slim: true, text: early ? 'パス先をタップ（スペース＝動く前に蹴る）' : 'パス先（味方 or スペース）をタップ' }
       : planning && pick === 'cross'
         ? { slim: true, text: 'クロス先をタップ（％=得点率）' }
         : planning && blueHolder && effectiveAction.kind === 'shoot'
           ? { sub: '※相手の現在位置での推定値' }
-          : null;
+          : planning && early && blueHolder && effectiveAction.kind === 'spacePass'
+            ? { sub: '※蹴るのは動く前。％は目標マスへ届く確率' }
+            : null;
 
   const possession: TeamId | 'loose' = holder ? holder.team : 'loose';
 
@@ -1023,7 +1161,12 @@ export function useMatchController() {
     moveTargets,
     passTargets,
     spaceCells,
-    offsideLine,
+    offsideLine: offsideInfo ? offsideInfo.y : null,
+    offsideLineOwn: offsideInfo?.own ?? false,
+    offPosIds,
+    throughEarly: early,
+    throughOn,
+    setThrough,
     passStyleBar: planning && pick === 'pass' ? passStyle : null,
     passStyle,
     setPassStyle,

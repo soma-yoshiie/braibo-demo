@@ -25,6 +25,7 @@ npm test           # ルール判定・同時移動・得点処理などのユ�
 npm run typecheck  # TypeScript 型検査
 npm run build      # dist/ に通常ビルド
 npm run build:single   # dist-single/index.html に JS/CSS を全て埋め込んだ単一 HTML
+npm run sim -- 200 1   # AI 同士を 200 試合（seed 1）。旧ルールと先出しスルーパスの指標を並べて出す
 ```
 
 ## ディレクトリ
@@ -49,6 +50,8 @@ concept/             構想資料の PDF と、その元になった HTML（conc
 
 - 盤面サイズ・ゴール位置・クロス可能列: `src/game/rules/config.ts` の `BOARD`
 - ターン数・作戦時間・先攻: `MATCH`
+- 先出しスルーパス（v0.5）の既定の新旧: `RULES.throughPass.defaultMode`（試合中の切り替えはスタート画面のトグル）
+- AI の重み: `src/game/ai/evaluate.ts` の `AI_WEIGHTS`（`AIW_<名前>=値 npm run sim` でその実行だけ上書きできる）
 - 競り合い／パス／クロス／シュート／ブロックの各確率式: `RULES`
 - キャラクターの移動ベクトル・能力・スキル: `src/game/data/characters.ts`
 - 初期配置: `src/game/data/formations.ts`

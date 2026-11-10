@@ -261,3 +261,32 @@ describe('planAiTurn', () => {
     }
   });
 });
+
+describe('early through pass (v0.5)', () => {
+  it('only sends onside runners; the carrier stays; the target is the runner\'s destination; legacy never plans one', () => {
+    let seen = 0;
+    for (const mode of ['early', 'legacy'] as const) {
+      for (let seed = 1; seed <= 8; seed++) {
+        const rng = createRng(seed);
+        let st = createMatch({ throughPass: mode });
+        while (st.phase !== 'finished') {
+          const holder = ballHolder(st);
+          const plans = { blue: planAiTurn(st, 'blue', rng), red: planAiTurn(st, 'red', rng) };
+          const a = holder ? plans[holder.team].ballAction : undefined;
+          if (holder && a?.kind === 'spacePass') {
+            expect(mode).toBe('early');
+            seen++;
+            const plan = plans[holder.team];
+            expect(plan.moves[holder.id]).toBeUndefined();
+            const runner = playersOf(st, holder.team).find((p) => plan.moves[p.id] && vecEq(plan.moves[p.id] as Vec, a.target));
+            expect(runner).toBeDefined();
+            const foes = playersOf(st, holder.team === 'blue' ? 'red' : 'blue').map((p) => p.pos);
+            expect(isOffsidePosition(holder.team, (runner as { pos: Vec }).pos, holder.pos, foes)).toBe(false);
+          }
+          st = resolveTurn(st, plans, rng).after;
+        }
+      }
+    }
+    expect(seen).toBeGreaterThan(0);
+  }, 60_000);
+});

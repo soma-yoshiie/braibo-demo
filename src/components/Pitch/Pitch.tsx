@@ -30,6 +30,12 @@ interface Props {
   picking: boolean;
   /** svg y of the defending team's last-defender line (null = hidden). */
   offsideLine?: number | null;
+  /** The line is the blue team's own last line (red has the ball): drawn in a cooler colour. */
+  offsideLineOwn?: boolean;
+  /** v0.5: blue players currently in an offside position (small OFF mark while picking a pass target). */
+  offPosIds?: string[];
+  /** v0.5 early through pass: a space pass is kicked before movement, so % badges sit on the current token. */
+  throughEarly?: boolean;
   plans: PlanView[];
   ballArrow: ArrowView | null;
   bursts: BurstView[];
@@ -101,6 +107,9 @@ export function Pitch({
   spaceCells,
   picking,
   offsideLine,
+  offsideLineOwn = false,
+  offPosIds = [],
+  throughEarly = false,
   plans,
   ballArrow,
   bursts,
@@ -315,10 +324,10 @@ export function Pitch({
       {/* legal move targets */}
       {targetLayer}
 
-      {/* offside line (last defender row) while picking a pass / cross target */}
+      {/* offside line (last defender row): while picking (legacy) or whenever planning (early) */}
       {offsideLine != null && (
         <line
-          className="offside-line"
+          className={`offside-line${offsideLineOwn ? ' offside-line--own' : ''}`}
           data-testid="offside-line"
           pointerEvents="none"
           x1={0}
@@ -424,7 +433,7 @@ export function Pitch({
         {passTargets.map((p) => {
           const t0 = tokenById.get(p.id);
           if (!t0) return null;
-          const planned = movers.find((m) => m.id === p.id);
+          const planned = throughEarly ? undefined : movers.find((m) => m.id === p.id);
           const t = planned ? { x: planned.to.x, y: planned.to.y } : t0;
           const sl = planned ? ghostLayout(planned.to) : layouts.get(p.id);
           const lx = cx(t.x) + (sl?.dx ?? 0);
@@ -451,6 +460,28 @@ export function Pitch({
             >
               <rect x={-0.4} y={-0.17} width={0.8} height={0.34} rx={0.17} />
               <text>{p.label}</text>
+            </g>
+          );
+        })}
+      </g>
+
+      {/* v0.5: players standing offside right now */}
+      <g pointerEvents="none">
+        {offPosIds.map((id) => {
+          const t = tokenById.get(id);
+          if (!t) return null;
+          const l = layouts.get(id);
+          // the pass badge sits above the token (below on the top row): put OFF on the opposite side, clear of the check mark
+          const offDy = t.y < 1 ? -0.46 : 0.46;
+          return (
+            <g
+              key={`off-${id}`}
+              className="offpos"
+              data-testid={`offpos-${id}`}
+              transform={`translate(${cx(t.x) + (l?.dx ?? 0)} ${cy(t.y) + (l?.dy ?? 0) + offDy})`}
+            >
+              <rect x={-0.26} y={-0.11} width={0.52} height={0.22} rx={0.05} />
+              <text>OFF</text>
             </g>
           );
         })}
@@ -526,7 +557,11 @@ function BallArrow({ arrow }: { arrow: ArrowView }) {
   const lift = arcs ? Math.max(0.8, Math.min(2.2, len * 0.35)) : 0;
   // quadratic control point lifted perpendicular-ish (screen up) like the flight trajectory
   const c = { x: (a.x + end.x) / 2, y: (a.y + end.y) / 2 - lift };
-  const mid = arcs ? { x: (a.x + 2 * c.x + end.x) / 4, y: (a.y + 2 * c.y + end.y) / 4 } : { x: (a.x + end.x) / 2, y: (a.y + end.y) / 2 };
+  // straight arrows: keep the label about one cell clear of the kicker (and its ghost), but not past 3/4 of the way
+  const tl = arcs || len === 0 ? 0.5 : Math.min(0.75, Math.max(0.5, 1.05 / len));
+  const mid = arcs
+    ? { x: (a.x + 2 * c.x + end.x) / 4, y: (a.y + 2 * c.y + end.y) / 4 }
+    : { x: a.x + (end.x - a.x) * tl, y: a.y + (end.y - a.y) * tl };
   const text = arrow.label ? `${arrow.glyph ? `${arrow.glyph} ` : ''}${arrow.label}` : '';
   const w = Math.max(0.8, text.length * 0.2 + 0.3);
   const cls = `ball-arrow ball-arrow--${arrow.style}${arrow.warn ? ' ball-arrow--warn' : ''}`;
