@@ -1,33 +1,32 @@
-import type { CharacterDef, Stats } from "../../game/types";
-import "./InfoSheet.css";
+import { getProfile } from '../../game/data/roster';
+import type { CharacterDef, SkillId, Stats } from '../../game/types';
+import { CharaBust, Stars } from '../Chara';
+import { SKILL_LABEL, STAT_LABEL, STAT_ORDER } from '../Shell/chara';
+import './InfoSheet.css';
 
 export interface InfoView {
-  team: "blue" | "red";
+  team: 'blue' | 'red';
+  charId: string;
   name: string;
+  title: string;
+  rarity: 3 | 4 | 5;
+  number: number;
   abbr: string;
   description: string;
   stats: Stats;
-  role: CharacterDef["role"];
+  /** Raise over the archetype (shown in yellow as +n). */
+  bonus: Partial<Stats>;
+  skills: SkillId[];
+  role: CharacterDef['role'];
 }
 
-const ROLE_LABEL: Record<CharacterDef["role"], string> = {
-  striker: "ストライカー",
-  wing: "ウイング",
-  longShooter: "ロングシューター",
-  interceptor: "インターセプター",
-  physicalDefender: "フィジカルDF",
+const ROLE_LABEL: Record<CharacterDef['role'], string> = {
+  striker: 'ストライカー',
+  wing: 'ウイング',
+  longShooter: 'ロングシューター',
+  interceptor: 'インターセプター',
+  physicalDefender: 'フィジカルDF',
 };
-
-const STAT_ROWS: [keyof Stats, string][] = [
-  ["physical", "フィジカル"],
-  ["aerial", "空中戦"],
-  ["shoot", "シュート"],
-  ["longShot", "ロングシュート"],
-  ["pass", "パス"],
-  ["cross", "クロス"],
-  ["intercept", "インターセプト"],
-  ["block", "ブロック"],
-];
 
 interface Props {
   info: InfoView;
@@ -35,17 +34,12 @@ interface Props {
 }
 
 export function InfoSheet({ info, onClose }: Props) {
-  const roleLabel = ROLE_LABEL[info.role];
-  // name === role label: show "ST ／ <first clause of the description>" instead of repeating the name
-  const secondary =
-    info.name === roleLabel
-      ? `${info.abbr} ／ ${info.description.split(/[。、]/)[0]}`
-      : roleLabel;
+  const look = getProfile(info.charId).look;
   return (
     <>
       {/* modal backdrop: swallows every pointer event so an outside tap only closes the sheet */}
       <div
-        className="sheet-backdrop"
+        className="a-backdrop"
         data-testid="info-backdrop"
         onPointerDown={(e) => e.stopPropagation()}
         onClick={(e) => {
@@ -53,47 +47,53 @@ export function InfoSheet({ info, onClose }: Props) {
           onClose();
         }}
       />
-      <div
-        className={`sheet sheet--${info.team}`}
-        data-testid="info-sheet"
-        role="dialog"
-        aria-modal="true"
-      >
-        <div className="sheet__head">
-          <span className={`sheet__orb sheet__orb--${info.team}`}>
-            {info.abbr}
-          </span>
-          <div className="sheet__title">
-            <b>{info.name}</b>
-            <span className="sheet__role" data-testid="info-role">
-              {secondary}
-            </span>
+      <div className={`a-sheet a-panel card-sheet card-sheet--${info.team}`} data-testid="info-sheet" role="dialog" aria-modal="true">
+        <div className="card-sheet__head a-halftone">
+          <div className="card-sheet__bust">
+            <CharaBust look={look} team={info.team} />
           </div>
-          <button
-            className="sheet__close"
-            onClick={onClose}
-            aria-label="閉じる"
-            data-testid="info-close"
-          >
+          <div className="card-sheet__title">
+            <i>{info.title}</i>
+            <b className="a-head a-head--lg">{info.name}</b>
+            <div className="card-sheet__meta">
+              <Stars rarity={info.rarity} size={14} />
+              <span className="a-num card-sheet__no">#{info.number}</span>
+              <span className={`a-tag a-tag--${info.team}`} data-testid="info-role">
+                {ROLE_LABEL[info.role]}
+              </span>
+            </div>
+          </div>
+          <button className="card-sheet__close" onClick={onClose} aria-label="閉じる" data-testid="info-close">
             ✕
           </button>
         </div>
-        <p className="sheet__desc">{info.description}</p>
-        <ul className="sheet__stats">
-          {STAT_ROWS.map(([k, label]) => (
-            <li key={k}>
-              <span className="sheet__k">{label}</span>
-              <span className="sheet__bar">
-                <i
-                  style={{
-                    width: `${Math.max(2, Math.min(100, info.stats[k]))}%`,
-                  }}
-                />
-              </span>
-              <span className="sheet__v">{info.stats[k]}</span>
-            </li>
-          ))}
-        </ul>
+        <div className="card-sheet__body">
+          {info.skills.length > 0 && (
+            <div className="card-sheet__skills">
+              <span className="a-num">SKILL</span>
+              {info.skills.map((s) => (
+                <b key={s}>{SKILL_LABEL[s]}</b>
+              ))}
+            </div>
+          )}
+          <p className="card-sheet__desc">{info.description}</p>
+          <ul className="card-sheet__stats">
+            {STAT_ORDER.map((k) => {
+              const label = STAT_LABEL[k];
+              const bonus = info.bonus[k] ?? 0;
+              return (
+                <li key={k}>
+                  <span className="card-sheet__k">{label}</span>
+                  <span className="card-sheet__bar">
+                    <i className={bonus > 0 ? 'is-up' : undefined} style={{ width: `${Math.max(2, Math.min(100, info.stats[k]))}%` }} />
+                  </span>
+                  <span className="card-sheet__v a-num">{info.stats[k]}</span>
+                  <span className="card-sheet__up a-num">{bonus > 0 ? `+${bonus}` : ''}</span>
+                </li>
+              );
+            })}
+          </ul>
+        </div>
       </div>
     </>
   );

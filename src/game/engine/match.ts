@@ -3,7 +3,12 @@ import { BOARD, MATCH, type MatchConfig } from '../rules/config';
 import { DEFAULT_FORMATION, formationPos, type FormationSlot } from '../data/formations';
 import { vecEq } from '../rules/geometry';
 
-export type CreateMatchOptions = Partial<MatchConfig> & { formation?: FormationSlot[]; throughPass?: ThroughPassMode };
+export type CreateMatchOptions = Partial<MatchConfig> & {
+  formation?: FormationSlot[];
+  throughPass?: ThroughPassMode;
+  /** Per team, slot-ordered charIds overriding the formation's charId (positions still come from the formation). */
+  lineups?: Partial<Record<TeamId, string[]>>;
+};
 
 const TEAMS: TeamId[] = ['blue', 'red'];
 
@@ -17,7 +22,7 @@ export function createMatch(options: CreateMatchOptions = {}): MatchState {
         id: `${team}-${index}`,
         team,
         index,
-        charId: slot.charId,
+        charId: options.lineups?.[team]?.[index] ?? slot.charId,
         pos: formationPos(team, slot),
         flags: {},
       });

@@ -5,6 +5,9 @@ export interface TokenView {
   id: PlayerId;
   team: TeamId;
   abbr: string;
+  /** Roster id (look, number and rarity come from `getProfile`). */
+  charId: string;
+  number: number;
   x: number;
   y: number;
   hasBall: boolean;
@@ -41,6 +44,8 @@ export interface TrajectoryView {
 export interface PlanView {
   id: PlayerId;
   abbr: string;
+  charId: string;
+  number: number;
   from: Vec;
   to: Vec;
   stay: boolean;
@@ -101,4 +106,32 @@ export interface LogLine {
   id: number;
   turn: number;
   text: string;
+}
+
+/** The player shown in the action bar's strip. */
+export interface SelectedView {
+  team: TeamId;
+  charId: string;
+  name: string;
+  title: string;
+  number: number;
+  abbr: string;
+  rarity: 3 | 4 | 5;
+}
+
+/** Duel cut-in (DESIGN-UI §14.10). Rates are 0..1 and add up to 1. */
+export interface DuelCutInView {
+  key: number;
+  aerial: boolean;
+  blue: { charId: string; value: number };
+  red: { charId: string; value: number };
+  blueRate: number;
+  winner: TeamId;
+  resultLine: string;
+}
+
+/** Goal cut-in: the scorer. Without it the old flash + confetti plays. */
+export interface GoalFxView {
+  key: number;
+  scorer?: { charId: string; team: TeamId };
 }

@@ -6,11 +6,15 @@ import { LogDrawer } from '../../components/Overlays/LogDrawer';
 import { ResultOverlay } from '../../components/Overlays/ResultOverlay';
 import { StartOverlay } from '../../components/Overlays/StartOverlay';
 import { Pitch } from '../../components/Pitch/Pitch';
+import { DuelCutIn } from '../../components/Overlays/DuelCutIn';
 import { TIMER_SECONDS, useMatchController } from './useMatchController';
+import type { MatchScreenProps } from './useMatchController';
 import './MatchScreen.css';
 
-export function MatchScreen() {
-  const m = useMatchController();
+export type { MatchScreenProps } from './useMatchController';
+
+export function MatchScreen(props: MatchScreenProps) {
+  const m = useMatchController(props);
   const locked = !m.interactive;
   return (
     <div className="shell">
@@ -21,9 +25,11 @@ export function MatchScreen() {
         maxTurns={m.state.maxTurns}
         possession={m.possession}
         secondsLeft={m.secondsLeft}
+        timerMax={TIMER_SECONDS}
         bump={m.bump}
         onOpenLog={() => m.setLogOpen(true)}
         onRestart={m.restart}
+        onHome={props.onHome}
         menuOpen={m.hudMenuOpen}
         onMenuOpenChange={m.setHudMenuOpen}
         busy={m.phase === 'resolving'}
@@ -64,19 +70,25 @@ export function MatchScreen() {
         )}
       </main>
       <EventBanner banner={m.banner} />
-      <GoalFx fxKey={m.goalFx} />
+      <GoalFx fx={m.goalFx} onSkip={m.endCutIn} />
+      <DuelCutIn view={m.cutIn} onSkip={m.endCutIn} />
       <ActionBar
         plannedCount={m.plannedCount}
         total={m.totalPlayers}
         disabled={locked}
         onReset={m.onReset}
         onExecute={m.execute}
+        selected={m.interactive || m.phase === 'start' ? m.selectedView : null}
+        onOpenInfo={m.openSelectedInfo}
         passStyle={m.passStyleBar}
         onPassStyle={m.setPassStyle}
       />
       {m.info && m.interactive && <InfoSheet info={m.info} onClose={m.closeInfo} />}
       {m.phase === 'start' && (
         <StartOverlay
+          blue={props.lineups.blue}
+          red={props.lineups.red}
+          onHome={props.onHome}
           timerOn={m.timerOn}
           seconds={TIMER_SECONDS}
           onToggleTimer={m.setTimerOn}
@@ -85,7 +97,16 @@ export function MatchScreen() {
           onStart={m.start}
         />
       )}
-      {m.phase === 'finished' && <ResultOverlay score={m.state.score} onAgain={m.restart} onLog={() => m.setLogOpen(true)} />}
+      {m.phase === 'finished' && (
+        <ResultOverlay
+          score={m.state.score}
+          blue={props.lineups.blue}
+          red={props.lineups.red}
+          onAgain={m.restart}
+          onHome={props.onHome}
+          onLog={() => m.setLogOpen(true)}
+        />
+      )}
       {m.logOpen && <LogDrawer lines={m.log} onClose={() => m.setLogOpen(false)} />}
     </div>
   );

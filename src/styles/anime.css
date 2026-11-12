@@ -1,0 +1,162 @@
+/*
+ * v0.6 anime character battle — shared primitives (DESIGN-UI.md §14.1).
+ * Every new screen and the match skin build on these classes so buttons, panels and headings look the same everywhere.
+ */
+
+/* Skewed parallelogram button. Markup: <button class="a-btn a-btn--yellow"><span>実行！</span></button> */
+.a-btn {
+  --a-face: var(--c-panel-2);
+  --a-face-hi: #3a4685;
+  --a-text: #fff;
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
+  padding: 0 18px;
+  border: 3px solid var(--ink);
+  border-radius: 8px;
+  background: linear-gradient(180deg, var(--a-face-hi) 0%, var(--a-face) 55%);
+  box-shadow: 0 4px 0 var(--ink), inset 0 2px 0 rgba(255, 255, 255, 0.35);
+  color: var(--a-text);
+  font-family: var(--font-head);
+  font-size: 16px;
+  line-height: 1;
+  letter-spacing: 0.04em;
+  transform: skewX(-8deg);
+  transition: transform 80ms ease, box-shadow 80ms ease, filter 120ms ease;
+}
+.a-btn > span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  transform: skewX(8deg);
+  -webkit-text-stroke: 4px var(--ink);
+  paint-order: stroke fill;
+  white-space: nowrap;
+}
+.a-btn:active:not(:disabled) {
+  transform: skewX(-8deg) translateY(3px);
+  box-shadow: 0 1px 0 var(--ink), inset 0 2px 0 rgba(255, 255, 255, 0.35);
+}
+.a-btn:disabled {
+  filter: grayscale(0.9) brightness(0.7);
+  cursor: default;
+}
+.a-btn--yellow { --a-face: var(--c-yellow-lo); --a-face-hi: var(--c-yellow); }
+.a-btn--blue { --a-face: var(--c-blue); --a-face-hi: var(--c-blue-hi); }
+.a-btn--red { --a-face: var(--c-red); --a-face-hi: var(--c-red-hi); }
+.a-btn--dark { --a-face: var(--c-panel); --a-face-hi: var(--c-panel-2); }
+.a-btn--lg { min-height: 60px; padding: 0 28px; font-size: 24px; border-width: 4px; box-shadow: 0 5px 0 var(--ink), inset 0 3px 0 rgba(255, 255, 255, 0.4); }
+.a-btn--lg > span { -webkit-text-stroke-width: 6px; }
+.a-btn--sm { min-height: 34px; padding: 0 12px; font-size: 13px; border-width: 2px; box-shadow: 0 3px 0 var(--ink), inset 0 1px 0 rgba(255, 255, 255, 0.3); }
+.a-btn--sm > span { -webkit-text-stroke-width: 3px; }
+/* Small buttons keep their look but get a 44px+ tap area. */
+.a-btn--sm::after { content: ''; position: absolute; inset: -7px -3px; }
+.a-btn--block { display: flex; width: 100%; }
+
+/* Panel: ink outline + flat (unblurred) drop shadow. */
+.a-panel {
+  position: relative;
+  border: 3px solid var(--ink);
+  border-radius: 10px;
+  background: linear-gradient(180deg, var(--c-panel-2), var(--c-panel));
+  box-shadow: 0 4px 0 var(--ink);
+  color: #fff;
+}
+.a-panel--paper { background: var(--c-paper); color: var(--ink); }
+.a-panel--blue { background: linear-gradient(180deg, var(--c-blue-hi), var(--c-blue)); }
+.a-panel--red { background: linear-gradient(180deg, var(--c-red-hi), var(--c-red)); }
+
+/* Headline lettering: white or yellow with a thick ink outline. */
+.a-head {
+  font-family: var(--font-head);
+  color: #fff;
+  -webkit-text-stroke: 5px var(--ink);
+  paint-order: stroke fill;
+  line-height: 1.05;
+  letter-spacing: 0.02em;
+}
+.a-head--yellow { color: var(--c-yellow); }
+.a-head--xl { font-size: 44px; -webkit-text-stroke-width: 8px; }
+.a-head--lg { font-size: 26px; -webkit-text-stroke-width: 6px; }
+.a-head--md { font-size: 18px; }
+.a-head--sm { font-size: 13px; -webkit-text-stroke-width: 3px; }
+
+.a-num {
+  font-family: var(--font-num);
+  letter-spacing: 0.03em;
+  line-height: 1;
+}
+
+/* Small slanted label (role / NEW / 編成中). */
+.a-tag {
+  display: inline-block;
+  padding: 2px 8px 1px;
+  border: 2px solid var(--ink);
+  border-radius: 4px;
+  background: var(--c-yellow);
+  color: var(--ink);
+  font-family: var(--font-num);
+  font-size: 13px;
+  line-height: 1.1;
+  letter-spacing: 0.05em;
+  transform: skewX(-8deg);
+}
+.a-tag--blue { background: var(--c-blue-hi); color: #fff; }
+.a-tag--red { background: var(--c-red-hi); color: #fff; }
+.a-tag--dark { background: var(--ink); color: #fff; }
+
+/* Halftone dots / stage background helpers. */
+.a-halftone::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-image: radial-gradient(rgba(255, 255, 255, 0.16) 1.2px, transparent 1.4px);
+  background-size: 8px 8px;
+  pointer-events: none;
+}
+.a-stage {
+  background:
+    radial-gradient(120% 80% at 50% 0%, #2c3a80 0%, transparent 60%),
+    linear-gradient(180deg, #1a2148 0%, #0f1430 100%);
+}
+
+/* Modal sheet. */
+.a-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  background: rgba(8, 10, 24, 0.72);
+}
+/* `.a-panel.a-sheet` repeats the selector so the panel's `position: relative` cannot win. */
+.a-sheet,
+.a-panel.a-sheet {
+  position: fixed;
+  left: 50%;
+  top: 50%;
+  z-index: 61;
+  width: min(340px, calc(100vw - 24px));
+  max-height: calc(100% - 48px - var(--safe-top) - var(--safe-bottom));
+  overflow-y: auto;
+  transform: translate(-50%, -50%);
+  animation: a-pop 220ms cubic-bezier(0.2, 1.4, 0.4, 1) both;
+}
+
+@keyframes a-pop {
+  from { opacity: 0; transform: translate(-50%, -50%) scale(0.86); }
+  to { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+}
+@keyframes a-blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.25; }
+}
+@keyframes a-in-up {
+  from { opacity: 0; transform: translateY(14px); }
+  to { opacity: 1; transform: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .a-sheet { animation: none; }
+  .a-btn { transition: none; }
+}

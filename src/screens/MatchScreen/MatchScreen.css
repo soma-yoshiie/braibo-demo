@@ -2,23 +2,25 @@
   position: relative;
   height: 100%;
   overflow: hidden;
-  background: var(--turf-edge);
+  background: #0f1430;
 }
-/* full-viewport turf: stripes + vignette, behind HUD and bottom bar */
+/* full-viewport backdrop behind the pitch: navy with halftone and a dotted "stands" strip on each side */
 .turf {
   position: absolute;
   inset: 0;
   background:
-    radial-gradient(ellipse at 50% 45%, rgba(0, 0, 0, 0) 40%, rgba(0, 0, 0, 0.5) 100%),
-    repeating-linear-gradient(180deg, #245f3b 0, #245f3b 48px, #1f5634 48px, #1f5634 96px);
+    repeating-linear-gradient(180deg, #e8334a 0 14px, transparent 14px 22px, #25a4ff 22px 36px, transparent 36px 44px, #ffd34d 44px 58px, transparent 58px 66px, #f2f5fb 66px 80px, transparent 80px 88px) left 2px top 0 / 4px 100% no-repeat,
+    repeating-linear-gradient(180deg, #25a4ff 0 14px, transparent 14px 22px, #ffd34d 22px 36px, transparent 36px 44px, #f2f5fb 44px 58px, transparent 58px 66px, #e8334a 66px 80px, transparent 80px 88px) right 2px top 0 / 4px 100% no-repeat,
+    radial-gradient(rgba(255, 255, 255, 0.07) 1.2px, transparent 1.5px) 0 0 / 9px 9px,
+    linear-gradient(180deg, #1a2148 0%, #0f1430 100%);
 }
 /* region between HUD and bottom bar; the board SVG fits width-first inside it */
 .board {
   position: absolute;
   left: calc(8px + var(--safe-left));
   right: calc(8px + var(--safe-right));
-  top: calc(60px + var(--safe-top) + 4px);
-  bottom: calc(76px + var(--safe-bottom) + 4px);
+  top: calc(64px + var(--safe-top) + 2px);
+  bottom: calc(86px + var(--safe-bottom) + 4px);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -34,16 +36,17 @@
   align-items: center;
   gap: 1px;
   padding: 4px 14px 5px;
-  border-radius: 14px;
-  background: rgba(7, 13, 26, 0.82);
-  border: 1px solid rgba(229, 189, 90, 0.6);
-  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.35);
+  border-radius: 6px;
+  background: var(--ink);
+  border: 2px solid var(--c-yellow);
+  box-shadow: 0 3px 0 rgba(0, 0, 0, 0.4);
   font-size: 12px;
   text-align: center;
   line-height: 1.3;
   pointer-events: none;
   white-space: nowrap;
   animation: hint-in 0.18s ease-out;
+  z-index: 3;
 }
 .hint b {
   font-weight: 800;
@@ -51,7 +54,7 @@
 }
 .hint span {
   font-size: 10.5px;
-  color: var(--gold-light);
+  color: var(--c-yellow);
 }
 .hint--warn {
   border-color: var(--warn);
@@ -65,53 +68,6 @@
     transform: translateX(-50%) translateY(-6px);
   }
 }
-
-.seg {
-  flex: 0 0 auto;
-  display: flex;
-  gap: 0;
-  margin: 3px 0 2px;
-  border-radius: 999px;
-  overflow: hidden;
-  border: 1px solid rgba(229, 189, 90, 0.7);
-  pointer-events: auto;
-}
-.seg__btn {
-  appearance: none;
-  border: 0;
-  margin: 0;
-  padding: 5px 11px;
-  min-height: 30px;
-  background: rgba(7, 13, 26, 0.9);
-  color: var(--text-dim, #b8c2d8);
-  font: inherit;
-  font-size: 12.5px;
-  font-weight: 800;
-  cursor: pointer;
-  white-space: nowrap;
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-}
-/* Narrow phones: drop the glyph so both labels fit on one line between the bar buttons. */
-@media (max-width: 389px) {
-  .seg__glyph {
-    display: none;
-  }
-  .seg__btn {
-    padding: 5px 9px;
-    font-size: 12px;
-  }
-}
-.seg__btn.is-on {
-  background: var(--gold, #e5bd5a);
-  color: #2a1e02;
-}
-.seg__btn--lofted.is-on {
-  background: #8fe0ff;
-  color: #04202e;
-}
-
 .hint--slim {
   flex-direction: row;
   padding: 2px 12px;

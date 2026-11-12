@@ -1,4 +1,4 @@
-# BRAIBO（ブレイボ）設計仕様 v0.5
+# BRAIBO（ブレイボ）設計仕様 v0.6
 
 サッカー × 将棋的読み合いの 5 対 5 同時行動ボードゲーム。本書はプロトタイプの
 ルール仕様・ゲームデザイン上の暫定決定とその理由・モジュール間 API 契約をまとめたもの。
@@ -316,3 +316,106 @@ scripts/sim.ts   （`npm run sim -- [試合数=200] [seed=1]`）
 - `height: 100dvh`、`env(safe-area-inset-*)` を考慮。試合ログは下から出るドロワー。
 - 起動直後: 10 人配置済み、青のストライカーを初期選択、移動可能マスがハイライト済み。
 - 初期化失敗時は ErrorBoundary ＋ `index.html` のフォールバックでエラー内容と再試行ボタンを表示。
+
+## 12. 選手名鑑・編成・スカウト・セーブ（v0.6、試合ルールの外側）
+
+試合ルール（§1〜§9）は変えない。ここは「どの選手で試合をするか」と、アプリとしての外側のデータを決める。
+乱数は従来どおり注入する。ストレージ（`localStorage`）に触るのは `src/meta/store.ts` だけ。
+
+### 12.1 選手名鑑（`src/game/data/roster.ts`）
+- 既存の `CHARACTERS` 5 種は **ロールの原型**（id: `striker` など）として残す。テスト、`DEFAULT_FORMATION`、`npm run sim` はこれを使い続ける。
+- 名前のある選手は `ROSTER: CharaProfile[]` に置く。`getCharacter(id)` は名鑑の id も解決し、
+  `CharacterDef` を「原型（同じロール）の moves / skills / abbr / description ＋ `name = profile.name` ＋ `stats = clamp(原型 + bonus, 1, 99)`」で返す。
+- `getProfile(charId)`: 名鑑の選手はその `CharaProfile`。原型の id を渡したときは、同じロールの ★3 の初期選手の見た目を借りた
+  既定のプロフィール（`name` は原型の名前）を返す。UI は必ず表示できる。
+
+```ts
+export type Rarity = 3 | 4 | 5;
+export type HairId = 'spiky' | 'windswept' | 'bowl' | 'swept' | 'crop' | 'long' | 'ponytail' | 'mohawk' | 'curly' | 'slick';
+export type EyeId = 'sharp' | 'stern' | 'round' | 'narrow';
+export type ExtraId = 'none' | 'headband' | 'glasses' | 'bandage' | 'scar';
+export interface CharaLook { hair: HairId; hairColor: string; hairHi: string; skin: 'fair' | 'tan' | 'brown'; eyes: EyeId; eyeColor: string; extra: ExtraId }
+export interface CharaProfile {
+  id: string; role: RoleId; name: string; title: string; rarity: Rarity; number: number;
+  group: 'player' | 'rival';            // rival = 紅蓮の固定メンバー。スカウトには出ない
+  quotes: { duel: string; goal: string; lose: string };
+  look: CharaLook; bonus: Partial<Stats>;
+}
+export const ROSTER: CharaProfile[];
+export const STARTER_IDS: Record<RoleId, string>;   // 最初から持っている ★3 の 5 人
+export const RIVAL_LINEUP: string[];                // スロット順（ST, WG, LS, IC, DF）= DEFAULT_FORMATION の順
+export const SCOUT_POOL: CharaProfile[];            // group === 'player' の 15 人
+export const ROLE_ORDER: RoleId[];                  // ['striker','wing','longShooter','interceptor','physicalDefender']
+```
+
+| id | ロール | ★ | 名前 | 二つ名 | # | 髪 / 色 | 目 / 色 | 肌 | 小物 | bonus |
+|---|---|---|---|---|---|---|---|---|---|---|
+| st_kakeru | ST | 3 | 天宮カケル | 一直線のエース | 9 | spiky #2456d6 | sharp #2a7bff | fair | none | なし |
+| st_raiga | ST | 4 | 雷堂ライガ | 雷鳴のストライカー | 11 | mohawk #f2c21b | sharp #ff8a00 | tan | scar | shoot+5 physical+5 aerial+2 |
+| st_ouga | ST | 5 | 皇オウガ | 絶対王者 | 10 | slick #e9e4f5 | narrow #c9a227 | fair | none | shoot+9 aerial+9 physical+4 longShot+4 |
+| wg_sora | WG | 3 | 風間ソラ | 疾風のサイドアタッカー | 7 | windswept #1f9ad6 | round #1f9ad6 | fair | none | なし |
+| wg_tsubame | WG | 4 | 鳥居ツバメ | 燕返しのクロッサー | 17 | ponytail #24304f | sharp #7c5cff | fair | none | cross+5 pass+5 shoot+2 |
+| wg_hayate | WG | 5 | 天羽ハヤテ | 影を置き去る翼 | 14 | long #35d0a5 | narrow #19b38a | tan | headband | cross+9 pass+9 shoot+4 intercept+4 |
+| ls_taiga | LS | 3 | 岩城タイガ | 遠距離砲 | 18 | bowl #3b4a7a | round #3b4a7a | fair | glasses | なし |
+| ls_iori | LS | 4 | 鷹見イオリ | 鷹の目スナイパー | 8 | swept #8a5a2b | narrow #b9772f | tan | none | longShot+5 pass+5 shoot+2 |
+| ls_kou | LS | 5 | 星乃コウ | 流星キャノン | 20 | curly #ff7ab8 | round #ff4f9a | fair | none | longShot+8 shoot+9 pass+4 physical+4 |
+| ic_shinobu | IC | 3 | 霧島シノブ | 読みの番人 | 6 | swept #4b3fae | stern #6a5cff | fair | none | なし |
+| ic_jin | IC | 4 | 夜鷹ジン | パスコースの狩人 | 5 | crop #1b1d2b | stern #d83a3a | brown | bandage | intercept+5 physical+5 pass+2 |
+| ic_rei | IC | 5 | 白瀬レイ | 先読みの氷刃 | 16 | long #cfe9ff | narrow #58b8ff | fair | none | intercept+8 pass+9 physical+4 block+4 |
+| df_daigo | DF | 3 | 鉄山ダイゴ | 不動の壁 | 4 | crop #2b3550 | stern #2b3550 | tan | headband | なし |
+| df_gou | DF | 4 | 熊谷ゴウ | 空中戦の番長 | 3 | mohawk #7a3b1e | stern #a34a1a | brown | none | aerial+5 physical+5 block+2 |
+| df_genbu | DF | 5 | 城戸ゲンブ | 難攻不落の城 | 2 | slick #1f6f5c | stern #2bb38f | tan | scar | block+9 physical+8 aerial+4 intercept+4 |
+| rv_enji | ST | 3 | 火野エンジ | 紅蓮の点取り屋 | 9 | spiky #c8102e | sharp #ff3b3b | fair | none | なし |
+| rv_homura | WG | 3 | 朱堂ホムラ | 火走りのウイング | 7 | windswept #e2562a | round #ff6a2a | tan | none | なし |
+| rv_kagari | LS | 3 | 焔カガリ | 灼熱の砲手 | 10 | bowl #8f1d2c | round #8f1d2c | fair | glasses | なし |
+| rv_ren | IC | 3 | 赤城レン | 焦がす読み | 6 | swept #b3261e | stern #ff5a3c | fair | none | なし |
+| rv_gantetsu | DF | 3 | 不破ガンテツ | 燃える鉄壁 | 4 | crop #5a1418 | stern #b81224 | brown | headband | なし |
+
+`hairHi` は髪色を明るくした色（実装側で決めてよい）。セリフ（`quotes`）は各選手 3 本、20 字以内、その選手の二つ名に合う
+オリジナルの文にする。**既存の漫画・アニメ・ゲームの人物名、セリフ、見た目を借りない**。名前と見た目は仮の設定。
+
+### 12.2 編成（`createMatch` の `lineups`）
+- `CreateMatchOptions.lineups?: Partial<Record<TeamId, string[]>>`。スロット `i` の選手を `lineups[team][i]` にする
+  （なければ formation の `charId`）。位置は従来どおり formation から決まる。
+- プレイヤーの編成は **ロールごとに 1 人**（ST / WG / LS / IC / DF）。そのロールで所持している選手から選ぶ。
+  ロールが変わらないので、移動の形、スキル、AI の評価、フォーメーションはそのまま使える。
+- 赤（AI）は `RIVAL_LINEUP`。全員が原型と同じ能力。
+
+### 12.3 セーブ（`src/meta/save.ts`、純関数）
+```ts
+export interface SaveSettings { timerOn: boolean; throughEarly: boolean; cutIn: boolean }
+export interface SaveData {
+  v: 1; coins: number;
+  owned: Record<string, number>;         // charId → 引いた回数（1 以上で所持）
+  lineup: Record<RoleId, string>;
+  settings: SaveSettings;
+  record: { played: number; won: number; drawn: number; lost: number };
+  pulls: number;
+}
+export function defaultSave(): SaveData;                 // coins = META.startCoins、初期 5 人を所持・編成
+export function parseSave(raw: unknown): SaveData;       // 壊れた値は既定値で補う。未所持や別ロールの編成は初期選手へ戻す
+export function lineupIds(save: SaveData): string[];     // スロット順
+export function setLineup(save: SaveData, role: RoleId, charId: string): SaveData; // 所持かつロール一致のときだけ変える
+export function matchReward(score: Record<TeamId, number>): { result: 'win' | 'draw' | 'lose'; coins: number };
+export function applyMatchResult(save: SaveData, score: Record<TeamId, number>): SaveData;
+```
+`src/meta/store.ts`: `saveStore.get() / update(fn) / reset() / subscribe(cb)` と React 用の `useSave()`。
+キーは `braibo.save.v1`。読み書きは try/catch で囲み、失敗したらメモリ上だけで動く。
+
+### 12.4 スカウト（ガチャ、`src/meta/gacha.ts`、純関数）
+- **使うのはゲーム内コインだけ**。課金、購入、外部送信はない。コインは試合の報酬で増える。
+- 調整値は `src/meta/config.ts` の `META`:
+  `startCoins: 3000`、`gacha.cost1: 100`、`gacha.cost10: 1000`、`gacha.rates: {5: 0.03, 4: 0.17, 3: 0.80}`、
+  `gacha.guaranteedMin10: 4`、`gacha.dupRefund: {3: 10, 4: 40, 5: 150}`、`reward: {win: 300, draw: 150, lose: 100}`。
+- 抽選: 乱数 1 個で ★ を決め、もう 1 個でその ★ の中から等確率に 1 人。10 連の 10 人目は ★4 以上確定
+  （★4 と ★5 の比は `rates` の比のまま、85% / 15%）。
+- 重複: すでに持っている選手は `owned` を +1 し、★ に応じたコインを返す。同じ 10 連の中の 2 人目以降も重複扱い。
+- 提供割合は画面でいつでも見られる（通常枠、確定枠、選手ごとの値）。`gachaRates()` が表示用の表を返す。
+
+```ts
+export interface PullResult { charId: string; rarity: Rarity; isNew: boolean; refund: number }
+export function canPull(save: SaveData, count: 1 | 10): boolean;
+export function rollGacha(rng: Rng, count: 1 | 10): string[];
+export function applyGacha(save: SaveData, charIds: string[], cost: number): { save: SaveData; results: PullResult[] };
+export function gachaRates(): { slot: 'normal' | 'guaranteed'; rows: { rarity: Rarity; rate: number; each: number; ids: string[] }[] }[];
+```

@@ -5,36 +5,39 @@
   overflow: visible;
   touch-action: manipulation;
 }
+.pitch__frame {
+  fill: var(--ink);
+  stroke: var(--ink);
+  stroke-width: 0.22;
+}
 .pitch__field {
-  fill: var(--turf);
+  fill: url(#pt-check);
 }
-.pitch__stripe {
-  fill: var(--turf-2);
+.pitch__dots {
+  fill: url(#pt-dots);
+  pointer-events: none;
 }
-.pitch__net-shadow {
-  fill: rgba(0, 0, 0, 0.3);
+.pitch__net-fill {
+  fill: #1b2242;
 }
 .pitch__net {
   fill: url(#net);
+}
+.pitch__net-frame {
+  fill: none;
   stroke: #fff;
-  stroke-width: 0.07;
-}
-.pitch__net-fill {
-  fill: rgba(255, 255, 255, 0.08);
-}
-.pitch__grid line {
-  stroke: rgba(255, 255, 255, 0.06);
-  stroke-width: 0.02;
+  stroke-width: 0.1;
+  stroke-linejoin: round;
 }
 .pitch__lines rect,
 .pitch__lines line,
 .pitch__lines circle {
   fill: none;
-  stroke: var(--turf-line);
-  stroke-width: 0.05;
+  stroke: rgba(255, 255, 255, 0.94);
+  stroke-width: 0.085;
 }
 .pitch__lines .pitch__dot {
-  fill: var(--turf-line);
+  fill: #fff;
   stroke: none;
 }
 .pitch__cell {
@@ -47,54 +50,83 @@
 }
 
 .scrim {
-  fill: rgba(5, 10, 20, 0.62);
+  fill: rgba(8, 10, 28, 0.66);
 }
 .tackle-ring {
   fill: none;
-  stroke: var(--red-light);
-  stroke-width: 0.08;
+  stroke: var(--c-red-hi);
+  stroke-width: 0.09;
 }
 .space-layer {
-  opacity: 0.35;
+  opacity: 0.5;
 }
 .space__ring {
   fill: none;
-  stroke: var(--red-light);
-  stroke-width: 0.07;
+  stroke: var(--c-red-hi);
+  stroke-width: 0.08;
 }
-
-.target {
-  fill: rgba(255, 255, 255, 0.18);
-}
-.target--enemy {
-  fill: rgba(255, 77, 90, 0.24);
-}
-.target__ring {
-  fill: none;
-  stroke: rgba(255, 255, 255, 0.8);
-  stroke-width: 0.05;
-  stroke-dasharray: 0.14 0.1;
-}
-.target__ring--enemy {
-  stroke: var(--red-light);
-}
-
 .space__mark {
-  fill: rgba(255, 255, 255, 0.07);
-  stroke: rgba(255, 255, 255, 0.5);
-  stroke-width: 0.04;
+  fill: rgba(255, 255, 255, 0.16);
+  stroke: #fff;
+  stroke-width: 0.05;
   stroke-dasharray: 0.1 0.08;
 }
 .space--enemy .space__mark {
-  fill: rgba(255, 77, 90, 0.18);
-  stroke: var(--red-light);
+  fill: rgba(255, 59, 59, 0.3);
+  stroke: var(--c-red-hi);
+}
+
+/* move targets: sky tiles with a direction arrow; enemy ball carrier = red edge + "!" */
+.target__shade {
+  fill: var(--ink);
+  opacity: 0.55;
+}
+.target__tile {
+  fill: #bdefff;
+  stroke: #fff;
+  stroke-width: 0.06;
+}
+.target__gloss {
+  fill: #fff;
+  opacity: 0.55;
+}
+.target__arrow {
+  fill: var(--c-blue);
+  stroke: var(--ink);
+  stroke-width: 0.045;
+  stroke-linejoin: round;
+}
+.target__stay {
+  fill: var(--c-blue);
+  stroke: var(--ink);
+  stroke-width: 0.04;
+}
+.target--enemy .target__tile {
+  fill: #ffc4bd;
+  stroke: var(--c-red-hi);
+  stroke-width: 0.1;
+}
+.target--enemy .target__arrow {
+  fill: var(--c-red);
+}
+.target__warn path {
+  fill: var(--c-yellow);
+  stroke: var(--ink);
+  stroke-width: 0.05;
+  stroke-linejoin: round;
+}
+.target__warn text {
+  fill: var(--ink);
+  font-family: var(--font-num);
+  font-size: 0.2px;
+  text-anchor: middle;
 }
 
 .plan-arrow {
-  stroke: #9cc2ff;
-  stroke-width: 0.07;
-  stroke-linecap: round;
-  opacity: 0.9;
+  fill: #fff;
+  stroke: var(--ink);
+  stroke-width: 0.055;
+  stroke-linejoin: round;
 }
 .ghost {
   cursor: pointer;
@@ -102,23 +134,14 @@
 .ghost__hit {
   fill: transparent;
 }
-.ghost__body {
-  fill: var(--blue);
-  fill-opacity: 0.5;
-  stroke: #dbe8ff;
-  stroke-width: 0.06;
-  stroke-dasharray: 0.12 0.09;
+.ghost__art {
+  opacity: 0.55;
 }
-.ghost__abbr {
-  fill: #fff;
-  font-size: 0.28px;
-  font-weight: 800;
-  text-anchor: middle;
-  dominant-baseline: central;
-  pointer-events: none;
-  paint-order: stroke fill;
-  stroke: var(--blue-dark);
-  stroke-width: 0.08px;
+.ghost__body {
+  fill: rgba(37, 164, 255, 0.1);
+  stroke: #fff;
+  stroke-width: 0.07;
+  stroke-dasharray: 0.14 0.1;
 }
 
 .ball {
@@ -149,69 +172,111 @@
 }
 .trajectory {
   fill: none;
-  stroke: var(--gold-light);
-  stroke-width: 0.05;
-  stroke-dasharray: 0.14 0.12;
-  opacity: 0.85;
+  stroke: var(--c-yellow);
+  stroke-width: 0.07;
+  stroke-linecap: round;
+  stroke-dasharray: 0.01 0.17;
+  opacity: 0.95;
 }
 
-.pct rect,
-.ball-arrow__label rect {
-  fill: var(--navy-800);
-  fill-opacity: 0.92;
-  stroke: var(--gold);
-  stroke-width: 0.04;
+/* % bubble (Starburst) and hazard plate */
+.pct--off {
+  opacity: 0.55;
 }
-.pct text,
-.ball-arrow__label text {
-  fill: #fff;
-  font-family: var(--font-num);
-  font-size: 0.26px;
-  font-weight: 700;
+.pct-burst--off {
+  filter: grayscale(1);
+}
+.pct-burst__num,
+.pct-burst__cap,
+.burst-plate text {
   text-anchor: middle;
   dominant-baseline: central;
   paint-order: stroke fill;
-  stroke: var(--navy-900);
-  stroke-width: 0.07px;
+  stroke: var(--ink);
   stroke-linejoin: round;
 }
-.pct--off {
-  opacity: 0.5;
+.pct-burst__num {
+  fill: #fff;
+  font-family: var(--font-num);
+  font-size: 0.4px;
+  stroke-width: 0.1px;
+  letter-spacing: 0.01px;
 }
-.pct--off rect {
-  stroke: var(--text-faint);
+.pct-burst__cap {
+  fill: var(--ink);
+  stroke: none;
+  font-family: var(--font-num);
+  font-size: 0.14px;
+  letter-spacing: 0.03px;
+}
+.burst-plate rect {
+  fill: var(--ink);
+  stroke: var(--c-yellow);
+  stroke-width: 0.05;
+}
+.burst-plate text {
+  fill: var(--c-yellow);
+  stroke: none;
+  font-family: var(--font-num);
+  font-size: 0.26px;
+  letter-spacing: 0.02px;
 }
 
-.ball-arrow {
-  stroke: var(--gold-light);
-  stroke-width: 0.075;
+/* ball arrows: dotted lines (white / sky for lofted / yellow for cross), fat yellow arrow for a shot */
+.ball-arrow__halo {
+  fill: none;
+  stroke: var(--ink);
+  stroke-width: 0.2;
   stroke-linecap: round;
+  stroke-dasharray: 0.01 0.2;
+}
+path.ball-arrow {
+  fill: none;
+  stroke: #fff;
+  stroke-width: 0.12;
+  stroke-linecap: round;
+  stroke-dasharray: 0.01 0.2;
+}
+.ball-arrow--lofted {
+  stroke: var(--c-sky);
 }
 .ball-arrow--cross {
-  stroke-dasharray: 0.2 0.14;
+  stroke: var(--c-yellow);
 }
-.ball-arrow--shoot {
-  stroke-width: 0.1;
+.ball-arrow__head {
+  fill: #fff;
+  stroke: var(--ink);
+  stroke-width: 0.05;
+  stroke-linejoin: round;
+}
+polygon.ball-arrow--shoot {
+  fill: var(--c-yellow);
+  stroke: var(--ink);
+  stroke-width: 0.06;
+  stroke-linejoin: round;
+}
+path.ball-arrow--warn {
+  stroke: var(--warn, #ffb547);
 }
 
 /* impact burst */
 .burst__ring {
   fill: none;
   stroke: #fff;
-  stroke-width: 0.1;
+  stroke-width: 0.12;
   transform-box: fill-box;
   transform-origin: center;
   animation: burst-ring 0.35s ease-out both;
 }
 .burst__ring--2 {
   animation-delay: 0.06s;
-  stroke-width: 0.06;
+  stroke-width: 0.08;
 }
 .burst--blue .burst__ring--2 {
-  stroke: var(--blue-light);
+  stroke: var(--c-blue-hi);
 }
 .burst--red .burst__ring--2 {
-  stroke: var(--red-light);
+  stroke: var(--c-red-hi);
 }
 .burst__spikes {
   transform-box: fill-box;
@@ -219,8 +284,8 @@
   animation: burst-spikes 0.35s ease-out both;
 }
 .burst__spike {
-  stroke: var(--gold-light);
-  stroke-width: 0.09;
+  stroke: var(--c-yellow);
+  stroke-width: 0.12;
   stroke-linecap: round;
 }
 @keyframes burst-ring {
@@ -249,52 +314,49 @@
   cursor: pointer;
   transform-box: fill-box;
   transform-origin: center;
-  animation: radial-in 0.18s cubic-bezier(0.34, 1.56, 0.64, 1) backwards;
+  animation: radial-in 0.2s cubic-bezier(0.34, 1.56, 0.64, 1) backwards;
 }
 .radial__hit {
   fill: transparent;
 }
 .radial__shadow {
-  fill: rgba(0, 0, 0, 0.4);
+  fill: var(--ink);
 }
 .radial__body {
-  stroke: var(--navy-900);
-  stroke-width: 0.05;
-  fill: #2c4272;
+  stroke: var(--ink);
+  stroke-width: 0.07;
+  fill: var(--c-panel-2);
 }
 .radial__item--gold .radial__body {
-  fill: var(--gold);
-  stroke: var(--gold-dark);
+  fill: var(--c-yellow);
 }
 .radial__item--blue .radial__body {
-  fill: var(--blue);
-  stroke: var(--blue-dark);
+  fill: var(--c-blue-hi);
 }
 .radial__item--navy .radial__body {
-  fill: #34508a;
-  stroke: var(--navy-900);
+  fill: #4a5aa8;
 }
 .radial__gloss {
   fill: #fff;
-  opacity: 0.28;
+  opacity: 0.35;
   pointer-events: none;
 }
 .radial__icon {
   fill: none;
   stroke: #fff;
   color: #fff;
-  stroke-width: 2.6;
+  stroke-width: 2.8;
   stroke-linecap: round;
   stroke-linejoin: round;
   pointer-events: none;
 }
 .radial__item--gold .radial__icon {
-  stroke: #3a2a05;
-  color: #3a2a05;
+  stroke: var(--ink);
+  color: var(--ink);
 }
 .radial__item.is-active .radial__body {
   stroke: #fff;
-  stroke-width: 0.08;
+  stroke-width: 0.1;
 }
 .radial__item.is-off {
   cursor: default;
@@ -313,15 +375,16 @@
   font-size: 0.22px;
   font-weight: 800;
   dominant-baseline: central;
-  paint-order: stroke fill;
-  stroke: var(--navy-900);
-  stroke-width: 0.1px;
-  stroke-linejoin: round;
 }
 .radial__label .radial__sub {
-  fill: var(--gold-light);
+  fill: var(--c-yellow);
   font-family: var(--font-num);
-  font-size: 0.24px;
+  font-size: 0.26px;
+}
+.radial__pill {
+  fill: var(--ink);
+  stroke: rgba(255, 255, 255, 0.35);
+  stroke-width: 0.025;
 }
 @keyframes radial-in {
   from {
@@ -346,68 +409,60 @@
     animation-duration: 0.18s;
   }
   .radial__item {
-    animation-duration: 0.1s;
+    animation: none;
   }
   .ball__lob {
     animation: none;
   }
 }
 
-/* v0.3: lofted pass, offside */
-.ball-arrow--lofted {
-  stroke: #8fe0ff;
-  stroke-dasharray: 0.2 0.14;
+/* offside: hazard-striped band + flag label */
+.offside-line__band {
+  opacity: 0.95;
 }
-.ball-arrow--warn {
-  stroke: var(--warn, #ffb020);
+.offside-line__edge {
+  fill: none;
+  stroke: var(--ink);
+  stroke-width: 0.05;
 }
-.ball-arrow__label--lofted rect {
-  stroke: #8fe0ff;
-}
-.ball-arrow__label--warn rect {
-  stroke: var(--warn, #ffb020);
-}
-.ball-arrow__label--warn text {
-  fill: var(--warn, #ffb020);
-}
-.offside-line {
-  stroke: #ffd400;
+.offside-flag {
+  fill: var(--c-yellow);
+  stroke: var(--ink);
   stroke-width: 0.06;
-  stroke-dasharray: 0.3 0.18;
-  opacity: 0.9;
+  stroke-linejoin: round;
 }
-.offside-line--own {
-  stroke: #8fd8ff;
+.offside-line--own .offside-flag {
+  fill: var(--c-sky);
+}
+.offside-flag__text {
+  fill: var(--ink);
+  font-family: var(--font-jp);
+  font-size: 0.22px;
+  font-weight: 800;
+  dominant-baseline: central;
 }
 .offpos rect {
-  fill: #111;
-  stroke: #ffd400;
-  stroke-width: 0.035;
+  fill: var(--ink);
+  stroke: var(--c-yellow);
+  stroke-width: 0.045;
 }
 .offpos text {
-  fill: #ffd400;
+  fill: var(--c-yellow);
   font-family: var(--font-num);
-  font-size: 0.17px;
-  font-weight: 800;
+  font-size: 0.2px;
   text-anchor: middle;
   dominant-baseline: central;
 }
 .offside-badge rect {
-  fill: #111;
-  stroke: #ffd400;
-  stroke-width: 0.045;
+  fill: var(--ink);
+  stroke: var(--c-yellow);
+  stroke-width: 0.05;
 }
 .offside-badge text {
-  fill: #ffd400;
+  fill: var(--c-yellow);
   font-family: var(--font-num);
-  font-size: 0.23px;
-  font-weight: 800;
+  font-size: 0.27px;
   letter-spacing: 0.02px;
   text-anchor: middle;
   dominant-baseline: central;
-}
-.radial__pill {
-  fill: rgba(8, 16, 36, 0.92);
-  stroke: rgba(255, 255, 255, 0.18);
-  stroke-width: 0.02;
 }

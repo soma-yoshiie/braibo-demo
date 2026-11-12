@@ -1,6 +1,7 @@
 import { BOARD } from '../../game/rules/config';
 import type { Vec } from '../../game/types';
-import { BallIcon, DuelTag, PlayerToken } from '../Player/PlayerToken';
+import { Starburst } from '../Chara';
+import { BallIcon, DuelTag, PlayerToken, TokenMedal } from '../Player/PlayerToken';
 import type {
   ArrowView,
   BallView,
@@ -96,6 +97,56 @@ function layoutTokens(tokens: TokenView[], spread: boolean, ghostCells: Set<stri
   return { layouts, ordered };
 }
 
+type P2 = { x: number; y: number };
+const f2 = (n: number): string => n.toFixed(3);
+
+/** Fat arrow polygon from a to b (shaft width w, head length hl, head half-width hw), in svg units. */
+function arrowPoints(a: P2, b: P2, w = 0.1, hl = 0.3, hw = 0.21): string {
+  const dx = b.x - a.x;
+  const dy = b.y - a.y;
+  const len = Math.hypot(dx, dy);
+  if (len < 1e-6) return '';
+  const ux = dx / len;
+  const uy = dy / len;
+  const nx = -uy;
+  const ny = ux;
+  const hb = Math.max(0, len - hl);
+  const pts: P2[] = [
+    { x: a.x + nx * w, y: a.y + ny * w },
+    { x: a.x + ux * hb + nx * w, y: a.y + uy * hb + ny * w },
+    { x: a.x + ux * hb + nx * hw, y: a.y + uy * hb + ny * hw },
+    { x: b.x, y: b.y },
+    { x: a.x + ux * hb - nx * hw, y: a.y + uy * hb - ny * hw },
+    { x: a.x + ux * hb - nx * w, y: a.y + uy * hb - ny * w },
+    { x: a.x - nx * w, y: a.y - ny * w },
+  ];
+  return pts.map((q) => `${f2(q.x)},${f2(q.y)}`).join(' ');
+}
+
+/** Jagged % bubble (or a hazard plate for long warning texts) centred on 0,0. */
+function Burst({ text, caption, warn, off }: { text: string; caption?: string; warn?: boolean; off?: boolean }) {
+  if (text.length > 5) {
+    const w = text.length * 0.16 + 0.34;
+    return (
+      <g className="burst-plate">
+        <rect x={-w / 2} y={-0.19} width={w} height={0.38} rx={0.06} />
+        <text>{text}</text>
+      </g>
+    );
+  }
+  return (
+    <g className={`pct-burst${off ? ' pct-burst--off' : ''}`}>
+      <svg x={-0.56} y={-0.5} width={1.12} height={1} overflow="visible">
+        <Starburst fill={warn ? '#ffb547' : undefined} points={12} />
+      </svg>
+      {caption && <text className="pct-burst__cap" y={-0.2}>{caption}</text>}
+      <text className="pct-burst__num" y={caption ? 0.06 : 0.02}>{text}</text>
+    </g>
+  );
+}
+
+const CAPTION: Record<ArrowView['style'], string> = { pass: 'PASS', lofted: 'LOB', cross: 'CROSS', shoot: 'SHOT' };
+
 export function Pitch({
   tokens,
   ball,
@@ -150,21 +201,32 @@ export function Pitch({
     return undefined;
   };
 
+  const selTok = selectedId ? tokenById.get(selectedId) : undefined;
   const targetLayer = (
     <g pointerEvents="none">
       {moveTargets.map((t) => {
         const enemy = tackleCells.has(`${t.x},${t.y}`);
+        const dx = selTok ? t.x - Math.round(selTok.x) : 0;
+        const dy = selTok ? t.y - Math.round(selTok.y) : 0;
+        const ang = (Math.atan2(dy, dx) * 180) / Math.PI;
         return (
-          <g key={`t-${t.x},${t.y}`}>
-            <rect
-              className={`target${enemy ? ' target--enemy' : ''}`}
-              x={t.x + 0.07}
-              y={t.y + 0.07}
-              width={0.86}
-              height={0.86}
-              rx={0.16}
-            />
-            <circle className={`target__ring${enemy ? ' target__ring--enemy' : ''}`} cx={cx(t.x)} cy={cy(t.y)} r={0.42} />
+          <g key={`t-${t.x},${t.y}`} className={`target${enemy ? ' target--enemy' : ''}`}>
+            <rect className="target__shade" x={t.x + 0.06} y={t.y + 0.11} width={0.88} height={0.84} rx={0.16} />
+            <rect className="target__tile" x={t.x + 0.06} y={t.y + 0.06} width={0.88} height={0.84} rx={0.16} />
+            <rect className="target__gloss" x={t.x + 0.12} y={t.y + 0.1} width={0.76} height={0.22} rx={0.1} />
+            {dx === 0 && dy === 0 ? (
+              <circle className="target__stay" cx={cx(t.x)} cy={cy(t.y)} r={0.12} />
+            ) : (
+              <g transform={`translate(${cx(t.x)} ${cy(t.y)}) rotate(${f2(ang)})`}>
+                <path className="target__arrow" d="M-0.2 -0.08 H0.02 V-0.2 L0.26 0 L0.02 0.2 V0.08 H-0.2 Z" />
+              </g>
+            )}
+            {enemy && (
+              <g className="target__warn" transform={`translate(${t.x + 0.8} ${t.y + 0.22})`}>
+                <path d="M0 -0.17 L0.17 0.13 H-0.17 Z" />
+                <text y={0.07}>!</text>
+              </g>
+            )}
           </g>
         );
       })}
@@ -175,24 +237,26 @@ export function Pitch({
       {movers.map((p) => {
         const gl2 = ghostLayout(p.to);
         return (
-        <g
-          key={`g-${p.id}`}
-          className="ghost"
-          data-testid={`ghost-${p.id}`}
-          transform={`translate(${cx(p.to.x) + (gl2?.dx ?? 0)} ${cy(p.to.y) + (gl2?.dy ?? 0)})${gl2 ? ` scale(${gl2.s})` : ''}`}
-          onClick={
-            interactive
-              ? (e) => {
-                  e.stopPropagation();
-                  onGhostTap(p.id);
-                }
-              : undefined
-          }
-        >
-          <circle className="ghost__hit" r={gl2 ? 0.42 : 0.5} />
-          <circle className="ghost__body" r={0.38} />
-          <text className="ghost__abbr">{p.abbr}</text>
-        </g>
+          <g
+            key={`g-${p.id}`}
+            className="ghost"
+            data-testid={`ghost-${p.id}`}
+            transform={`translate(${cx(p.to.x) + (gl2?.dx ?? 0)} ${cy(p.to.y) + (gl2?.dy ?? 0)})${gl2 ? ` scale(${gl2.s})` : ''}`}
+            onClick={
+              interactive
+                ? (e) => {
+                    e.stopPropagation();
+                    onGhostTap(p.id);
+                  }
+                : undefined
+            }
+          >
+            <circle className="ghost__hit" r={gl2 ? 0.42 : 0.5} />
+            <g className="ghost__art">
+              <TokenMedal charId={p.charId} team="blue" number={p.number} abbr={p.abbr} />
+            </g>
+            <circle className="ghost__body" r={0.47} />
+          </g>
         );
       })}
     </g>
@@ -214,65 +278,47 @@ export function Pitch({
       data-testid="pitch"
     >
       <defs>
-        <marker id="arrow-blue" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="4" markerHeight="4" orient="auto">
-          <path d="M0,1 L9,5 L0,9 z" fill="#9cc2ff" />
-        </marker>
-        <marker id="arrow-accent" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="4" markerHeight="4" orient="auto">
-          <path d="M0,1 L9,5 L0,9 z" fill="#f6dc93" />
-        </marker>
-        <marker id="arrow-sky" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="4" markerHeight="4" orient="auto">
-          <path d="M0,1 L9,5 L0,9 z" fill="#8fe0ff" />
-        </marker>
-        <pattern id="net" width="0.2" height="0.2" patternUnits="userSpaceOnUse">
-          <path d="M0 0 L0.2 0.2 M0.2 0 L0 0.2" stroke="rgba(255,255,255,0.45)" strokeWidth="0.02" />
+        <pattern id="pt-check" width="2" height="2" patternUnits="userSpaceOnUse">
+          <rect width="2" height="2" fill="#4cbb62" />
+          <rect width="1" height="1" fill="#3fa956" />
+          <rect x="1" y="1" width="1" height="1" fill="#3fa956" />
         </pattern>
-        <radialGradient id="tok-blue" cx="0.35" cy="0.3" r="0.8">
-          <stop offset="0" stopColor="#7db4ff" />
-          <stop offset="0.55" stopColor="#3d8bff" />
-          <stop offset="1" stopColor="#1b4fb8" />
-        </radialGradient>
-        <radialGradient id="tok-red" cx="0.35" cy="0.3" r="0.8">
-          <stop offset="0" stopColor="#ff8e96" />
-          <stop offset="0.55" stopColor="#ff4d5a" />
-          <stop offset="1" stopColor="#b3202d" />
-        </radialGradient>
-        <radialGradient id="ball-grad" cx="0.35" cy="0.3" r="0.8">
-          <stop offset="0" stopColor="#ffffff" />
-          <stop offset="1" stopColor="#c9d0df" />
-        </radialGradient>
+        <pattern id="pt-dots" width="0.16" height="0.16" patternUnits="userSpaceOnUse">
+          <circle cx="0.08" cy="0.08" r="0.021" fill="#fff" fillOpacity="0.16" />
+        </pattern>
+        <pattern id="pt-hz-foe" width="0.36" height="0.36" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
+          <rect width="0.18" height="0.36" fill="#ffd34d" />
+          <rect x="0.18" width="0.18" height="0.36" fill="#151a2d" />
+        </pattern>
+        <pattern id="pt-hz-own" width="0.36" height="0.36" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
+          <rect width="0.18" height="0.36" fill="#9ceaff" />
+          <rect x="0.18" width="0.18" height="0.36" fill="#151a2d" />
+        </pattern>
+        <pattern id="net" width="0.2" height="0.2" patternUnits="userSpaceOnUse">
+          <path d="M0 0 L0.2 0.2 M0.2 0 L0 0.2" stroke="rgba(255,255,255,0.55)" strokeWidth="0.025" />
+        </pattern>
       </defs>
 
-      {/* field */}
-      <rect className="pitch__field" x={0} y={0} width={W} height={H} />
-      {ROWS.map((r) =>
-        r % 2 === 1 ? <rect key={r} className="pitch__stripe" x={0} y={r} width={W} height={1} /> : null,
-      )}
+      {/* field: checker turf + halftone, ink frame, thick white lines */}
+      <rect className="pitch__frame" x={-0.03} y={-0.03} width={W + 0.06} height={H + 0.06} rx={0.16} />
+      <rect className="pitch__field" x={0} y={0} width={W} height={H} rx={0.12} />
+      <rect className="pitch__dots" x={0} y={0} width={W} height={H} rx={0.12} />
 
       {/* goals (net beyond the end lines) */}
       {[-GOAL_DEPTH, H].map((y) => (
         <g key={y}>
-          <rect className="pitch__net-shadow" x={gl + 0.05} y={y + (y < 0 ? 0 : 0.04)} width={GOAL_WIDTH} height={GOAL_DEPTH} />
-          <rect className="pitch__net" x={gl} y={y} width={GOAL_WIDTH} height={GOAL_DEPTH} />
           <rect className="pitch__net-fill" x={gl} y={y} width={GOAL_WIDTH} height={GOAL_DEPTH} />
+          <rect className="pitch__net" x={gl} y={y} width={GOAL_WIDTH} height={GOAL_DEPTH} />
+          <rect className="pitch__net-frame" x={gl} y={y} width={GOAL_WIDTH} height={GOAL_DEPTH} />
         </g>
       ))}
 
-      {/* faint grid */}
-      <g className="pitch__grid">
-        {COLS.slice(1).map((c) => (
-          <line key={`v${c}`} x1={c} y1={0} x2={c} y2={H} />
-        ))}
-        {ROWS.slice(1).map((r) => (
-          <line key={`h${r}`} x1={0} y1={r} x2={W} y2={r} />
-        ))}
-      </g>
-
       {/* field markings */}
       <g className="pitch__lines">
-        <rect x={0} y={0} width={W} height={H} />
+        <rect x={0} y={0} width={W} height={H} rx={0.12} />
         <line x1={0} y1={H / 2} x2={W} y2={H / 2} />
         <circle cx={W / 2} cy={H / 2} r={1.1} />
-        <circle className="pitch__dot" cx={W / 2} cy={H / 2} r={0.07} />
+        <circle className="pitch__dot" cx={W / 2} cy={H / 2} r={0.09} />
         <rect x={penX} y={0} width={penW} height={penD} />
         <rect x={penX} y={H - penD} width={penW} height={penD} />
       </g>
@@ -296,7 +342,7 @@ export function Pitch({
         )}
       </g>
 
-      {/* planned movement arrows */}
+      {/* planned movement arrows: white fat arrows with an ink edge */}
       <g className="pitch__plans" pointerEvents="none">
         {movers.map((p) => {
           const fl = layouts.get(p.id);
@@ -305,36 +351,38 @@ export function Pitch({
           const end = shorten(
             start,
             { x: cx(p.to.x) + (tl?.dx ?? 0), y: cy(p.to.y) + (tl?.dy ?? 0) },
-            tl ? 0.34 : 0.42,
+            tl ? 0.36 : 0.44,
           );
-          return (
-            <line
-              key={`a-${p.id}`}
-              className="plan-arrow"
-              x1={start.x}
-              y1={start.y}
-              x2={end.x}
-              y2={end.y}
-              markerEnd="url(#arrow-blue)"
-            />
-          );
+          const pts = arrowPoints(start, end, 0.075, 0.26, 0.18);
+          return pts ? <polygon key={`a-${p.id}`} className="plan-arrow" points={pts} /> : null;
         })}
       </g>
 
       {/* legal move targets */}
       {targetLayer}
 
-      {/* offside line (last defender row): while picking (legacy) or whenever planning (early) */}
+      {/* offside line (last defender row): hazard-striped band + flag label; while picking (legacy) or whenever planning (early) */}
       {offsideLine != null && (
-        <line
+        <g
           className={`offside-line${offsideLineOwn ? ' offside-line--own' : ''}`}
           data-testid="offside-line"
           pointerEvents="none"
-          x1={0}
-          x2={W}
-          y1={offsideLine}
-          y2={offsideLine}
-        />
+        >
+          <rect className="offside-line__band" x={0} y={offsideLine - 0.1} width={W} height={0.2} fill={`url(#${offsideLineOwn ? 'pt-hz-own' : 'pt-hz-foe'})`} />
+          <rect className="offside-line__edge" x={0} y={offsideLine - 0.1} width={W} height={0.2} />
+          {(() => {
+            const below = offsideLine < 0.9;
+            const ly = below ? offsideLine + 0.14 : offsideLine - 0.56;
+            const label = offsideLineOwn ? '守備ライン' : 'オフサイドライン';
+            const fw = label.length * 0.225 + 0.55;
+            return (
+              <g transform={`translate(0.08 ${ly})`}>
+                <path className="offside-flag" d={`M0 0 H${fw} L${fw - 0.2} 0.21 L${fw} 0.42 H0 Z`} />
+                <text className="offside-flag__text" x={0.14} y={0.22}>{label}</text>
+              </g>
+            );
+          })()}
+        </g>
       )}
 
       {/* trajectory of a flying ball */}
@@ -447,7 +495,7 @@ export function Pitch({
                 data-testid={`offside-${p.id}`}
                 transform={`translate(${lx} ${cy(t.y) + dy})`}
               >
-                <rect x={-0.55} y={-0.17} width={1.1} height={0.34} rx={0.07} />
+                <rect x={-0.55} y={-0.17} width={1.1} height={0.34} rx={0.06} />
                 <text>OFFSIDE</text>
               </g>
             );
@@ -458,8 +506,7 @@ export function Pitch({
               className={`pct${p.enabled ? '' : ' pct--off'}`}
               transform={`translate(${lx} ${cy(t.y) + dy})`}
             >
-              <rect x={-0.4} y={-0.17} width={0.8} height={0.34} rx={0.17} />
-              <text>{p.label}</text>
+              <Burst text={p.label} off={!p.enabled} />
             </g>
           );
         })}
@@ -562,28 +609,32 @@ function BallArrow({ arrow }: { arrow: ArrowView }) {
   const mid = arcs
     ? { x: (a.x + 2 * c.x + end.x) / 4, y: (a.y + 2 * c.y + end.y) / 4 }
     : { x: a.x + (end.x - a.x) * tl, y: a.y + (end.y - a.y) * tl };
-  const text = arrow.label ? `${arrow.glyph ? `${arrow.glyph} ` : ''}${arrow.label}` : '';
-  const w = Math.max(0.8, text.length * 0.2 + 0.3);
   const cls = `ball-arrow ball-arrow--${arrow.style}${arrow.warn ? ' ball-arrow--warn' : ''}`;
+  const from = arcs ? c : a;
+  // arrow head: a small triangle at `end`, pointing along the last segment
+  const hx = end.x - from.x;
+  const hy = end.y - from.y;
+  const hl = Math.hypot(hx, hy) || 1;
+  const ux = hx / hl;
+  const uy = hy / hl;
+  const tip = { x: end.x + ux * 0.12, y: end.y + uy * 0.12 };
+  const base = { x: tip.x - ux * 0.34, y: tip.y - uy * 0.34 };
+  const tri = `${f2(tip.x)},${f2(tip.y)} ${f2(base.x - uy * 0.2)},${f2(base.y + ux * 0.2)} ${f2(base.x + uy * 0.2)},${f2(base.y - ux * 0.2)}`;
+  const d = arcs ? `M${a.x} ${a.y} Q${c.x} ${c.y} ${end.x} ${end.y}` : `M${a.x} ${a.y} L${end.x} ${end.y}`;
   return (
     <g pointerEvents="none" data-testid="ball-arrow" data-style={arrow.style}>
-      {arcs ? (
-        <path
-          className={cls}
-          fill="none"
-          d={`M${a.x} ${a.y} Q${c.x} ${c.y} ${end.x} ${end.y}`}
-          markerEnd={arrow.style === 'lofted' ? 'url(#arrow-sky)' : 'url(#arrow-accent)'}
-        />
+      {arrow.style === 'shoot' ? (
+        <polygon className={cls} points={arrowPoints(a, tip, 0.1, 0.34, 0.24)} />
       ) : (
-        <line className={cls} x1={a.x} y1={a.y} x2={end.x} y2={end.y} markerEnd="url(#arrow-accent)" />
+        <>
+          <path className="ball-arrow__halo" d={d} />
+          <path className={cls} d={d} />
+          <polygon className="ball-arrow__head" points={tri} />
+        </>
       )}
       {arrow.label && (
-        <g
-          className={`ball-arrow__label${arrow.warn ? ' ball-arrow__label--warn' : ''}${arrow.style === 'lofted' ? ' ball-arrow__label--lofted' : ''}`}
-          transform={`translate(${mid.x} ${mid.y})`}
-        >
-          <rect x={-w / 2} y={-0.17} width={w} height={0.34} rx={0.17} />
-          <text>{text}</text>
+        <g className={`ball-arrow__label${arrow.warn ? ' ball-arrow__label--warn' : ''}`} transform={`translate(${mid.x} ${mid.y})`}>
+          <Burst text={arrow.label} caption={arrow.warn ? undefined : CAPTION[arrow.style]} warn={arrow.warn} />
         </g>
       )}
     </g>

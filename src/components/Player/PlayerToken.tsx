@@ -1,3 +1,6 @@
+import { memo } from 'react';
+import { getProfile } from '../../game/data/roster';
+import { BallG, CharaMedalG } from '../Chara';
 import type { TokenLayout, TokenView } from '../viewTypes';
 import { cx, cy } from '../Pitch/pitchGeometry';
 import './PlayerToken.css';
@@ -15,18 +18,38 @@ interface Props {
   clone?: boolean;
 }
 
-/** Small football icon (pentagon pattern) drawn around 0,0 with radius r. */
+/** Football icon drawn around 0,0 with radius r (cell units). */
 export function BallIcon({ r = 0.15 }: { r?: number }) {
   return (
-    <g className="ball-icon">
-      <circle r={r} className="ball-icon__body" />
-      <path
-        className="ball-icon__patch"
-        d={`M0 ${-r * 0.5} L${r * 0.48} ${-r * 0.15} L${r * 0.3} ${r * 0.42} L${-r * 0.3} ${r * 0.42} L${-r * 0.48} ${-r * 0.15} Z`}
-      />
+    <g transform={`scale(${r / 10})`}>
+      <BallG r={10} />
     </g>
   );
 }
+
+/** Medal art in cell units: the medal's 100-unit box becomes ~0.92 cell, centred on the token. */
+export const MEDAL_SCALE = 0.0092;
+const MEDAL_T = `translate(${-50 * MEDAL_SCALE} ${-50 * MEDAL_SCALE - 0.02}) scale(${MEDAL_SCALE})`;
+
+/** The medal never changes for a token, so it is memoised: only the wrapper moves while a turn plays. */
+export const TokenMedal = memo(function TokenMedal({
+  charId,
+  team,
+  number,
+  abbr,
+}: {
+  charId: string;
+  team: 'blue' | 'red';
+  number: number;
+  abbr: string;
+}) {
+  const p = getProfile(charId);
+  return (
+    <g transform={MEDAL_T} pointerEvents="none">
+      <CharaMedalG look={p.look} team={team} number={number} abbr={abbr} rarity={p.rarity} />
+    </g>
+  );
+});
 
 const SOLO: TokenLayout = { dx: 0, dy: 0, s: 1 };
 const placeStyle = (token: TokenView, l: TokenLayout): React.CSSProperties => {
@@ -71,25 +94,21 @@ export function PlayerToken({ token, selected, inspected, passTarget, interactiv
     >
       <g className="token__inner">
         <circle className="token__extent" r={0.62} />
-        <ellipse className="token__shadow" cx={0.03} cy={0.34} rx={0.37} ry={0.13} />
+        {token.hasBall && <circle className="token__aura" r={0.66} />}
         {selected && (
           <g className="token__sel">
-            <circle className="token__ring token__ring--gold" r={layout ? 0.46 : 0.57} />
-            <circle className="token__ring token__ring--white" r={layout ? 0.41 : 0.5} />
+            <circle className="token__ring token__ring--ink" r={layout ? 0.5 : 0.6} />
+            <circle className="token__ring token__ring--gold" r={layout ? 0.46 : 0.56} />
           </g>
         )}
-        {token.tag?.kind === 'win' && <circle className="token__win-ring" r={0.52} />}
+        {token.tag?.kind === 'win' && <circle className="token__win-ring" r={0.54} />}
         {inspected && <circle className="token__inspect-ring" r={0.5} />}
         {passTarget && <circle className="token__target-ring" r={0.54} />}
         <circle className="token__hit" r={hitR} />
-        <circle className="token__body" r={0.4} />
-        <ellipse className="token__gloss" cx={-0.11} cy={-0.18} rx={0.2} ry={0.11} transform="rotate(-28 -0.11 -0.18)" />
-        <text className="token__abbr" y={0.02}>
-          {token.abbr}
-        </text>
+        <TokenMedal charId={token.charId} team={token.team} number={token.number} abbr={token.abbr} />
         {token.hasBall && (
-          <g transform="translate(0.3 0.3)" pointerEvents="none">
-            <BallIcon r={0.17} />
+          <g transform="translate(-0.33 0.27)" pointerEvents="none">
+            <BallIcon r={0.19} />
           </g>
         )}
       </g>
@@ -109,10 +128,10 @@ export function DuelTag({ token, layout }: { token: TokenView; layout?: TokenLay
     <g className="token tag-pos" style={style} pointerEvents="none">
       <g className={`tag tag--${token.tag.kind} tag--${token.team}`} transform={`translate(0 ${ty})`}>
         <g className="tag__pop" data-testid={`duel-${token.tag.kind}-${token.id}`}>
-          <rect className="tag__plate" x={-tw / 2} y={-0.19} width={tw} height={0.38} rx={0.19} />
-          {token.tag.kind === 'win' && (
-            <rect className="tag__gold" x={-tw / 2} y={-0.19} width={tw} height={0.38} rx={0.19} />
-          )}
+          <path
+            className="tag__plate"
+            d={`M${-tw / 2 + 0.08} -0.2 H${tw / 2 + 0.08} L${tw / 2 - 0.08} 0.2 H${-tw / 2 - 0.08} Z`}
+          />
           <text className="tag__text">{token.tag.label}</text>
         </g>
       </g>

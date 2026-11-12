@@ -1,4 +1,7 @@
+import { getProfile } from '../../game/data/roster';
 import type { PassStyle } from '../../game/types';
+import { CharaMedal, Crest, Stars } from '../Chara';
+import type { SelectedView } from '../viewTypes';
 import './ActionBar.css';
 
 interface Props {
@@ -7,19 +10,50 @@ interface Props {
   disabled: boolean;
   onReset: () => void;
   onExecute: () => void;
+  /** The blue player the bar describes (null = none / turn is playing). */
+  selected?: SelectedView | null;
+  /** Tapping the strip opens the info sheet. */
+  onOpenInfo?: () => void;
   /** While picking a pass target: shows the style toggle in place of the progress dots. */
   passStyle?: PassStyle | null;
   onPassStyle?: (s: PassStyle) => void;
 }
 
-export function ActionBar({ plannedCount, total, disabled, onReset, onExecute, passStyle, onPassStyle }: Props) {
+export function ActionBar({ plannedCount, total, disabled, onReset, onExecute, selected, onOpenInfo, passStyle, onPassStyle }: Props) {
+  const sel = selected ?? null;
   return (
     <footer className="bar">
-      <button className="gbtn gbtn--neutral bar__reset" onClick={onReset} disabled={disabled} data-testid="reset">
-        リセット
+      <button
+        type="button"
+        className={`bar__who${sel ? ` bar__who--${sel.team}` : ''}`}
+        onClick={onOpenInfo}
+        disabled={!sel || disabled}
+        aria-label="選手の情報"
+      >
+        {sel ? (
+          <>
+            <span className="bar__medal">
+              <CharaMedal look={getProfile(sel.charId).look} team={sel.team} number={sel.number} abbr={sel.abbr} rarity={sel.rarity} />
+            </span>
+            <span className="bar__who-txt">
+              <i>{sel.title}</i>
+              <b>{sel.name}</b>
+              <Stars rarity={sel.rarity} size={11} />
+            </span>
+          </>
+        ) : (
+          <>
+            <span className="bar__crest">
+              <Crest team="blue" size={30} />
+            </span>
+            <span className="bar__who-txt">
+              <b>{disabled ? '試合中…' : '選手をタップ'}</b>
+            </span>
+          </>
+        )}
       </button>
-      {passStyle ? (
-        <div className="bar__progress">
+      <div className="bar__mid">
+        {passStyle ? (
           <div className="seg" role="group" aria-label="パスの種類">
             {(['ground', 'lofted'] as const).map((st) => (
               <button
@@ -35,21 +69,24 @@ export function ActionBar({ plannedCount, total, disabled, onReset, onExecute, p
               </button>
             ))}
           </div>
-        </div>
-      ) : (
-      <div className="bar__progress" data-testid="progress">
-        <div className="bar__dots">
-          {Array.from({ length: total }, (_, i) => (
-            <i key={i} className={i < plannedCount ? 'is-on' : ''} />
-          ))}
-        </div>
-        <div className="bar__count">
-          <b>{plannedCount}</b>/{total} 指定
-        </div>
+        ) : (
+          <div className="bar__progress" data-testid="progress">
+            <div className="bar__dots">
+              {Array.from({ length: total }, (_, i) => (
+                <i key={i} className={i < plannedCount ? 'is-on' : ''} />
+              ))}
+            </div>
+            <div className="bar__count a-num">
+              <b>{plannedCount}</b>/{total} 指定
+            </div>
+          </div>
+        )}
+        <button className="a-btn a-btn--dark a-btn--sm bar__reset" onClick={onReset} disabled={disabled} data-testid="reset">
+          <span>リセット</span>
+        </button>
       </div>
-      )}
-      <button className="gbtn gbtn--gold bar__exec" onClick={onExecute} disabled={disabled} data-testid="execute">
-        <span className="bar__play">▶</span> ターン実行
+      <button className="a-btn a-btn--yellow a-btn--lg bar__exec" onClick={onExecute} disabled={disabled} data-testid="execute">
+        <span>実行！</span>
       </button>
     </footer>
   );

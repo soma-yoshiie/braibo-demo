@@ -1,7 +1,7 @@
 import type { MatchState, PlayerId, TeamId, TurnEvent, Vec } from '../types';
 import { getCharacter } from '../data/characters';
 
-const TEAM_LABEL: Record<TeamId, string> = { blue: '青', red: '赤' };
+const TEAM_LABEL: Record<TeamId, string> = { blue: '蒼嵐', red: '紅蓮' };
 const pos = (v: Vec) => `(${v.x},${v.y})`;
 
 function name(state: MatchState, id: PlayerId): string {

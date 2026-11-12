@@ -1,0 +1,30 @@
+// global.css :root と同じ値（トークン）＋ キャラ絵だけで使う派生色。
+export const INK = '#151a2d'; // --ink
+export const GOLD = '#ffd34d'; // --c-yellow
+export const GOLD_LO = '#e09a12'; // --c-yellow-lo
+export const SKY = '#9ceaff'; // --c-sky
+
+export type TeamId = 'blue' | 'red';
+
+export interface TeamColors {
+  jer: string; // ジャージ上
+  jerD: string; // ジャージ下
+  main: string; // 帯・アクセント
+  light: string; // 札の上
+  rim: string; // リムライト
+  b1: string; // 地の中心
+  b2: string; // 地の中間（--c-*-hi 系）
+  b3: string; // 地の外（--c-*-lo 系）
+  glow: string;
+}
+
+export const TEAM: Record<TeamId, TeamColors> = {
+  blue: { jer: '#25a4ff', jerD: '#0a45b8', main: '#1c46c8', light: '#25a4ff', rim: SKY, b1: '#d6f8ff', b2: '#25a4ff', b3: '#0a45b8', glow: '#00c2ff' },
+  red: { jer: '#ff3b3b', jerD: '#b81224', main: '#b81224', light: '#ff8a00', rim: '#ff9a6a', b1: '#fff0c4', b2: '#ff5a2a', b3: '#b81224', glow: '#ff6a2a' },
+};
+
+export const SKIN = {
+  fair: { base: '#ffd9bb', shade: '#e9a888', mouth: '#b4574c' },
+  tan: { base: '#eab07c', shade: '#c9835a', mouth: '#9c4a3c' },
+  brown: { base: '#a96c45', shade: '#7f4a2d', mouth: '#5e2a26' },
+} as const;

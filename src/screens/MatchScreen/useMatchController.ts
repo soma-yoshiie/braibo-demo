@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { planAiTurn } from '../../game/ai/simpleAi';
 import { getCharacter } from '../../game/data/characters';
+import { getProfile } from '../../game/data/roster';
+import type { SaveSettings } from '../../meta/save';
 import { ballHolder, createMatch } from '../../game/engine/match';
 import { describeEvent } from '../../game/engine/log';
 import { createRng, randomSeed } from '../../game/engine/rng';
@@ -36,10 +38,13 @@ import type {
   ArrowView,
   BallView,
   BurstView,
+  DuelCutInView,
+  GoalFxView,
   LogLine,
   PassTargetView,
   PlanView,
   RadialMenuView,
+  SelectedView,
   SpaceCellView,
   TokenView,
   TrajectoryView,
@@ -54,6 +59,14 @@ export interface HintView {
   sub?: string;
   warn?: boolean;
 }
+/** Contract between the app shell and the match screen (DESIGN-UI §14.1). */
+export interface MatchScreenProps {
+  lineups: { blue: string[]; red: string[] };
+  settings: SaveSettings;
+  onSettings: (patch: Partial<SaveSettings>) => void;
+  onFinished: (score: Record<TeamId, number>) => void;
+  onHome: () => void;
+}
 type BallDisp = { kind: 'held'; id: PlayerId } | { kind: 'free'; pos: Vec; snap: boolean };
 
 const USE_AI = true;
@@ -64,6 +77,10 @@ const GOAL_MS = 1400;
 const CLASH_MS = 380;
 const DUEL_RESULT_MS = 900;
 const SETTLE_MS = 200;
+/** Cut-ins (DESIGN-UI §14.10): a duel lasts ~1.6 s, the goal ~1.9 s; reduced motion closes after 700 ms. */
+const DUEL_CUTIN_MS = 1600;
+const GOAL_CUTIN_MS = 1900;
+const REDUCED_CUTIN_MS = 700;
 /** Early through pass intercepted on the lane: the ball reaches the interceptor before anyone moves. */
 const EARLY_STEAL_MS = 300;
 
@@ -98,14 +115,22 @@ interface Match {
   state: MatchState;
   rng: Rng;
 }
-function newMatch(early: boolean): Match {
-  return { state: createMatch({ throughPass: early ? 'early' : 'legacy' }), rng: createRng(randomSeed()) };
+function newMatch(early: boolean, lineups: MatchScreenProps['lineups']): Match {
+  return {
+    state: createMatch({ lineups, throughPass: early ? 'early' : 'legacy' }),
+    rng: createRng(randomSeed()),
+  };
 }
-const DEFAULT_EARLY = RULES.throughPass.defaultMode === 'early';
 
-export function useMatchController() {
+export function useMatchController(props: MatchScreenProps) {
+  const propsRef = useRef(props);
+  propsRef.current = props;
   const matchRef = useRef<Match | null>(null);
-  if (matchRef.current === null) matchRef.current = newMatch(DEFAULT_EARLY);
+  if (matchRef.current === null) matchRef.current = newMatch(props.settings.throughEarly, props.lineups);
+  /** The finished state `onFinished` was already called for (one call per finished match, StrictMode-proof). */
+  const finishedRef = useRef<MatchState | null>(null);
+  /** The open cut-in wait: resolved by its timeout, by a tap, or when the screen goes away. */
+  const cutWaitRef = useRef<{ resolve: () => void; timer: ReturnType<typeof setTimeout> } | null>(null);
 
   const [state, setState] = useState<MatchState>(() => (matchRef.current as Match).state);
   const [phase, setPhase] = useState<Phase>('start');
@@ -117,8 +142,8 @@ export function useMatchController() {
   const [inspectId, setInspectId] = useState<PlayerId | null>(null);
   const [pick, setPick] = useState<PickMode>(null);
   const [passStyle, setPassStyleState] = useState<PassStyle>('ground');
-  const [timerOn, setTimerOn] = useState(MATCH.planningSeconds > 0);
-  const [throughOn, setThroughOn] = useState(DEFAULT_EARLY);
+  const [timerOn, setTimerOnState] = useState(props.settings.timerOn);
+  const [throughOn, setThroughOn] = useState(props.settings.throughEarly);
   const [timeLeft, setTimeLeft] = useState(TIMER_SECONDS);
   const [log, setLog] = useState<LogLine[]>([]);
   const [logOpen, setLogOpen] = useState(false);
@@ -132,7 +157,8 @@ export function useMatchController() {
   const [fx, setFx] = useState<Record<PlayerId, TokenFx>>({});
   const [bursts, setBursts] = useState<BurstView[]>([]);
   const [trajectory, setTrajectory] = useState<TrajectoryView | null>(null);
-  const [goalFx, setGoalFx] = useState<number | null>(null);
+  const [goalFx, setGoalFx] = useState<GoalFxView | null>(null);
+  const [cutIn, setCutIn] = useState<DuelCutInView | null>(null);
   const [shownScore, setShownScore] = useState<Record<TeamId, number> | null>(null);
   const [ballExtra, setBallExtra] = useState<{ arc: number; flightKey: number; ms: number }>({
     arc: 0,
@@ -149,6 +175,28 @@ export function useMatchController() {
   const idRef = useRef(0);
   const nextId = () => ++idRef.current;
 
+  /** Resolve the pending cut-in wait now (tap on the cut-in, restart, unmount). Safe to call any time. */
+  const endCutInWait = useCallback(() => {
+    const w = cutWaitRef.current;
+    if (!w) return;
+    cutWaitRef.current = null;
+    clearTimeout(w.timer);
+    w.resolve();
+  }, []);
+  /** Hold for `ms`, or until a tap / restart / unmount ends it: the turn sequence can never hang on a cut-in. */
+  const holdCutIn = useCallback(
+    (ms: number) =>
+      new Promise<void>((resolve) => {
+        endCutInWait();
+        const timer = setTimeout(() => {
+          if (cutWaitRef.current?.timer === timer) cutWaitRef.current = null;
+          resolve();
+        }, ms);
+        cutWaitRef.current = { resolve, timer };
+      }),
+    [endCutInWait],
+  );
+
   useEffect(() => {
     // A remount / HMR keeps refs and state: if a turn was cut off mid-animation (cleanup bumped runRef so the
     // run bailed out), drop the leftover busy flag and effects and return to planning on the last committed state.
@@ -160,6 +208,7 @@ export function useMatchController() {
       setBanner(null);
       setTrajectory(null);
       setGoalFx(null);
+      setCutIn(null);
       setShownScore(null);
       setTopId(null);
       setSpread(true);
@@ -173,6 +222,7 @@ export function useMatchController() {
     }
     return () => {
       runRef.current++;
+      endCutInWait();
       if (noticeTimer.current) clearTimeout(noticeTimer.current);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -589,6 +639,7 @@ export function useMatchController() {
     const alive = () => runRef.current === myRun;
     const reduced = prefersReducedMotion();
     const T = (ms: number) => (reduced ? Math.round(ms / 2) : ms);
+    const cutOn = propsRef.current.settings.cutIn;
     const wait = (ms: number) => new Promise<void>((res) => setTimeout(res, ms));
     try {
       setPhase('resolving');
@@ -651,6 +702,40 @@ export function useMatchController() {
         }
       }
 
+      /** Cut-in model for a duel (null when it should not be shown, e.g. two players of one team). */
+      const buildCutIn = (d: DuelEv, aerial: boolean, holderTeam: TeamId | null): DuelCutInView | null => {
+        if (teamOf(d.aId) === teamOf(d.bId)) return null;
+        const blueId = teamOf(d.aId) === 'blue' ? d.aId : d.bId;
+        const redId = blueId === d.aId ? d.bId : d.aId;
+        const charOf = (id: PlayerId): string => cur.players.find((p) => p.id === id)?.charId ?? '';
+        const stat = (id: PlayerId): number => getCharacter(charOf(id)).stats[aerial ? 'aerial' : 'physical'];
+        const winner = teamOf(d.winnerId);
+        const blueRate = Math.min(1, Math.max(0, blueId === d.aId ? d.pAWins : 1 - d.pAWins));
+        const mine = winner === 'blue';
+        const resultLine = d.loose
+          ? mine ? 'こぼれ球を確保' : 'こぼれ球を奪われた'
+          : holderTeam === winner
+            ? mine ? 'ボールキープ成功' : 'ボールを守られた'
+            : mine ? 'ボール奪取！' : 'ボールを奪われた';
+        return {
+          key: nextId(),
+          aerial,
+          blue: { charId: charOf(blueId), value: stat(blueId) },
+          red: { charId: charOf(redId), value: stat(redId) },
+          blueRate,
+          winner,
+          resultLine,
+        };
+      };
+      /** Show the cut-in and wait for it (timeout / tap / restart). Returns false when the screen went away. */
+      const playDuelCutIn = async (view: DuelCutInView | null): Promise<boolean> => {
+        if (!cutOn || !view) return true;
+        setCutIn(view);
+        await holdCutIn(reduced ? REDUCED_CUTIN_MS : DUEL_CUTIN_MS);
+        setCutIn(null);
+        return alive();
+      };
+
       /** Show impact + clash scale for the given duels; returns after the burst. */
       const showClash = async (duels: DuelEv[], at?: Vec) => {
         setBursts(
@@ -694,7 +779,9 @@ export function useMatchController() {
       if (earlyEv) {
         // nothing to do here: the movement is played together with the flight below
       } else if (groundDuel) {
-        // (a2) impact -> WIN / LOSE tags while both settle side by side in the cell (swap: onto their new cells)
+        // (a2) cut-in, then impact -> WIN / LOSE tags while both settle side by side in the cell (swap: onto their new cells)
+        const holderBefore = cur.ball.kind === 'held' ? teamOf(cur.ball.playerId) : null;
+        if (!(await playDuelCutIn(buildCutIn(groundDuel, false, holderBefore)))) return;
         await showClash([groundDuel], clashAt);
         if (!alive()) return;
         setFx(tagResult([groundDuel], false, T(SETTLE_MS)));
@@ -791,7 +878,7 @@ export function useMatchController() {
             text = 'GOAL!!';
             big = true;
             goal = true;
-            sub = `青 ${scoreAfter.blue} - ${scoreAfter.red} 赤`;
+            sub = `蒼嵐 ${scoreAfter.blue} - ${scoreAfter.red} 紅蓮`;
           } else text = ev.outcome === 'blocked' ? 'ブロック！' : 'シュート失敗';
         }
         // flight
@@ -851,6 +938,8 @@ export function useMatchController() {
         // aerial duel on a delivered cross
         let aerialShown = false;
         if (isCross && ev.outcome !== 'failed' && aerialDuels.length > 0) {
+          const cutDuel = aerialDuels.find((d) => d.forBall) ?? aerialDuels[0];
+          if (!(await playDuelCutIn(cutDuel ? buildCutIn(cutDuel, true, teamOf(ev.passerId)) : null))) return;
           await showClash(aerialDuels);
           if (!alive()) return;
           setFx(tagResult(aerialDuels, true));
@@ -859,12 +948,14 @@ export function useMatchController() {
           aerialShown = true;
         }
         setBanner({ id: nextId(), text, sub, big, team: winner ?? actor, flag });
+        const scorerChar = ev.type === 'shot' ? cur.players.find((p) => p.id === ev.shooterId)?.charId : undefined;
         if (goal) {
-          setGoalFx(nextId());
+          setGoalFx({ key: nextId(), scorer: cutOn && scorerChar ? { charId: scorerChar, team: actor } : undefined });
           setShownScore({ ...scoreAfter });
           setBump({ team: actor, key: nextId() });
         }
-        await wait(T(big ? GOAL_MS : BANNER_MS));
+        if (goal && cutOn && scorerChar) await holdCutIn(reduced ? REDUCED_CUTIN_MS : GOAL_CUTIN_MS);
+        else await wait(T(big ? GOAL_MS : BANNER_MS));
         if (!alive()) return;
         setBanner(null);
         setGoalFx(null);
@@ -900,6 +991,10 @@ export function useMatchController() {
       busyRef.current = false;
       if (after.phase === 'finished') {
         setPhase('finished');
+        if (finishedRef.current !== after) {
+          finishedRef.current = after;
+          propsRef.current.onFinished({ ...after.score });
+        }
       } else {
         resetPlanning(after);
         setTimeLeft(TIMER_SECONDS);
@@ -935,7 +1030,9 @@ export function useMatchController() {
   const resetMatch = useCallback(
     (on: boolean) => {
       runRef.current++;
-      const m = newMatch(on);
+      endCutInWait();
+      setCutIn(null);
+      const m = newMatch(on, propsRef.current.lineups);
       matchRef.current = m;
       setState(m.state);
       setSpread(true);
@@ -955,7 +1052,7 @@ export function useMatchController() {
       setTimeLeft(TIMER_SECONDS);
       setPhase('start');
     },
-    [resetPlanning],
+    [resetPlanning, endCutInWait],
   );
 
   const restart = useCallback(() => {
@@ -968,10 +1065,15 @@ export function useMatchController() {
     (on: boolean) => {
       if (busyRef.current) return;
       setThroughOn(on);
+      propsRef.current.onSettings({ throughEarly: on });
       resetMatch(on);
     },
     [resetMatch],
   );
+  const setTimerOn = useCallback((on: boolean) => {
+    setTimerOnState(on);
+    propsRef.current.onSettings({ timerOn: on });
+  }, []);
 
   // ---------- view models ----------
   const reducedNow = prefersReducedMotion();
@@ -982,6 +1084,8 @@ export function useMatchController() {
       id: p.id,
       team: p.team,
       abbr: getCharacter(p.charId).abbr,
+      charId: p.charId,
+      number: getProfile(p.charId).number,
       x: d.x,
       y: d.y,
       hasBall: ballDisp.kind === 'held' && ballDisp.id === p.id,
@@ -1011,6 +1115,8 @@ export function useMatchController() {
         .map((p) => ({
           id: p.id,
           abbr: getCharacter(p.charId).abbr,
+          charId: p.charId,
+          number: getProfile(p.charId).number,
           from: p.pos,
           to: plans[p.id],
           stay: sameVec(plans[p.id], p.pos),
@@ -1030,12 +1136,19 @@ export function useMatchController() {
   const info: InfoView | null = infoPlayer
     ? (() => {
         const c = getCharacter(infoPlayer.charId);
+        const pr = getProfile(infoPlayer.charId);
         return {
           team: infoPlayer.team,
+          charId: infoPlayer.charId,
           name: c.name,
+          title: pr.title,
+          rarity: pr.rarity,
+          number: pr.number,
           abbr: c.abbr,
           description: c.description,
           stats: c.stats,
+          bonus: pr.bonus,
+          skills: c.skills,
           role: c.role,
         };
       })()
@@ -1123,6 +1236,15 @@ export function useMatchController() {
     return { x: at.x, y: at.y, items };
   })();
 
+  const selectedView: SelectedView | null =
+    selectedPlayer && selectedPlayer.team === 'blue'
+      ? (() => {
+          const c = getCharacter(selectedPlayer.charId);
+          const pr = getProfile(selectedPlayer.charId);
+          return { team: 'blue' as const, charId: c.id, name: c.name, title: pr.title, number: pr.number, abbr: c.abbr, rarity: pr.rarity };
+        })()
+      : null;
+
   const hint: HintView | null = notice
     ? { text: notice, warn: true }
     : planning && pick === 'pass'
@@ -1152,6 +1274,15 @@ export function useMatchController() {
     setHudMenuOpen,
     banner,
     goalFx,
+    cutIn,
+    endCutIn: endCutInWait,
+    selectedView,
+    openSelectedInfo: () => {
+      if (planning) {
+        setMenuOpen(false);
+        setInfoId(selectedId);
+      }
+    },
     tokens,
     ball,
     trajectory,

@@ -1,70 +1,75 @@
+import { getCharacter } from '../../game/data/characters';
+import { getProfile } from '../../game/data/roster';
+import { CharaMedal, Crest, SpeedLines } from '../Chara';
 import './Overlays.css';
 
 interface Props {
+  blue: string[];
+  red: string[];
   timerOn: boolean;
   seconds: number;
   onToggleTimer: (v: boolean) => void;
   throughOn: boolean;
   onToggleThrough: (v: boolean) => void;
   onStart: () => void;
+  onHome: () => void;
 }
 
-export function StartOverlay({ timerOn, seconds, onToggleTimer, throughOn, onToggleThrough, onStart }: Props) {
+function Squad({ team, ids }: { team: 'blue' | 'red'; ids: string[] }) {
   return (
-    <div className="overlay overlay--start" data-testid="start-overlay">
-      <div className="card card--start">
-        <h1 className="logo" aria-label="BRAIBO">
-          <svg viewBox="0 0 300 78" className="logo__svg" role="img" aria-hidden="true">
-            <defs>
-              <linearGradient id="logo-gold" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0" stopColor="#fff3c4" />
-                <stop offset="0.5" stopColor="#e5bd5a" />
-                <stop offset="1" stopColor="#a8822c" />
-              </linearGradient>
-            </defs>
-            <text x="150" y="62" textAnchor="middle" className="logo__shadow">
-              BRAIBO
-            </text>
-            <text x="150" y="58" textAnchor="middle" className="logo__text">
-              BRAIBO
-            </text>
-          </svg>
-        </h1>
-        <div className="card__tag">BRAIN × BALL</div>
-        <ol className="howto">
-          <li>
-            <i>1</i>青の選手をタップして移動先を指定
-          </li>
-          <li>
-            <i>2</i>ボール保持者はシュート・パス・クロスを選ぶ
-          </li>
-          <li>
-            <i>3</i>「ターン実行」で敵と同時に動き出す！
-          </li>
-        </ol>
-        <p className="howto__note">敵と同じマスにも並べる。競り合いはボールがあるマスだけ、負けてもその場に残る。</p>
-        {throughOn && (
-          <p className="howto__note howto__note--through">
-            スルーパス（空きマスへのパス）は動く前に蹴る。オフサイドは今の位置で決まる。
-          </p>
-        )}
-        <label className="toggle">
-          <span>作戦タイマー（{seconds}秒）</span>
-          <input type="checkbox" checked={timerOn} onChange={(e) => onToggleTimer(e.target.checked)} />
-          <i className="toggle__track" />
-        </label>
-        <label className="toggle">
-          <span>先出しスルーパス（新ルール）</span>
-          <input
-            type="checkbox"
-            checked={throughOn}
-            onChange={(e) => onToggleThrough(e.target.checked)}
-            data-testid="through-toggle"
-          />
-          <i className="toggle__track" />
-        </label>
-        <button className="gbtn gbtn--gold cta" onClick={onStart} data-testid="start-button">
-          キックオフ
+    <section className={`vs__team vs__team--${team}`}>
+      <div className="vs__head">
+        <Crest team={team} size={22} />
+        <b className="a-head a-head--md">{team === 'blue' ? '蒼嵐' : '紅蓮'}</b>
+        <span className={`a-tag a-tag--${team}`}>{team === 'blue' ? 'YOU' : 'AI'}</span>
+      </div>
+      <div className="vs__row">
+        {ids.map((id) => {
+          const p = getProfile(id);
+          return (
+            <div key={id} className="vs__who">
+              <div className="vs__medal">
+                <CharaMedal look={p.look} team={team} number={p.number} abbr={getCharacter(id).abbr} rarity={p.rarity} />
+              </div>
+              <span>{p.name}</span>
+            </div>
+          );
+        })}
+      </div>
+    </section>
+  );
+}
+
+export function StartOverlay({ blue, red, timerOn, seconds, onToggleTimer, throughOn, onToggleThrough, onStart, onHome }: Props) {
+  return (
+    <div className="overlay overlay--start a-stage" data-testid="start-overlay">
+      <div className="vs__bg a-halftone" />
+      <div className="vs__lines">
+        <SpeedLines />
+      </div>
+      <div className="vs__body">
+        <Squad team="red" ids={red} />
+        <div className="vs__mid" aria-hidden="true">
+          <span className="vs__vs a-head a-head--yellow">VS</span>
+        </div>
+        <Squad team="blue" ids={blue} />
+        <div className="vs__opts">
+          <label className="opt">
+            <span>作戦タイマー（{seconds}秒）</span>
+            <input type="checkbox" checked={timerOn} onChange={(e) => onToggleTimer(e.target.checked)} />
+            <i className="opt__track" />
+          </label>
+          <label className="opt">
+            <span>先出しスルーパス</span>
+            <input type="checkbox" checked={throughOn} onChange={(e) => onToggleThrough(e.target.checked)} data-testid="through-toggle" />
+            <i className="opt__track" />
+          </label>
+        </div>
+        <button className="a-btn a-btn--yellow a-btn--lg a-btn--block vs__go" onClick={onStart} data-testid="start-button">
+          <span>キックオフ！</span>
+        </button>
+        <button className="a-btn a-btn--dark a-btn--sm vs__home" onClick={onHome} data-testid="start-home">
+          <span>ホームへ</span>
         </button>
       </div>
     </div>

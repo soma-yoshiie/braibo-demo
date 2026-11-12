@@ -1,4 +1,5 @@
-import type { CharacterDef, RoleId } from '../types';
+import type { CharacterDef, RoleId, Stats } from '../types';
+import { ROSTER } from './roster';
 
 /**
  * Initial roster. Adding a character = adding an entry here.
@@ -96,10 +97,25 @@ export const CHARACTERS: CharacterDef[] = [
 
 const BY_ID = new Map(CHARACTERS.map((c) => [c.id, c]));
 
+const clamp = (v: number): number => Math.min(99, Math.max(1, v));
+
+const PROFILE_BY_ID = new Map(ROSTER.map((p) => [p.id, p]));
+const ROSTER_CACHE = new Map<string, CharacterDef>();
+
+/** Resolves archetype ids and roster ids (archetype of the same role + name + stats with bonus, DESIGN.md §12.1). */
 export function getCharacter(id: string): CharacterDef {
   const c = BY_ID.get(id);
-  if (!c) throw new Error(`Unknown character: ${id}`);
-  return c;
+  if (c) return c;
+  const cached = ROSTER_CACHE.get(id);
+  if (cached) return cached;
+  const profile = PROFILE_BY_ID.get(id);
+  const base = profile ? BY_ID.get(profile.role) : undefined;
+  if (!profile || !base) throw new Error(`Unknown character: ${id}`);
+  const stats = { ...base.stats };
+  for (const k of Object.keys(profile.bonus) as (keyof Stats)[]) stats[k] = clamp(base.stats[k] + (profile.bonus[k] ?? 0));
+  const def: CharacterDef = { ...base, id: profile.id, name: profile.name, stats };
+  ROSTER_CACHE.set(id, def);
+  return def;
 }
 
 export const ROLE_LABEL: Record<RoleId, string> = {

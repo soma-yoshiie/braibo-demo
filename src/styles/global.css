@@ -23,8 +23,24 @@
   --ok: #3ddc84;
   --warn: #ffb547;
   --font-jp: 'M PLUS Rounded 1c', 'Hiragino Maru Gothic ProN', 'Hiragino Sans', 'Noto Sans JP', sans-serif;
-  --font-num: 'Oswald', 'Hiragino Sans', 'Arial Narrow', sans-serif;
+  --font-num: 'Bebas Neue', 'Oswald', 'Hiragino Sans', 'Arial Narrow', sans-serif;
   --shadow-plate: 0 6px 18px rgba(0, 0, 0, 0.45);
+
+  /* v0.6 anime character battle — see DESIGN-UI.md §14.1 */
+  --ink: #151a2d;
+  --c-blue: #1c46c8;
+  --c-blue-hi: #25a4ff;
+  --c-blue-lo: #0a45b8;
+  --c-red: #b81224;
+  --c-red-hi: #ff3b3b;
+  --c-red-lo: #7d0a16;
+  --c-yellow: #ffd34d;
+  --c-yellow-lo: #e09a12;
+  --c-sky: #9ceaff;
+  --c-panel: #1b2242;
+  --c-panel-2: #262f5c;
+  --c-paper: #fff8e6;
+  --font-head: 'Dela Gothic One', 'M PLUS Rounded 1c', 'Hiragino Sans', 'Noto Sans JP', sans-serif;
 
   --bg: var(--navy-800);
   --bg-elev: var(--navy-700);

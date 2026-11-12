@@ -11,3 +11,4 @@ export * from './engine/resolve';
 export * from './engine/log';
 export * from './data/characters';
 export * from './data/formations';
+export * from './data/roster';

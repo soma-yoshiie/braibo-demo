@@ -1,0 +1,14 @@
+.cg-page { background: #0c1330; color: #fff; padding: 12px; font-family: 'M PLUS Rounded 1c', sans-serif; min-height: 100%; overflow-y: auto; }
+.cg-page h2 { margin: 0 0 8px; font-family: 'Dela Gothic One', sans-serif; }
+.cg-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(520px, 1fr)); gap: 10px; }
+.cg-card { background: #1b2242; border: 2px solid #151a2d; border-radius: 8px; padding: 8px; }
+.cg-card h3 { margin: 0 0 6px; font-size: 14px; }
+.cg-card h3 small { color: #ffd34d; font-weight: 400; margin-left: 6px; }
+.cg-id { display: block; font-size: 10px; color: #9ab; font-weight: 400; }
+.cg-row { display: flex; gap: 6px; align-items: flex-end; flex-wrap: wrap; }
+.cg-bust { width: 82px; height: 82px; overflow: hidden; border-radius: 6px; }
+.cg-bg { background: #8ec9ff22; }
+.cg-medalset { display: flex; gap: 8px; align-items: flex-end; margin-top: 6px; padding-right: 10px; }
+.cg-medals { gap: 14px; background: #2f8a4f; border-radius: 6px; padding: 4px 6px; }
+.cg-g { background: transparent; }
+.cg-misc { grid-column: 1 / -1; margin-top: 10px; }

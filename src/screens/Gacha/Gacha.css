@@ -1,0 +1,165 @@
+.gacha__main { padding: 10px calc(12px + var(--safe-right)) 8px calc(12px + var(--safe-left)); gap: 10px; justify-content: center; }
+.gacha__banner {
+  position: relative;
+  flex: 1;
+  min-height: 150px;
+  max-height: 330px;
+  border: 3px solid var(--ink);
+  border-radius: 12px;
+  background: linear-gradient(160deg, #ff9ad5, #8a5cff 50%, #3ad0ff);
+  box-shadow: 0 4px 0 var(--ink);
+  overflow: hidden;
+}
+.gacha__rays { position: absolute; inset: 0; opacity: 0.9; }
+.gacha__b { position: absolute; aspect-ratio: 1; filter: drop-shadow(0 4px 0 rgba(21, 26, 45, 0.5)); }
+.gacha__b--0 { left: -9%; bottom: -14%; width: 46%; }
+.gacha__b--1 { left: 50%; bottom: -20%; width: 62%; transform: translateX(-50%); z-index: 1; }
+.gacha__b--2 { right: -9%; bottom: -14%; width: 46%; }
+.gacha__sign { position: absolute; left: 8px; top: 8px; z-index: 2; display: flex; flex-direction: column; align-items: flex-start; gap: 3px; }
+.gacha__signtitle { font-size: 26px; font-weight: 400; color: var(--c-yellow); transform: rotate(-3deg); transform-origin: left; }
+.gacha__btns { flex: none; display: grid; gap: 10px; padding: 0 4px; }
+.gacha__pull { min-height: 56px; font-size: 22px; }
+.gacha__pull--10 { min-height: 64px; }
+.gacha__cost { font-weight: 400; font-size: 28px; margin-left: 4px; color: var(--c-yellow); }
+.gacha__pull--10 .gacha__cost { color: #fff; }
+.gacha__p10 { display: flex; flex-direction: column; align-items: center; gap: 2px; }
+.gacha__p10 em { font-style: normal; font-size: 12px; -webkit-text-stroke-width: 0; color: #fff; text-shadow: 0 1px 0 var(--ink), 0 -1px 0 var(--ink), 1px 0 0 var(--ink), -1px 0 0 var(--ink); }
+.gacha__short { flex: none; margin: -2px 0 0; text-align: center; font-size: 12px; color: var(--c-yellow); }
+.gacha__ratesbtn {
+  flex: none;
+  align-self: center;
+  min-height: 44px;
+  padding: 0 18px;
+  border: 0;
+  background: none;
+  color: var(--c-sky);
+  font-size: 14px;
+  text-decoration: underline;
+  text-underline-offset: 4px;
+}
+.gacha__notice {
+  flex: none;
+  margin: 0;
+  padding: 6px 10px;
+  border: 2px solid var(--ink);
+  border-radius: 6px;
+  background: var(--c-paper);
+  color: var(--ink);
+  text-align: center;
+  font-size: 12px;
+  line-height: 1.35;
+}
+
+/* ---- stage ---- */
+.gstage { position: fixed; inset: 0; z-index: 70; overflow: hidden; color: #fff; }
+.gstage__bg { position: absolute; inset: 0; background: radial-gradient(circle at 50% 45%, #2c3a80, #070a18 70%); }
+.gstage__skip {
+  position: absolute;
+  inset: 0;
+  z-index: 10;
+  border: 0;
+  background: transparent;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  padding: 0 0 calc(18px + var(--safe-bottom));
+  color: rgba(255, 255, 255, 0.75);
+  font-size: 12px;
+}
+.gstage__ballwrap { position: absolute; inset: 0; display: grid; place-items: center; }
+.gstage__ball { position: absolute; width: 150px; height: 150px; animation: g-ball 1.7s cubic-bezier(0.3, 0.6, 0.4, 1) both; z-index: 2; }
+.gstage__ring, .gstage__burst, .gstage__flash { position: absolute; opacity: 0; pointer-events: none; }
+.gstage__ring { width: 120px; height: 120px; border-radius: 50%; border: 10px solid var(--tc); animation: g-ring 0.7s 1.05s ease-out forwards; }
+.gstage__burst { width: 340px; height: 340px; background: var(--tb); animation: g-burst 0.7s 1.05s cubic-bezier(0.2, 1.3, 0.4, 1) forwards; }
+.gstage__flash { inset: 0; background: #fff; animation: g-flash 0.45s 1.05s ease-out forwards; }
+.gstage--t3 { --tc: #25a4ff; --tb: radial-gradient(circle, #d6f8ff, #25a4ff 60%, #0a45b8); }
+.gstage--t4 { --tc: #ffd34d; --tb: radial-gradient(circle, #fff7c2, #ffd34d 55%, #e09a12); }
+.gstage--t5 { --tc: #ff7ab8; --tb: conic-gradient(#ff4f6a, #ffd34d, #4fe08a, #3ad0ff, #8a5cff, #ff4f6a); }
+@keyframes g-ball {
+  0% { transform: translateY(-34vh) scale(0.08) rotate(0); opacity: 0; }
+  15% { opacity: 1; }
+  62% { transform: translateY(0) scale(1.25) rotate(900deg); opacity: 1; }
+  100% { transform: translateY(0) scale(0.2) rotate(1000deg); opacity: 0; }
+}
+@keyframes g-ring { 0% { transform: scale(0.2); opacity: 1; } 100% { transform: scale(4.5); opacity: 0; } }
+@keyframes g-burst { 0% { transform: scale(0.1) rotate(0); opacity: 1; } 60% { transform: scale(1.3) rotate(25deg); opacity: 1; } 100% { transform: scale(1.8) rotate(35deg); opacity: 0; } }
+@keyframes g-flash { 0% { opacity: 0.55; } 100% { opacity: 0; } }
+
+.grev { position: absolute; inset: 0; display: grid; place-items: center; }
+.grev__card {
+  position: relative;
+  width: min(280px, 76vw);
+  height: min(380px, 56vh);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  border-width: 4px;
+  animation: g-card 0.42s cubic-bezier(0.2, 1.5, 0.4, 1) both;
+}
+.grev .grev__card--r3 { background: linear-gradient(180deg, #3a7dd8, #1c3f9e); box-shadow: 0 4px 0 var(--ink), 0 0 40px #25a4ff; }
+.grev .grev__card--r4 { background: linear-gradient(180deg, #ffe27a, #d98a10); box-shadow: 0 4px 0 var(--ink), 0 0 40px #ffd34d; }
+.grev__rays { position: absolute; inset: 0; }
+.grev__bust { position: absolute; left: 4%; right: 4%; top: 6%; aspect-ratio: 1; }
+.grev__info { position: relative; display: flex; flex-direction: column; align-items: center; gap: 3px; padding: 24px 8px 12px; background: linear-gradient(180deg, transparent, rgba(21, 26, 45, 0.92) 30%); }
+.grev__title { padding: 1px 8px; background: var(--ink); border-radius: 3px; color: var(--c-yellow); font-size: 12px; }
+.grev__name { font-size: 26px; font-weight: 400; word-break: keep-all; text-align: center; }
+.grev__new { position: absolute; right: 8px; top: 8px; font-size: 16px; padding: 3px 10px; }
+.grev__count, .gcut__count { position: absolute; top: calc(14px + var(--safe-top)); right: 16px; font-size: 20px; color: #fff; text-shadow: 0 2px 0 var(--ink); }
+@keyframes g-card { from { transform: scale(0.3) rotate(-8deg); opacity: 0; } to { transform: none; opacity: 1; } }
+
+.gcut { position: absolute; inset: 0; overflow: hidden; }
+.gcut__bg { position: absolute; inset: 0; background: conic-gradient(from 0deg at 50% 55%, #ff4f6a, #ffd34d, #4fe08a, #3ad0ff, #8a5cff, #ff4f6a); animation: g-spin 6s linear infinite; transform-origin: 50% 55%; scale: 2.2; }
+.gcut__rays { position: absolute; inset: -10%; animation: g-zoom 0.9s ease-out both; }
+.gcut__bust { position: absolute; left: -12%; bottom: 14%; width: 118%; aspect-ratio: 1; max-height: 70%; filter: drop-shadow(0 6px 0 rgba(21, 26, 45, 0.6)); animation: g-bust 0.5s 0.15s cubic-bezier(0.2, 1.3, 0.4, 1) both; }
+.gcut__text { position: absolute; left: 0; right: 0; bottom: calc(42px + var(--safe-bottom)); display: flex; flex-direction: column; align-items: center; gap: 4px; text-align: center; padding: 0 12px; animation: g-text 0.5s 0.5s cubic-bezier(0.2, 1.4, 0.4, 1) both; }
+.gcut__rare { padding: 1px 14px; background: var(--ink); color: var(--c-yellow); font-size: 22px; letter-spacing: 0.15em; transform: skewX(-10deg); }
+.gcut__title { font-size: 20px; -webkit-text-stroke-width: 4px; font-weight: 400; transform: rotate(-3deg); }
+.gcut__name { font-size: clamp(34px, 11vw, 46px); -webkit-text-stroke-width: 6px; text-shadow: 0 4px 0 var(--ink); font-weight: 400; word-break: keep-all; line-height: 1.05; }
+.gcut__new { position: absolute; left: 14px; top: calc(14px + var(--safe-top)); font-size: 18px; padding: 3px 10px; }
+@keyframes g-spin { to { transform: rotate(360deg); } }
+@keyframes g-zoom { from { transform: scale(0.4); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+@keyframes g-bust { from { transform: translateX(-60%) scale(0.8); opacity: 0; } to { transform: none; opacity: 1; } }
+@keyframes g-text { from { transform: scale(2); opacity: 0; } to { transform: none; opacity: 1; } }
+
+/* ---- result ---- */
+.gres { position: absolute; inset: 0; z-index: 11; display: flex; flex-direction: column; padding: calc(14px + var(--safe-top)) 12px calc(12px + var(--safe-bottom)); gap: 10px; }
+.gres__title { margin: 0; text-align: center; font-weight: 400; font-size: 32px; color: var(--c-yellow); }
+.gres__list { flex: 1; min-height: 0; overflow-y: auto; list-style: none; margin: 0; padding: 2px 2px 6px; display: grid; grid-template-columns: 1fr 1fr; grid-auto-rows: min-content; gap: 10px; align-content: center; }
+.gres__item {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 6px 8px 6px;
+  min-height: 92px;
+  border: 3px solid var(--ink);
+  border-radius: 8px;
+  background: linear-gradient(180deg, #3a7dd8, #1c3f9e);
+  box-shadow: 0 3px 0 var(--ink), inset 0 2px 0 rgba(255, 255, 255, 0.35);
+  animation: a-in-up 260ms both;
+  overflow: hidden;
+}
+.gres__item--r4 { background: linear-gradient(180deg, #ffe27a, #d98a10); color: var(--ink); }
+.gres__item--r5 { background: linear-gradient(160deg, #ff9ad5, #8a5cff 50%, #3ad0ff); }
+.gres__face { flex: none; width: 52px; height: 55px; }
+.gres__text { display: flex; flex-direction: column; min-width: 0; gap: 1px; }
+.gres__name { font-size: 14px; line-height: 1.2; font-weight: 800; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.gres__title2 { display: none; font-size: 11px; }
+.gres__tag { align-self: flex-start; margin-top: 3px; font-size: 12px; }
+.gres__item--r4 .gres__text svg, .gres__item--r5 .gres__text svg { padding: 2px 5px; border-radius: 8px; background: var(--ink); box-sizing: content-box; }
+.gres__list.is-single { grid-template-columns: 1fr; align-content: center; }
+.gres__list.is-single .gres__item { min-height: 120px; padding: 12px; gap: 12px; }
+.gres__list.is-single .gres__face { width: 90px; height: 95px; }
+.gres__list.is-single .gres__name { font-size: 22px; }
+.gres__list.is-single .gres__title2 { display: block; }
+.gres__list.is-single .gres__tag { font-size: 14px; }
+.gres__btns { flex: none; display: flex; gap: 12px; justify-content: center; padding-bottom: 4px; }
+.gres__btns .a-btn { flex: 1; max-width: 180px; }
+
+@media (prefers-reduced-motion: reduce) {
+  .gstage__ball, .gstage__ring, .gstage__burst, .gstage__flash, .gcut__bg, .gcut__rays, .gcut__bust, .gcut__text, .grev__card, .gres__item { animation: none; }
+}
+.gcut::after { content: ''; position: absolute; left: 0; right: 0; bottom: 0; height: 40%; background: linear-gradient(transparent, rgba(21, 26, 45, 0.9) 75%); pointer-events: none; }
+.gcut__text { z-index: 2; }
+.gres__short { flex: none; margin: -4px 0 -4px; text-align: center; font-size: 12px; color: var(--c-yellow); }

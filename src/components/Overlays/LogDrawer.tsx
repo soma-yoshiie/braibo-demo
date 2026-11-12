@@ -17,9 +17,9 @@ export function LogDrawer({ lines, onClose }: Props) {
   groups.reverse();
   return (
     <div className="overlay overlay--drawer" onClick={onClose} data-testid="log-drawer">
-      <div className="drawer" onClick={(e) => e.stopPropagation()}>
+      <div className="drawer a-panel" onClick={(e) => e.stopPropagation()}>
         <div className="drawer__head">
-          <b className="drawer__title">試合ログ</b>
+          <b className="drawer__title a-head a-head--md">試合ログ</b>
           <button className="drawer__close" onClick={onClose} aria-label="閉じる">
             ✕
           </button>
@@ -28,7 +28,7 @@ export function LogDrawer({ lines, onClose }: Props) {
           {groups.length === 0 && <div className="drawer__empty">まだログはありません</div>}
           {groups.map((g) => (
             <section key={g.turn} className="drawer__group">
-              <h3 className="drawer__turn">ターン {g.turn}</h3>
+              <h3 className="drawer__turn a-tag">TURN {g.turn}</h3>
               <ul>
                 {g.items.map((l) => (
                   <li key={l.id}>{l.text}</li>
