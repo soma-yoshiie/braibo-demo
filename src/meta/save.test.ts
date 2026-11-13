@@ -32,6 +32,7 @@ describe('save', () => {
     expect(s.owned.wg_hayate).toBeUndefined();
     expect(s.settings.cutIn).toBe(false);
     expect(s.settings.timerOn).toBe(defaultSave().settings.timerOn);
+    expect(s.settings.trap).toBe(true); // v0.8 field missing -> true
     expect(s.record).toEqual({ played: 2, won: 0, drawn: 0, lost: 0, goals: 0 });
     expect(s.pulls).toBe(0);
   });
@@ -77,6 +78,7 @@ describe('v2', () => {
     const s = parseSave(v1);
     expect(s.v).toBe(2);
     expect(s.coins).toBe(777);
+    expect(s.settings).toEqual({ timerOn: true, throughEarly: false, cutIn: false, trap: true });
     expect(s.lineup.striker).toBe('st_ouga');
     expect(s.record).toEqual({ played: 4, won: 2, drawn: 1, lost: 1, goals: 0 });
     expect(s.pulls).toBe(12);

@@ -301,3 +301,28 @@
     transition: none;
   }
 }
+
+.hud__half {
+  padding: 0 5px;
+  border: 2px solid var(--ink);
+  background: var(--c-yellow);
+  color: var(--ink);
+  font-size: 10px;
+  font-weight: 800;
+  line-height: 1.25;
+  transform: skewX(-8deg);
+}
+
+.hud__turnwrap {
+  position: relative;
+  flex: 0 0 auto;
+}
+.hud__turnwrap .hud__half {
+  position: absolute;
+  left: 50%;
+  bottom: -9px;
+  transform: translateX(-50%) skewX(-8deg);
+  white-space: nowrap;
+  pointer-events: none;
+  z-index: 1;
+}

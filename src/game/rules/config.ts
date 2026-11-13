@@ -34,6 +34,8 @@ export interface MatchConfig {
   planningSeconds: number;
   /** Team that kicks off at the start of the match. */
   firstKickoff: 'blue' | 'red';
+  /** v0.8: play two halves (DESIGN.md §14.2). Per-match override: MatchState.halves. */
+  halves: boolean;
 }
 
 export const MATCH: MatchConfig = {
@@ -41,6 +43,7 @@ export const MATCH: MatchConfig = {
   kickoffGap: 1,
   planningSeconds: 60,
   firstKickoff: 'blue',
+  halves: true,
 };
 
 /** Probability tunables. Stat deltas use (stat - 50) / divisor. */
@@ -89,6 +92,13 @@ export const RULES = {
   throughPass: {
     /** Used when MatchState.throughPass is missing. 'legacy' restores the v0.4 space pass. */
     defaultMode: 'early' as 'early' | 'legacy',
+  },
+  // ---- offside trap (v0.8) --------------------------------------------------
+  trap: {
+    /** Used when MatchState.trap is missing. */
+    enabled: true,
+    /** Turns after a declaration during which the same team cannot declare again. */
+    cooldown: 2,
   },
   // ---- offside ------------------------------------------------------------
   offside: {
@@ -159,6 +169,26 @@ export const RULES = {
 /** Space-pass rule in force for this match (DESIGN.md §5). */
 export function throughPassMode(state: { throughPass?: 'early' | 'legacy' }): 'early' | 'legacy' {
   return state.throughPass ?? RULES.throughPass.defaultMode;
+}
+
+/** Offside-trap declarations available in this match (DESIGN.md §14.1). */
+export function trapEnabled(state: { trap?: boolean }): boolean {
+  return state.trap ?? RULES.trap.enabled;
+}
+
+/** Two halves in this match (DESIGN.md §14.2). */
+export function halvesEnabled(state: { halves?: boolean }): boolean {
+  return state.halves ?? MATCH.halves;
+}
+
+/** Number of turns in the first half. */
+export function halfTurns(state: { maxTurns: number }): number {
+  return Math.floor(state.maxTurns / 2);
+}
+
+/** 1 while `turn <= halfTurns`, else 2 (meaningful only when halves are on). */
+export function halfOf(state: { turn: number; maxTurns: number }): 1 | 2 {
+  return state.turn <= halfTurns(state) ? 1 : 2;
 }
 
 /** Goal target point (center of the goal mouth, half a cell beyond the end line). */

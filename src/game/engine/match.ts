@@ -6,6 +6,9 @@ import { vecEq } from '../rules/geometry';
 export type CreateMatchOptions = Partial<MatchConfig> & {
   formation?: FormationSlot[];
   throughPass?: ThroughPassMode;
+  /** v0.8 rule switches (missing = RULES.trap.enabled / MATCH.halves). */
+  trap?: boolean;
+  halves?: boolean;
   /** Per team, slot-ordered charIds overriding the formation's charId (positions still come from the formation). */
   lineups?: Partial<Record<TeamId, string[]>>;
 };
@@ -37,6 +40,9 @@ export function createMatch(options: CreateMatchOptions = {}): MatchState {
     phase: 'planning',
     kickoffTeam: firstKickoff,
     ...(options.throughPass ? { throughPass: options.throughPass } : {}),
+    ...(options.trap !== undefined ? { trap: options.trap } : {}),
+    ...(options.halves !== undefined ? { halves: options.halves } : {}),
+    firstKickoff,
   }, firstKickoff, formation);
 }
 

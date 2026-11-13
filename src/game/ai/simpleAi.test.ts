@@ -8,6 +8,9 @@ import { estimatePass, estimateShot } from '../rules/estimates';
 import { isOffsidePosition } from '../rules/offside';
 import { vecEq } from '../rules/geometry';
 import { planAiTurn } from './simpleAi';
+import { held, scene } from '../testUtils';
+
+const at = (x: number, y: number): Vec => ({ x, y });
 
 function withPositions(
   base: MatchState,
@@ -289,4 +292,70 @@ describe('early through pass (v0.5)', () => {
     }
     expect(seen).toBeGreaterThan(0);
   }, 60_000);
+});
+
+describe('offside trap (v0.8)', () => {
+  const seeds = Array.from({ length: 80 }, (_, i) => i + 1);
+  const declares = (s: MatchState, team: TeamId) => seeds.filter((seed) => planAiTurn(s, team, createRng(seed)).trap === true).length;
+  // red line y=3 (red-4); blue-1 level with it on y=3 = onside now, offside once the line steps up. Blue carrier can reach it.
+  const threat = scene(
+    { 'blue-0': at(3, 6), 'blue-1': at(1, 3), 'red-4': at(5, 3), 'red-3': at(6, 6) },
+    held('blue-0'),
+    { trap: true },
+  );
+
+  it('declares in a threatening spot, but not every time; the same seed gives the same plan', () => {
+    const n = declares(threat, 'red');
+    expect(n).toBeGreaterThan(0);
+    expect(n).toBeLessThan(seeds.length);
+    expect(planAiTurn(threat, 'red', createRng(7))).toEqual(planAiTurn(threat, 'red', createRng(7)));
+  });
+
+  it('declared plans keep the participants out of the move list', () => {
+    const seed = seeds.find((sd) => planAiTurn(threat, 'red', createRng(sd)).trap === true) as number;
+    const plan = planAiTurn(threat, 'red', createRng(seed));
+    expect(plan.moves['red-4']).toBeUndefined();
+  });
+
+  it('never declares when it cannot (own ball, loose ball, cooldown, switch off) or nobody can be caught', () => {
+    expect(declares(scene({ 'red-0': at(3, 3), 'blue-1': at(1, 3) }, held('red-0'), { trap: true }), 'red')).toBe(0);
+    expect(declares(scene({ 'blue-0': at(3, 6), 'blue-1': at(1, 3), 'red-4': at(5, 3) }, { kind: 'loose', pos: at(3, 5) }, { trap: true }), 'red')).toBe(0);
+    expect(declares({ ...threat, turn: 2, trapReady: { blue: 1, red: 4 } }, 'red')).toBe(0);
+    expect(declares({ ...threat, trap: false }, 'red')).toBe(0);
+    // every blue is far behind the line: nobody to catch
+    const safe = scene({ 'blue-0': at(3, 8), 'blue-1': at(1, 8), 'blue-2': at(2, 9), 'blue-3': at(4, 9), 'blue-4': at(5, 9), 'red-4': at(5, 3) }, held('blue-0'), { trap: true });
+    expect(declares(safe, 'red')).toBe(0);
+  });
+
+  it('attackers discount a foot pass to a receiver level with the line, only while the opponent may declare', () => {
+    // blue-1 is level with the red line (y=3), blue-0 carries; count how often blue passes to blue-1 while it stays level.
+    const base = { 'blue-0': at(3, 6), 'blue-1': at(1, 3), 'red-4': at(5, 3), 'red-3': at(6, 6), 'blue-2': at(0, 9), 'blue-3': at(1, 9), 'blue-4': at(2, 9) };
+    const passesToLevel = (opts: { trap: boolean; turn?: number; trapReady?: Record<TeamId, number> }): number => {
+      const st = scene(base, held('blue-0'), opts);
+      let n = 0;
+      for (let seed = 1; seed <= 120; seed++) {
+        const plan = planAiTurn(st, 'blue', createRng(seed));
+        const a = plan.ballAction;
+        const dest = plan.moves['blue-1'] ?? at(1, 3);
+        if (a && (a.kind === 'pass' || a.kind === 'cross') && a.targetId === 'blue-1' && dest.y === 3) n++;
+      }
+      return n;
+    };
+    const guarded = passesToLevel({ trap: true });
+    const free = passesToLevel({ trap: false });
+    const cooling = passesToLevel({ trap: true, turn: 2, trapReady: { blue: 1, red: 9 } });
+    expect(free).toBeGreaterThan(0);
+    expect(cooling).toBe(free); // the opponent cannot declare: no discount
+    expect(guarded).toBeLessThanOrEqual(free); // a discount (weight 0.06), never a reason to pass more
+  });
+
+  it('a whole match with trap and halves on stays legal', () => {
+    const rng = createRng(5);
+    let s = createMatch({ trap: true, halves: true });
+    while (s.phase !== 'finished') {
+      const p = { blue: planAiTurn(s, 'blue', rng), red: planAiTurn(s, 'red', rng) };
+      s = resolveTurn(s, p, rng).after;
+    }
+    expect(s.turn).toBe(21);
+  });
 });

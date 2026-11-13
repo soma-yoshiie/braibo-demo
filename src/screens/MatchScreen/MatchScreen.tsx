@@ -7,6 +7,8 @@ import { ResultOverlay } from '../../components/Overlays/ResultOverlay';
 import { StartOverlay } from '../../components/Overlays/StartOverlay';
 import { Pitch } from '../../components/Pitch/Pitch';
 import { DuelCutIn } from '../../components/Overlays/DuelCutIn';
+import { HalfTimeOverlay } from '../../components/Overlays/HalfTimeOverlay';
+import { TrapCutIn } from '../../components/Overlays/TrapCutIn';
 import { TIMER_SECONDS, useMatchController } from './useMatchController';
 import type { MatchScreenProps } from './useMatchController';
 import './MatchScreen.css';
@@ -23,6 +25,7 @@ export function MatchScreen(props: MatchScreenProps) {
         score={m.score}
         turn={m.state.turn}
         maxTurns={m.state.maxTurns}
+        half={m.half}
         possession={m.possession}
         secondsLeft={m.secondsLeft}
         timerMax={TIMER_SECONDS}
@@ -47,6 +50,8 @@ export function MatchScreen(props: MatchScreenProps) {
           picking={m.picking}
           offsideLine={m.offsideLine}
           offsideLineOwn={m.offsideLineOwn}
+          offsideLineLabel={m.offsideLineLabel}
+          trap={m.trap}
           offPosIds={m.offPosIds}
           throughEarly={m.throughEarly}
           plans={m.planViews}
@@ -72,6 +77,7 @@ export function MatchScreen(props: MatchScreenProps) {
       <EventBanner banner={m.banner} />
       <GoalFx fx={m.goalFx} onSkip={m.endCutIn} />
       <DuelCutIn view={m.cutIn} onSkip={m.endCutIn} />
+      <TrapCutIn view={m.trapCut} onSkip={m.endCutIn} />
       <ActionBar
         plannedCount={m.plannedCount}
         total={m.totalPlayers}
@@ -80,6 +86,7 @@ export function MatchScreen(props: MatchScreenProps) {
         onExecute={m.execute}
         selected={m.interactive || m.phase === 'start' ? m.selectedView : null}
         onOpenInfo={m.openSelectedInfo}
+        trap={m.trapBar}
         passStyle={m.passStyleBar}
         onPassStyle={m.setPassStyle}
       />
@@ -90,6 +97,8 @@ export function MatchScreen(props: MatchScreenProps) {
           red={props.lineups.red}
           onHome={props.onHome}
           stage={props.stage}
+          trapOn={m.trapOn}
+          onToggleTrap={m.setTrap}
           timerOn={m.timerOn}
           seconds={TIMER_SECONDS}
           onToggleTimer={m.setTimerOn}
@@ -112,6 +121,7 @@ export function MatchScreen(props: MatchScreenProps) {
           onLog={() => m.setLogOpen(true)}
         />
       )}
+      {m.halfView && <HalfTimeOverlay view={m.halfView} blue={props.lineups.blue} red={props.lineups.red} onNext={m.resumeHalf} onHome={props.onHome} />}
       {m.logOpen && <LogDrawer lines={m.log} onClose={() => m.setLogOpen(false)} />}
     </div>
   );

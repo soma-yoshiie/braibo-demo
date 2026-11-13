@@ -4,7 +4,7 @@ import { getCharacter } from '../game/data/characters';
 import { META } from './config';
 import { STAGES, getStage } from './stages';
 
-export interface SaveSettings { timerOn: boolean; throughEarly: boolean; cutIn: boolean }
+export interface SaveSettings { timerOn: boolean; throughEarly: boolean; cutIn: boolean; trap: boolean }
 export interface StageRecord { cleared: boolean; bestDiff: number | null }
 export interface DailyState { date: string; played: number; won: number; pulls: number; claimed: string[] }
 export interface SaveData {
@@ -122,6 +122,7 @@ export function parseSave(raw: unknown): SaveData {
       timerOn: bool(s.timerOn, def.settings.timerOn),
       throughEarly: bool(s.throughEarly, def.settings.throughEarly),
       cutIn: bool(s.cutIn, def.settings.cutIn),
+      trap: bool(s.trap, def.settings.trap),
     },
     record: {
       played: count(r.played, 0),

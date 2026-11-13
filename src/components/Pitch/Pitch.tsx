@@ -13,6 +13,7 @@ import type {
   TokenLayout,
   TokenView,
   TrajectoryView,
+  TrapView,
 } from '../viewTypes';
 import { restSlot, GOAL_DEPTH, GOAL_WIDTH, VIEW, VIEWBOX, cx, cy, goalLeft, radialLayout, shorten } from './pitchGeometry';
 import { RadialMenu } from './RadialMenu';
@@ -33,6 +34,10 @@ interface Props {
   offsideLine?: number | null;
   /** The line is the blue team's own last line (red has the ball): drawn in a cooler colour. */
   offsideLineOwn?: boolean;
+  /** Label of the offside band (default オフサイドライン / 守備ライン). */
+  offsideLineLabel?: string;
+  /** v0.8 offside-trap button and participant marks (null = trap off / not available). */
+  trap?: TrapView | null;
   /** v0.5: blue players currently in an offside position (small OFF mark while picking a pass target). */
   offPosIds?: string[];
   /** v0.5 early through pass: a space pass is kicked before movement, so % badges sit on the current token. */
@@ -159,6 +164,8 @@ export function Pitch({
   picking,
   offsideLine,
   offsideLineOwn = false,
+  offsideLineLabel,
+  trap = null,
   offPosIds = [],
   throughEarly = false,
   plans,
@@ -367,13 +374,14 @@ export function Pitch({
           className={`offside-line${offsideLineOwn ? ' offside-line--own' : ''}`}
           data-testid="offside-line"
           pointerEvents="none"
+          style={{ transform: `translateY(${offsideLine}px)` }}
         >
-          <rect className="offside-line__band" x={0} y={offsideLine - 0.1} width={W} height={0.2} fill={`url(#${offsideLineOwn ? 'pt-hz-own' : 'pt-hz-foe'})`} />
-          <rect className="offside-line__edge" x={0} y={offsideLine - 0.1} width={W} height={0.2} />
+          <rect className="offside-line__band" x={0} y={-0.1} width={W} height={0.2} fill={`url(#${offsideLineOwn ? 'pt-hz-own' : 'pt-hz-foe'})`} />
+          <rect className="offside-line__edge" x={0} y={-0.1} width={W} height={0.2} />
           {(() => {
             const below = offsideLine < 0.9;
-            const ly = below ? offsideLine + 0.14 : offsideLine - 0.56;
-            const label = offsideLineOwn ? '守備ライン' : 'オフサイドライン';
+            const ly = below ? 0.14 : -0.56;
+            const label = offsideLineLabel ?? (offsideLineOwn ? '守備ライン' : 'オフサイドライン');
             const fw = label.length * 0.225 + 0.55;
             return (
               <g transform={`translate(0.08 ${ly})`}>
@@ -447,6 +455,32 @@ export function Pitch({
         </g>
         {!radial && ghostLayer}
       </g>
+
+      {/* v0.8 trap: participant marks (up arrow, UP tag, ghost one step ahead) and the declaration button */}
+      {trap && (
+        <g>
+          {trap.marks.map((m) => {
+            const stepped = m.toY < m.y;
+            return (
+              <g key={`tm-${m.id}`} data-testid={`trap-mark-${m.id}`} pointerEvents="none">
+                {stepped && (
+                  <g transform={`translate(${cx(m.x)} ${cy(m.toY)})`} className="ghost">
+                    <g className="ghost__art">
+                      <TokenMedal charId={m.charId} team="blue" number={m.number} abbr={m.abbr} />
+                    </g>
+                    <circle className="ghost__body" r={0.47} />
+                  </g>
+                )}
+                <g transform={`translate(${cx(m.x) - 0.36} ${cy(m.y) - 0.3})`} className="trap-up">
+                  <polygon className="trap-arrow" points="0,-0.46 0.2,-0.18 0.08,-0.18 0.08,-0.04 -0.08,-0.04 -0.08,-0.18 -0.2,-0.18" />
+                  <rect x={-0.2} y={-0.01} width={0.4} height={0.24} rx={0.05} />
+                  <text y={0.12}>UP</text>
+                </g>
+              </g>
+            );
+          })}
+        </g>
+      )}
 
       {/* duel WIN / LOSE tags (above every token) */}
       <g pointerEvents="none">

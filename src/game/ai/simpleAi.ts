@@ -4,6 +4,7 @@ import { dist, vecEq } from '../rules/geometry';
 import { legalMoveTargets } from '../rules/moves';
 import { estimateCross, estimatePass, estimateShot, estimateThroughPass, isCrossValid } from '../rules/estimates';
 import { isOffsidePosition } from '../rules/offside';
+import { canDeclareTrap, trapSteps } from '../rules/trap';
 import { getCharacter } from '../data/characters';
 import { ballHolder, playersOf } from '../engine/match';
 import { AI_WEIGHTS, advancement, chebyshev, countNear, key, positionValue } from './evaluate';
@@ -73,6 +74,45 @@ function enemyReachers(c: Ctx): Map<string, PlayerState[]> {
 }
 
 // ---------------------------------------------------------------------------
+// Offside trap (v0.8)
+// ---------------------------------------------------------------------------
+
+/** Enemy positions as they would be after a trap declaration (participants one step up). */
+function foesAfterTrap(c: Ctx): Vec[] {
+  const step = new Map(trapSteps(c.state, otherTeam(c.team)).map((s) => [s.playerId, s.to]));
+  return c.foes.map((f) => step.get(f.id) ?? f.pos);
+}
+
+/** Offence: may the opponent declare a trap this turn (we hold the ball, their wait is over)? */
+const foeMayTrap = (c: Ctx): boolean => canDeclareTrap(c.state, otherTeam(c.team));
+
+/** Our own positions as they would be after we declare (participants one step up). */
+function mineAfterTrap(c: Ctx): Vec[] {
+  const step = new Map(trapSteps(c.state, c.team).map((s) => [s.playerId, s.to]));
+  return c.me.map((m) => step.get(m.id) ?? m.pos);
+}
+
+/**
+ * Defence: how many attackers could the trap catch? An attacker counts fully when it is onside now but
+ * offside once our line steps up (level with the line) and the carrier can reach it; it counts `trapNear`
+ * when it could only be caught by running onto the line (one row behind).
+ */
+function trapThreat(c: Ctx, carrier: PlayerState): number {
+  const now = c.me.map((m) => m.pos);
+  const after = mineAfterTrap(c);
+  const reach = RULES.pass.lofted.maxDistance;
+  const caught = (t: Vec): boolean =>
+    !isOffsidePosition(carrier.team, t, carrier.pos, now) && isOffsidePosition(carrier.team, t, carrier.pos, after);
+  let sum = 0;
+  for (const r of c.foes) {
+    if (r.id === carrier.id || dist(carrier.pos, r.pos) > reach + 1) continue;
+    if (caught(r.pos)) sum += 1;
+    else if (legalMoveTargets(c.state, r.id).some((t) => caught(t))) sum += c.W.trapNear;
+  }
+  return sum;
+}
+
+// ---------------------------------------------------------------------------
 // Offence
 // ---------------------------------------------------------------------------
 
@@ -89,6 +129,7 @@ function planOffBall(c: Ctx, players: PlayerState[], anchor: Vec, holding = fals
   const foes = foePositions(c);
   const foeMap = c.foes.map((f) => f.pos);
   const lastAdv = foeAdvs(c);
+  const trapAfter = holding && foeMayTrap(c) ? foesAfterTrap(c) : undefined;
   const carrierRole = holding ? c.foes && c.me.find((m) => vecEq(m.pos, anchor)) : undefined;
   const crossSetup =
     !!carrierRole &&
@@ -104,6 +145,7 @@ function planOffBall(c: Ctx, players: PlayerState[], anchor: Vec, holding = fals
       if (holding) {
         const off = isOffsidePosition(c.team, t, anchor, foeMap);
         if (off) v -= throughMode(c) ? c.W.offsideEarly : c.W.offside;
+        else if (trapAfter && isOffsidePosition(c.team, t, anchor, trapAfter)) v -= c.W.trapLevelOff;
         const a = advancement(c.team, t);
         const striking = role === 'striker' || role === 'longShooter';
         if (striking && advancement(c.team, anchor) >= 4 && lastAdv >= 4) {
@@ -140,6 +182,9 @@ function planCarrier(c: Ctx, carrier: PlayerState): number {
     if (nv > best.v) best = { dest, action, v: nv };
   };
   const lateCrosses: Option[] = [];
+  // v0.8: while the opponent may declare a trap, a receiver level with the line at its final cell is caught if it steps up.
+  const trapAfter = foeMayTrap(c) ? foesAfterTrap(c) : undefined;
+  const trapFoot = (d: Vec, tp: Vec): number => (trapAfter && isOffsidePosition(team, tp, d, trapAfter) ? c.W.trapFootRisk : 0);
   for (const d of candidates(c, carrier)) {
     const dng = danger(d);
     const free = dng === 0 ? W.freeAdvance * advancement(team, d) : 0;
@@ -155,8 +200,7 @@ function planCarrier(c: Ctx, carrier: PlayerState): number {
         if (ce.offside) continue;
         const contested = ce.defenderId !== undefined;
         const cv =
-          ce.pGoal * W.shotScale * W.crossScale +
-          W.crossBonus * ce.pDelivery * ce.pWinAerial -
+          (1 - trapFoot(d, tp)) * (ce.pGoal * W.shotScale * W.crossScale + W.crossBonus * ce.pDelivery * ce.pWinAerial) -
           (contested ? W.crossLoss * ce.pDelivery * (1 - ce.pWinAerial) : 0) -
           dng * 0.3;
         if (contested && ce.pWinAerial < W.crossMinAerial) lateCrosses.push({ dest: d, action: { kind: 'cross', targetId: t.id }, v: cv + noise(c) });
@@ -169,7 +213,7 @@ function planCarrier(c: Ctx, carrier: PlayerState): number {
         consider(
           d,
           { kind: 'pass', targetId: t.id, style },
-          pe.pComplete * (tv + 0.2 + W.passForward * Math.max(0, adv)) - (adv < 0 ? W.backwardPass : 0) - dng * 0.3,
+          (1 - trapFoot(d, tp)) * pe.pComplete * (tv + 0.2 + W.passForward * Math.max(0, adv)) - (adv < 0 ? W.backwardPass : 0) - dng * 0.3,
         );
       }
     }
@@ -202,9 +246,12 @@ function bestThrough(c: Ctx, carrier: PlayerState): ThroughOption | undefined {
   let danger = W.dangerAdjacent * countNear(carrier.pos, foes);
   for (const f of reachers.get(key(carrier.pos)) ?? []) danger += W.danger * (phys(f) / (phys(f) + phys(carrier)));
   let best: ThroughOption | undefined;
+  const trapAfter = foeMayTrap(c) ? foesAfterTrap(c) : undefined;
   for (const runner of c.me) {
     if (runner.id === carrier.id) continue;
     if (isOffsidePosition(c.team, runner.pos, carrier.pos, foes)) continue;
+    // v0.8: a runner level with the line is caught if the opponent steps up; one starting behind it is not.
+    const trapped = !!trapAfter && isOffsidePosition(c.team, runner.pos, carrier.pos, trapAfter);
     const others = c.me.filter((m) => m.id !== runner.id && m.id !== carrier.id).map((m) => m.pos);
     for (const t of legalMoveTargets(state, runner.id)) {
       if (c.reserved.has(key(t)) || vecEq(t, carrier.pos)) continue;
@@ -219,7 +266,8 @@ function bestThrough(c: Ctx, carrier: PlayerState): ThroughOption | undefined {
         const pe = estimateThroughPass(state, carrier.id, t, style);
         if (!pe.inRange || pe.pComplete < W.tpMinP) continue;
         const v =
-          Math.pow(pe.pComplete, W.tpPExp) * (1 - contested * W.tpMark) * (arrival + 0.2) + W.tpBonus - danger * 0.3 + noise(c);
+          Math.pow(pe.pComplete, W.tpPExp) * (1 - contested * W.tpMark) * (arrival + 0.2) * (trapped ? 1 - W.trapRisk : 1) +
+          W.tpBonus + (trapAfter && !trapped ? W.trapBehind : 0) - danger * 0.3 + noise(c);
         if (!best || v > best.v) best = { runner, target: t, style, v };
       }
     }
@@ -436,6 +484,20 @@ export function planAiTurn(state: MatchState, team: TeamId, rng: Rng, options: A
       planThrough(c, holder, through);
     }
   } else if (holder) {
+    // v0.8: maybe declare an offside trap (only when an attacker could really be caught; never every time).
+    if (canDeclareTrap(state, team)) {
+      const threat = trapThreat(c, holder);
+      if (threat > 0 && rng.next() < Math.min(c.W.trapMax, c.W.trapBase + c.W.trapScale * threat)) {
+        for (const st of trapSteps(state, team)) {
+          const p = c.me.find((m) => m.id === st.playerId) as PlayerState;
+          c.reserved.delete(key(p.pos));
+          c.reserved.add(key(st.to));
+          c.pos[p.id] = st.to;
+          c.planned.add(p.id);
+        }
+        c.plan.trap = true;
+      }
+    }
     planDefence(c, holder, undefined);
   } else if (state.ball.kind === 'loose') {
     const ball = state.ball.pos;

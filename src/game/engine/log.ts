@@ -67,7 +67,11 @@ export function describeEvent(event: TurnEvent, state: MatchState): string {
       }
     }
     case 'offside':
-      return `オフサイド！${event.early ? '（蹴った時点の位置で）' : ''} ${n(event.receiverId)} の飛び出しが早すぎた → ${n(event.toPlayerId)} のボール`;
+      return `オフサイド！${event.early ? '（蹴った時点の位置で）' : ''}${event.byTrap ? '（トラップ成功）' : ''} ${n(event.receiverId)} の飛び出しが早すぎた → ${n(event.toPlayerId)} のボール`;
+    case 'trap':
+      return `${TEAM_LABEL[event.team]}がオフサイドトラップ！`;
+    case 'halfTime':
+      return `前半終了 ${event.score.blue}-${event.score.red}（後半は${TEAM_LABEL[event.kickoffTeam]}ボールで開始）`;
     case 'shot': {
       const what = event.kind === 'header' ? 'ヘディングシュート' : 'シュート';
       if (event.outcome === 'blocked')

@@ -20,7 +20,8 @@ import { isOffsidePosition } from '../../game/rules/offside';
 import { restSlot } from '../../components/Pitch/pitchGeometry';
 import { dist } from '../../game/rules/geometry';
 import { passMaxDistance } from '../../game/rules/probability';
-import { BOARD, MATCH, RULES, goalTarget, throughPassMode } from '../../game/rules/config';
+import { BOARD, MATCH, RULES, goalTarget, halfOf, halvesEnabled, throughPassMode, trapEnabled } from '../../game/rules/config';
+import { canDeclareTrap, trapParticipants, trapSteps, trapWait } from '../../game/rules/trap';
 import type {
   BallActionPlan,
   MatchState,
@@ -40,6 +41,7 @@ import type {
   BurstView,
   DuelCutInView,
   GoalFxView,
+  HalfTimeView,
   LogLine,
   PassTargetView,
   PlanView,
@@ -48,6 +50,8 @@ import type {
   SpaceCellView,
   TokenView,
   TrajectoryView,
+  TrapCutInView,
+  TrapView,
 } from '../../components/viewTypes';
 
 export type Phase = 'start' | 'planning' | 'resolving' | 'finished';
@@ -87,6 +91,9 @@ const SETTLE_MS = 200;
 const DUEL_CUTIN_MS = 1600;
 const GOAL_CUTIN_MS = 1900;
 const REDUCED_CUTIN_MS = 700;
+const TRAP_CUTIN_MS = 1200;
+/** The trap step (one step up + banner) at the start of a turn. */
+const TRAP_STEP_MS = 700;
 /** Early through pass intercepted on the lane: the ball reaches the interceptor before anyone moves. */
 const EARLY_STEAL_MS = 300;
 
@@ -121,9 +128,9 @@ interface Match {
   state: MatchState;
   rng: Rng;
 }
-function newMatch(early: boolean, lineups: MatchScreenProps['lineups']): Match {
+function newMatch(early: boolean, lineups: MatchScreenProps['lineups'], trap: boolean): Match {
   return {
-    state: createMatch({ lineups, throughPass: early ? 'early' : 'legacy' }),
+    state: createMatch({ lineups, throughPass: early ? 'early' : 'legacy', trap }),
     rng: createRng(randomSeed()),
   };
 }
@@ -132,11 +139,16 @@ export function useMatchController(props: MatchScreenProps) {
   const propsRef = useRef(props);
   propsRef.current = props;
   const matchRef = useRef<Match | null>(null);
-  if (matchRef.current === null) matchRef.current = newMatch(props.settings.throughEarly, props.lineups);
+  if (matchRef.current === null) matchRef.current = newMatch(props.settings.throughEarly, props.lineups, props.settings.trap);
   /** The finished state `onFinished` was already called for (one call per finished match, StrictMode-proof). */
   const finishedRef = useRef<MatchState | null>(null);
   /** The open cut-in wait: resolved by its timeout, by a tap, or when the screen goes away. */
   const cutWaitRef = useRef<{ resolve: () => void; timer: ReturnType<typeof setTimeout> } | null>(null);
+  /** The open half-time pause (resolved by 「後半へ」, restart or unmount: it can never leak). */
+  const halfWaitRef = useRef<(() => void) | null>(null);
+  /** One-time hints per match (DESIGN-UI §16.1 / §16.2). */
+  const trapHintRef = useRef(false);
+  const trapCaughtRef = useRef(false);
 
   const [state, setState] = useState<MatchState>(() => (matchRef.current as Match).state);
   const [phase, setPhase] = useState<Phase>('start');
@@ -165,6 +177,14 @@ export function useMatchController(props: MatchScreenProps) {
   const [trajectory, setTrajectory] = useState<TrajectoryView | null>(null);
   const [goalFx, setGoalFx] = useState<GoalFxView | null>(null);
   const [cutIn, setCutIn] = useState<DuelCutInView | null>(null);
+  const [trapCut, setTrapCut] = useState<TrapCutInView | null>(null);
+  const [halfView, setHalfView] = useState<HalfTimeView | null>(null);
+  /** Blue's offside-trap declaration for this turn. */
+  const [trapDecl, setTrapDecl] = useState(false);
+  /** The match's trap switch (VS-screen toggle). */
+  const [trapSet, setTrapSet] = useState(props.settings.trap);
+  /** Band override while the trap step plays: svg y of the offside line and whose it is. */
+  const [trapBand, setTrapBand] = useState<{ y: number; own: boolean; label: string } | null>(null);
   const [shownScore, setShownScore] = useState<Record<TeamId, number> | null>(null);
   const [ballExtra, setBallExtra] = useState<{ arc: number; flightKey: number; ms: number }>({
     arc: 0,
@@ -190,6 +210,20 @@ export function useMatchController(props: MatchScreenProps) {
     w.resolve();
   }, []);
   /** Hold for `ms`, or until a tap / restart / unmount ends it: the turn sequence can never hang on a cut-in. */
+  const endHalfWait = useCallback(() => {
+    const r = halfWaitRef.current;
+    if (!r) return;
+    halfWaitRef.current = null;
+    r();
+  }, []);
+  const holdHalf = useCallback(
+    () =>
+      new Promise<void>((resolve) => {
+        endHalfWait();
+        halfWaitRef.current = resolve;
+      }),
+    [endHalfWait],
+  );
   const holdCutIn = useCallback(
     (ms: number) =>
       new Promise<void>((resolve) => {
@@ -215,6 +249,9 @@ export function useMatchController(props: MatchScreenProps) {
       setTrajectory(null);
       setGoalFx(null);
       setCutIn(null);
+      setTrapCut(null);
+      setHalfView(null);
+      setTrapBand(null);
       setShownScore(null);
       setTopId(null);
       setSpread(true);
@@ -229,6 +266,7 @@ export function useMatchController(props: MatchScreenProps) {
     return () => {
       runRef.current++;
       endCutInWait();
+      endHalfWait();
       if (noticeTimer.current) clearTimeout(noticeTimer.current);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -246,13 +284,23 @@ export function useMatchController(props: MatchScreenProps) {
   const planning = phase === 'planning';
   const early = throughPassMode(state) === 'early';
 
+  // ---------- offside trap (DESIGN-UI §16.1) ----------
+  const trapRelevant = planning && trapEnabled(state) && !!holder && holder.team === 'red';
+  const trapWaitN = trapRelevant ? trapWait(state, 'blue') : 0;
+  const trapCan = trapRelevant && canDeclareTrap(state, 'blue');
+  /** Declaration actually in force (it drops if the situation no longer allows it). */
+  const trapActive = trapDecl && trapCan;
+  const trapPeople = useMemo(() => (trapActive ? trapParticipants(state, 'blue') : []), [trapActive, state]);
+  const trapIds = useMemo(() => new Set(trapPeople.map((p) => p.id)), [trapPeople]);
+
   // ---------- derived planning data ----------
   const moveTargets: Vec[] = useMemo(() => {
     if ((!planning && phase !== 'start') || pick) return [];
+    if (trapIds.has(selectedId)) return [];
     const { [selectedId]: _self, ...others } = plans;
     void _self;
     return availableMoveTargets(state, { team: 'blue', moves: others }, selectedId);
-  }, [planning, phase, pick, state, plans, selectedId]);
+  }, [planning, phase, pick, state, plans, selectedId, trapIds]);
 
   const holderPos = blueHolder ? posOf(blueHolder.id) : undefined;
 
@@ -413,14 +461,14 @@ export function useMatchController(props: MatchScreenProps) {
    * red holds it: blue's own last line (`own`); loose ball: none. Clamped to the halfway line.
    */
   const offsideInfo: { y: number; own: boolean } | null = useMemo(() => {
-    if (!planning || (!early && !pick)) return null;
+    if (!planning || (!early && !pick && !trapRelevant)) return null;
     if (!RULES.offside.enabled) return null;
     const k = RULES.offside.lastDefenders;
     if (k < 1) return null;
     const half = BOARD.rows / 2;
     const owner = holder ? holder.team : null;
     if (!owner) return null;
-    if (!early && owner !== 'blue') return null;
+    if (!early && owner !== 'blue' && !trapRelevant) return null;
     const defTeam: TeamId = owner === 'blue' ? 'red' : 'blue';
     const defs = state.players.filter((p) => p.team === defTeam);
     if (defs.length < k) return null;
@@ -428,9 +476,11 @@ export function useMatchController(props: MatchScreenProps) {
       const row = defs.map((p) => p.pos.y).sort((x, y) => x - y)[k - 1] as number;
       return { y: Math.min(row, half), own: false };
     }
-    const row = defs.map((p) => p.pos.y).sort((x, y) => y - x)[k - 1] as number;
+    // a declared trap: the band follows the rearmost row after the engine's own steps (blocked participants stay)
+    const stepY = trapActive ? new Map(trapSteps(state, 'blue').map((s) => [s.playerId, s.to.y])) : null;
+    const row = defs.map((p) => stepY?.get(p.id) ?? p.pos.y).sort((x, y) => y - x)[k - 1] as number;
     return { y: Math.max(row + 1, half), own: true };
-  }, [planning, early, pick, holder, state]);
+  }, [planning, early, pick, holder, state, trapRelevant, trapActive]);
 
   /** early: blue teammates standing in an offside position right now (marked while picking a pass target). */
   const offPosIds: PlayerId[] = useMemo(() => {
@@ -450,13 +500,14 @@ export function useMatchController(props: MatchScreenProps) {
     setInfoId(null);
     setMenuOpen(false);
     setMenuAt('token');
+    setTrapDecl(false);
     setSelectedId(defaultSelection(s));
   }, []);
 
-  const showNotice = useCallback((text: string) => {
+  const showNotice = useCallback((text: string, ms = 1500) => {
     setNotice(text);
     if (noticeTimer.current) clearTimeout(noticeTimer.current);
-    noticeTimer.current = setTimeout(() => setNotice(null), 1500);
+    noticeTimer.current = setTimeout(() => setNotice(null), ms);
   }, []);
 
   const setDest = useCallback(
@@ -465,6 +516,10 @@ export function useMatchController(props: MatchScreenProps) {
       void _own;
       const self = state.players.find((p) => p.id === id);
       if (!self) return;
+      if (trapIds.has(id)) {
+        showNotice('トラップ中は動けません');
+        return;
+      }
       const allowed = availableMoveTargets(state, { team: 'blue', moves: others }, id).some((t) => sameVec(t, to));
       const stayOk =
         sameVec(to, self.pos) && !Object.values(others).some((d) => sameVec(d, self.pos));
@@ -492,7 +547,7 @@ export function useMatchController(props: MatchScreenProps) {
         }
       }
     },
-    [plans, blues, state, showNotice, early, blueHolder, effectiveAction],
+    [plans, blues, state, showNotice, early, blueHolder, effectiveAction, trapIds],
   );
 
   const selectBlue = useCallback((id: PlayerId, at: 'token' | 'ghost' = 'token') => {
@@ -587,6 +642,14 @@ export function useMatchController(props: MatchScreenProps) {
         }
         return;
       }
+      if (trapIds.has(id)) {
+        // trap participants cannot move: the info sheet still opens
+        setMenuOpen(false);
+        setSelectedId(id);
+        setInfoId(id);
+        showNotice('トラップ中は動けません');
+        return;
+      }
       if (id === selectedId) {
         toggleMenu('token');
         return;
@@ -597,7 +660,7 @@ export function useMatchController(props: MatchScreenProps) {
       }
       selectBlue(id);
     },
-    [planning, pick, plans, state, moveTargets, selectedId, setDest, selectBlue, toggleMenu, pickMate, pickCell, early],
+    [planning, pick, plans, state, moveTargets, selectedId, setDest, selectBlue, toggleMenu, pickMate, pickCell, early, trapIds, showNotice],
   );
 
   const onGhostTap = useCallback(
@@ -635,6 +698,19 @@ export function useMatchController(props: MatchScreenProps) {
     setInspectId(null);
   }, []);
   const onReset = useCallback(() => resetPlanning(state), [resetPlanning, state]);
+  const toggleTrap = useCallback(() => {
+    if (!trapCan) return;
+    if (trapDecl) {
+      setTrapDecl(false);
+      return;
+    }
+    // declaring clears the participants' move plans and any open menu / pick
+    const ids = new Set(trapParticipants(state, 'blue').map((p) => p.id));
+    setPlans((pl) => Object.fromEntries(Object.entries(pl).filter(([id]) => !ids.has(id))));
+    setPick(null);
+    setMenuOpen(false);
+    setTrapDecl(true);
+  }, [trapCan, trapDecl, state]);
 
   // ---------- turn execution ----------
   const execute = useCallback(async () => {
@@ -660,9 +736,14 @@ export function useMatchController(props: MatchScreenProps) {
       for (const p of cur.players) {
         if (p.team !== 'blue') continue;
         const to = plans[p.id];
-        if (to && !sameVec(to, p.pos)) moves[p.id] = to;
+        if (to && !sameVec(to, p.pos) && !trapIds.has(p.id)) moves[p.id] = to;
       }
-      const bluePlan: TeamPlan = { team: 'blue', moves, ballAction: blueHolder ? effectiveAction : undefined };
+      const bluePlan: TeamPlan = {
+        team: 'blue',
+        moves,
+        ballAction: blueHolder ? effectiveAction : undefined,
+        ...(trapActive ? { trap: true } : {}),
+      };
       const redPlan: TeamPlan = USE_AI
         ? planAiTurn(cur, 'red', match.rng)
         : { team: 'red', moves: {}, ballAction: { kind: 'keep' } };
@@ -687,6 +768,10 @@ export function useMatchController(props: MatchScreenProps) {
 
       // where the duellists meet: the shared final cell, or half-way for a swap (they pass through each other)
       const before = posMap(cur);
+      // v0.8: everything after the trap step uses the positions the participants stepped to
+      const trapEv = result.events.find((e): e is Extract<TurnEvent, { type: 'trap' }> => e.type === 'trap');
+      if (trapEv) for (const st of trapEv.steps) before[st.playerId] = { ...st.to };
+      const halfEv = result.events.find((e): e is Extract<TurnEvent, { type: 'halfTime' }> => e.type === 'halfTime');
       const clash: Record<PlayerId, Vec> = { ...mid };
       let clashAt: Vec | undefined = groundDuel ? { ...groundDuel.pos } : undefined;
       if (groundDuel) {
@@ -776,6 +861,35 @@ export function useMatchController(props: MatchScreenProps) {
       setPlans({});
       setBallAction({ kind: 'keep' });
       setSpread(false);
+
+      // v0.8 trap step: the participants step up with the band, flag banner; reduced motion keeps the banner only
+      if (trapEv) {
+        const k = RULES.offside.lastDefenders;
+        const halfRow = BOARD.rows / 2;
+        const turnStart = posMap(cur);
+        const bandOf = (pos: Record<PlayerId, Vec>): number => {
+          const ys = cur.players.filter((p) => p.team === trapEv.team).map((p) => (pos[p.id] as Vec).y);
+          if (trapEv.team === 'blue') return Math.max((ys.sort((a, b) => b - a)[k - 1] ?? 0) + 1, halfRow);
+          return Math.min(ys.sort((a, b) => a - b)[k - 1] ?? 0, halfRow);
+        };
+        const own = trapEv.team === 'blue';
+        setBanner({ id: nextId(), text: 'オフサイドトラップ！', team: trapEv.team, flag: true });
+        if (!reduced) {
+          setTrapBand({ y: bandOf(turnStart), own, label: 'トラップ！' });
+          await wait(40);
+          if (!alive()) return;
+          const f: Record<PlayerId, TokenFx> = {};
+          for (const st of trapEv.steps) f[st.playerId] = { moveMs: 500 };
+          setFx(f);
+          setDisp((d) => ({ ...d, ...Object.fromEntries(trapEv.steps.map((st) => [st.playerId, { ...st.to }])) }));
+          setTrapBand({ y: bandOf(before), own, label: 'トラップ！' });
+        }
+        await wait(T(TRAP_STEP_MS));
+        if (!alive()) return;
+        setBanner(null);
+        setTrapBand(null);
+        setFx({});
+      }
       if (!earlyEv) {
         setDisp(groundDuel ? clash : mid);
         await wait(T(MOVE_MS) + 80);
@@ -815,6 +929,7 @@ export function useMatchController(props: MatchScreenProps) {
         setBallDisp(ballDispOf(result.afterAction));
       }
       const scoreAfter = result.afterAction.score;
+      let caughtByTrap = false;
       const aerialDuels = duelsOf('aerial');
       for (let i = 0; i < flights.length; i++) {
         const ev = flights[i];
@@ -829,8 +944,9 @@ export function useMatchController(props: MatchScreenProps) {
         if (ev.type === 'offside') {
           dest = ev.to;
           winner = teamOf(ev.toPlayerId);
-          text = 'オフサイド！';
+          text = ev.byTrap ? 'トラップ成功！ オフサイド' : 'オフサイド！';
           flag = true;
+          if (ev.byTrap && trapEv?.team === 'red') caughtByTrap = true;
         } else if (ev.type === 'pass') {
           // early: the lane is judged on turn-start positions, so the ball goes to where the interceptor STANDS now
           dest =
@@ -953,6 +1069,16 @@ export function useMatchController(props: MatchScreenProps) {
           if (ballAerial) setBallDisp({ kind: 'held', id: ballAerial.winnerId });
           aerialShown = true;
         }
+        // trap cut-in when the declaration made the offside (the lead participant of the declaring side)
+        if (ev.type === 'offside' && ev.byTrap && cutOn && trapEv) {
+          const lead = cur.players.find((p) => p.id === trapEv.steps[0]?.playerId);
+          if (lead) {
+            setTrapCut({ key: nextId(), charId: lead.charId, team: trapEv.team });
+            await holdCutIn(reduced ? REDUCED_CUTIN_MS : TRAP_CUTIN_MS);
+            setTrapCut(null);
+            if (!alive()) return;
+          }
+        }
         setBanner({ id: nextId(), text, sub, big, team: winner ?? actor, flag });
         const scorerChar = ev.type === 'shot' ? cur.players.find((p) => p.id === ev.shooterId)?.charId : undefined;
         if (goal) {
@@ -978,6 +1104,14 @@ export function useMatchController(props: MatchScreenProps) {
         }
       }
 
+      // v0.8 half time: the card waits for 「後半へ」 (restart / unmount also release it); the log shows the turn first
+      if (halfEv) {
+        setHalfView({ score: { ...halfEv.score }, kickoffTeam: halfEv.kickoffTeam });
+        await holdHalf();
+        setHalfView(null);
+        if (!alive()) return;
+      }
+
       // (c) commit
       setTopId(null);
       const after = result.after;
@@ -989,7 +1123,7 @@ export function useMatchController(props: MatchScreenProps) {
       setBallDisp(ballDispOf(after));
       setSpread(true);
       setDisp(posMap(after));
-      const reset = result.afterAction !== after && result.events.some((e) => e.type === 'goal');
+      const reset = result.afterAction !== after && result.events.some((e) => e.type === 'goal' || e.type === 'halfTime');
       if (reset) {
         await wait(T(MOVE_MS) + 150);
         if (!alive()) return;
@@ -1004,16 +1138,27 @@ export function useMatchController(props: MatchScreenProps) {
       } else {
         resetPlanning(after);
         setTimeLeft(TIMER_SECONDS);
+        if (caughtByTrap && !trapCaughtRef.current) {
+          trapCaughtRef.current = true;
+          showNotice('ラインを上げられた。ラインより手前で受けるか、1 列後ろから走ると抜けられます', 4000);
+        }
         setPhase('planning');
       }
     } catch (e) {
       busyRef.current = false;
       if (alive()) setFatal(e instanceof Error ? e : new Error(String(e)));
     }
-  }, [phase, plans, blueHolder, effectiveAction, resetPlanning]);
+  }, [phase, plans, blueHolder, effectiveAction, resetPlanning, trapIds, trapActive, holdCutIn, holdHalf, showNotice]);
 
   const executeRef = useRef(execute);
   executeRef.current = execute;
+
+  // one-time hint (per match) the first time a trap can be declared
+  useEffect(() => {
+    if (!trapCan || trapHintRef.current || notice) return;
+    trapHintRef.current = true;
+    showNotice('相手ボール。トラップでラインを一歩上げられます（そのターンは動けません）', 4000);
+  }, [trapCan, notice, showNotice]);
 
   // ---------- timer ----------
   const paused = logOpen || infoId !== null || hudMenuOpen;
@@ -1034,11 +1179,18 @@ export function useMatchController(props: MatchScreenProps) {
 
   /** Start a fresh match with the given rule mode and show the start screen. */
   const resetMatch = useCallback(
-    (on: boolean) => {
+    (on: boolean, trap: boolean) => {
       runRef.current++;
       endCutInWait();
+      endHalfWait();
+      busyRef.current = false;
       setCutIn(null);
-      const m = newMatch(on, propsRef.current.lineups);
+      setTrapCut(null);
+      setHalfView(null);
+      setTrapBand(null);
+      trapHintRef.current = false;
+      trapCaughtRef.current = false;
+      const m = newMatch(on, propsRef.current.lineups, trap);
       matchRef.current = m;
       setState(m.state);
       setSpread(true);
@@ -1058,13 +1210,13 @@ export function useMatchController(props: MatchScreenProps) {
       setTimeLeft(TIMER_SECONDS);
       setPhase('start');
     },
-    [resetPlanning, endCutInWait],
+    [resetPlanning, endCutInWait, endHalfWait],
   );
 
   const restart = useCallback(() => {
     if (busyRef.current) return;
-    resetMatch(throughOn);
-  }, [resetMatch, throughOn]);
+    resetMatch(throughOn, trapSet);
+  }, [resetMatch, throughOn, trapSet]);
 
   /** Start-screen toggle: the rule mode lives in the match state, so a new match is built with it. */
   const setThrough = useCallback(
@@ -1072,9 +1224,19 @@ export function useMatchController(props: MatchScreenProps) {
       if (busyRef.current) return;
       setThroughOn(on);
       propsRef.current.onSettings({ throughEarly: on });
-      resetMatch(on);
+      resetMatch(on, trapSet);
     },
-    [resetMatch],
+    [resetMatch, trapSet],
+  );
+  /** Start-screen toggle: like the through pass, the trap switch lives in the match state, so the match is rebuilt. */
+  const setTrap = useCallback(
+    (on: boolean) => {
+      if (busyRef.current) return;
+      setTrapSet(on);
+      propsRef.current.onSettings({ trap: on });
+      resetMatch(throughOn, on);
+    },
+    [resetMatch, throughOn],
   );
   const setTimerOn = useCallback((on: boolean) => {
     setTimerOnState(on);
@@ -1251,6 +1413,29 @@ export function useMatchController(props: MatchScreenProps) {
         })()
       : null;
 
+  const trapView: TrapView | null =
+    trapRelevant && !trapBand
+      ? {
+          on: trapActive,
+          wait: trapWaitN,
+          marks: trapSteps(state, 'blue')
+            .filter(() => trapActive)
+            .map((st) => {
+              const p = state.players.find((q) => q.id === st.playerId) as (typeof state.players)[number];
+              return {
+                id: p.id,
+                charId: p.charId,
+                number: getProfile(p.charId).number,
+                abbr: getCharacter(p.charId).abbr,
+                x: st.from.x,
+                y: st.from.y,
+                toY: st.to.y,
+              };
+            }),
+          onToggle: toggleTrap,
+        }
+      : null;
+
   const hint: HintView | null = notice
     ? { text: notice, warn: true }
     : planning && pick === 'pass'
@@ -1298,8 +1483,17 @@ export function useMatchController(props: MatchScreenProps) {
     moveTargets,
     passTargets,
     spaceCells,
-    offsideLine: offsideInfo ? offsideInfo.y : null,
-    offsideLineOwn: offsideInfo?.own ?? false,
+    offsideLine: trapBand ? trapBand.y : offsideInfo ? offsideInfo.y : null,
+    offsideLineOwn: trapBand ? trapBand.own : (offsideInfo?.own ?? false),
+    offsideLineLabel: trapBand ? trapBand.label : trapActive ? 'トラップ！' : undefined,
+    trap: trapView,
+    trapCut,
+    trapBar: trapView && !trapBand ? { on: trapView.on, wait: trapView.wait, onToggle: trapView.onToggle } : null,
+    halfView,
+    half: halvesEnabled(state) ? halfOf(state) : null,
+    trapOn: trapSet,
+    setTrap,
+    resumeHalf: endHalfWait,
     offPosIds,
     throughEarly: early,
     throughOn,
@@ -1315,7 +1509,7 @@ export function useMatchController(props: MatchScreenProps) {
     radial,
     info,
     closeInfo,
-    plannedCount: blues.filter((p) => p.id in plans).length,
+    plannedCount: blues.filter((p) => p.id in plans || trapIds.has(p.id)).length,
     totalPlayers: blues.length,
     possession,
     interactive: planning,

@@ -14,6 +14,8 @@ interface Props {
   onToggleThrough: (v: boolean) => void;
   onStart: () => void;
   onHome: () => void;
+  trapOn: boolean;
+  onToggleTrap: (v: boolean) => void;
   stage?: { no: number; name: string; stars: number };
 }
 
@@ -48,7 +50,7 @@ function Squad({ team, ids }: { team: 'blue' | 'red'; ids: string[] }) {
   );
 }
 
-export function StartOverlay({ blue, red, timerOn, seconds, onToggleTimer, throughOn, onToggleThrough, onStart, onHome, stage }: Props) {
+export function StartOverlay({ blue, red, timerOn, seconds, onToggleTimer, throughOn, onToggleThrough, onStart, onHome, stage, trapOn, onToggleTrap }: Props) {
   return (
     <div className="overlay overlay--start a-stage" data-testid="start-overlay">
       <div className="vs__bg a-halftone" />
@@ -75,6 +77,11 @@ export function StartOverlay({ blue, red, timerOn, seconds, onToggleTimer, throu
           <label className="opt">
             <span>作戦タイマー（{seconds}秒）</span>
             <input type="checkbox" checked={timerOn} onChange={(e) => onToggleTimer(e.target.checked)} />
+            <i className="opt__track" />
+          </label>
+          <label className="opt">
+            <span>オフサイドトラップ</span>
+            <input type="checkbox" checked={trapOn} onChange={(e) => onToggleTrap(e.target.checked)} data-testid="trap-toggle" />
             <i className="opt__track" />
           </label>
           <label className="opt">

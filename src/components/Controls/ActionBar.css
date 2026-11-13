@@ -228,3 +228,76 @@
   -webkit-text-stroke-width: 5px;
   letter-spacing: 0.02em;
 }
+
+/* v0.8 trap button: the middle column gives up the dots for it (count + reset share one row below) */
+.bar .bar__mid {
+  width: 108px;
+}
+.bar__trap {
+  width: 100%;
+  min-height: 46px;
+  padding: 0 4px;
+  border: 3px solid var(--ink);
+  border-radius: 6px;
+  background: linear-gradient(180deg, #d8f8ff, #4fc6ff);
+  box-shadow: 0 3px 0 var(--ink);
+  color: var(--ink);
+  font-family: var(--font-jp);
+  font-weight: 800;
+  font-size: 13px;
+  line-height: 1.1;
+  transform: skewX(-6deg);
+}
+.bar__trap.is-on {
+  background: linear-gradient(180deg, #ffe27a, var(--c-yellow-lo));
+}
+.bar__trap.is-wait,
+.bar__trap:disabled {
+  background: #6b7399;
+  color: #e6e9f5;
+  box-shadow: 0 3px 0 var(--ink);
+}
+.bar__trap:active:not(:disabled):not(.is-wait) {
+  transform: skewX(-6deg) translateY(2px);
+  box-shadow: 0 1px 0 var(--ink);
+}
+.bar__progress--row {
+  flex-direction: row;
+  height: auto;
+  gap: 6px;
+  width: 100%;
+  justify-content: space-between;
+}
+.bar__progress--row .bar__count {
+  font-size: 11px;
+  white-space: nowrap;
+}
+.bar__progress--row .bar__count b {
+  font-size: 15px;
+}
+.bar__progress--row .bar__reset {
+  min-height: 28px;
+  padding: 0 8px;
+  font-size: 11px;
+}
+
+.bar .bar__mid {
+  width: 98px;
+}
+.bar__trap {
+  font-size: 12px;
+}
+.bar .bar__progress--row {
+  gap: 3px;
+}
+.bar .bar__progress--row .bar__count {
+  font-size: 10px;
+}
+.bar .bar__progress--row .bar__count b {
+  font-size: 14px;
+}
+.bar .bar__progress--row .bar__reset {
+  padding: 0 6px;
+  font-size: 10.5px;
+  min-width: 0;
+}

@@ -10,7 +10,7 @@ export const META = {
     dupRefund: { 3: 10, 4: 40, 5: 150 } as Record<3 | 4 | 5, number>,
   },
   reward: { win: 300, draw: 150, lose: 100 },
-  defaultSettings: { timerOn: false, throughEarly: true, cutIn: true },
+  defaultSettings: { timerOn: false, throughEarly: true, cutIn: true, trap: true },
   /** Experience per match (perGoal counts the player's own goals). */
   exp: { win: 100, draw: 60, lose: 40, perGoal: 10 },
   /** Exp needed to leave rank r = base + step * (r - 1). */

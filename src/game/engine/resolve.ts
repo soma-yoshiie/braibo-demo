@@ -29,7 +29,7 @@ import type {
   TurnResult,
   Vec,
 } from '../types';
-import { BOARD, RULES, goalTarget, otherTeam, throughPassMode } from '../rules/config';
+import { BOARD, MATCH, RULES, goalTarget, halfTurns, halvesEnabled, otherTeam, throughPassMode } from '../rules/config';
 import { getCharacter } from '../data/characters';
 import { cellsOnSegment, dist, inBounds, neighbors8, vecEq } from '../rules/geometry';
 import { getEffectiveStats, isLegalMove } from '../rules/moves';
@@ -52,6 +52,7 @@ import {
   laneInterceptors,
 } from '../rules/estimates';
 import { isOffsidePosition } from '../rules/offside';
+import { canDeclareTrap, trapSteps } from '../rules/trap';
 import { kickoffState } from './match';
 
 type Positions = Record<PlayerId, Vec>;
@@ -277,6 +278,8 @@ export function resolveBallAction(
   moved: { positions: Positions; ball: BallState; flags: FlagMap },
   plans: TurnPlans,
   rng: Rng,
+  /** v0.8: cells the trap participants stood on BEFORE their step (only those that stepped), for `byTrap`. */
+  trapBack: Record<PlayerId, Vec> = {},
 ): BallActionResult {
   const events: TurnEvent[] = [];
   const flags: FlagMap = {};
@@ -338,6 +341,11 @@ export function resolveBallAction(
     return { ball, flags, events, goal: { team: passer.team, scorerId: passerId } };
   };
 
+  /** v0.8: would the receiver be onside if the trap participants had stayed one step back? */
+  const trapMadeIt = (receiverPos: Vec, kickPos: Vec, defPos: (e: PlayerState) => Vec): boolean =>
+    Object.keys(trapBack).length > 0 &&
+    !isOffsidePosition(passer.team, receiverPos, kickPos, enemies.map((e) => trapBack[e.id] ?? defPos(e)));
+
   const defMap = (): Positions => Object.fromEntries(enemies.map((e) => [e.id, at(e.id)]));
 
   /** Offside check on final positions; on offside awards the ball and emits the event. */
@@ -350,6 +358,7 @@ export function resolveBallAction(
     events.push({
       type: 'offside', team: passer.team, passerId, receiverId, toPlayerId: nearest.id,
       from: copy(from), to: copy(to), style,
+      ...(trapMadeIt(at(receiverId), from, (e) => at(e.id)) ? { byTrap: true as const } : {}),
     });
     return true;
   };
@@ -475,6 +484,7 @@ export function resolveBallAction(
         events.push({
           type: 'offside', team: passer.team, passerId, receiverId: mate.id, toPlayerId: nearest.id,
           from: copy(passer.pos), to: copy(tgt), style, early: true,
+          ...(trapMadeIt(mate.pos, passer.pos, (e) => e.pos) ? { byTrap: true as const } : {}),
         });
         return res();
       }
@@ -615,10 +625,36 @@ export function resolveBallAction(
   return res();
 }
 
+/** v0.8: the valid trap declaration of this turn, if any (DESIGN.md §14.1). */
+function declaredTrap(state: MatchState, plans: TurnPlans): { team: TeamId; steps: { playerId: PlayerId; from: Vec; to: Vec }[] } | undefined {
+  for (const team of ['blue', 'red'] as const) {
+    if (plans[team].trap === true && canDeclareTrap(state, team)) return { team, steps: trapSteps(state, team) };
+  }
+  return undefined;
+}
+
 export function resolveTurn(state: MatchState, plans: TurnPlans, rng: Rng): TurnResult {
-  const moved = resolveMovement(state, plans, rng);
-  const action = resolveBallAction(state, moved, plans, rng);
-  const events = [...moved.events, ...action.events];
+  // Offside trap: the participants' step is applied first; everything after sees the stepped-up positions
+  // as the turn-start positions, and the participants ignore their move plans.
+  const trap = declaredTrap(state, plans);
+  let work = state;
+  let workPlans = plans;
+  const trapBack: Record<PlayerId, Vec> = {};
+  if (trap) {
+    const to = new Map(trap.steps.map((st) => [st.playerId, st]));
+    for (const st of trap.steps) if (!vecEq(st.from, st.to)) trapBack[st.playerId] = copy(st.from);
+    work = { ...state, players: state.players.map((p) => ({ ...p, pos: copy(to.get(p.id)?.to ?? p.pos) })) };
+    const moves = { ...plans[trap.team].moves };
+    for (const st of trap.steps) delete moves[st.playerId];
+    workPlans = { ...plans, [trap.team]: { ...plans[trap.team], moves } };
+  }
+  const moved = resolveMovement(work, workPlans, rng);
+  const action = resolveBallAction(work, moved, workPlans, rng, trapBack);
+  const events: TurnEvent[] = [
+    ...(trap ? [{ type: 'trap' as const, team: trap.team, steps: trap.steps }] : []),
+    ...moved.events,
+    ...action.events,
+  ];
 
   const score = { ...state.score };
   if (action.goal) score[action.goal.team] += 1;
@@ -631,10 +667,27 @@ export function resolveTurn(state: MatchState, plans: TurnPlans, rng: Rng): Turn
     })),
     ball: action.ball,
     score,
+    ...(trap
+      ? {
+          trapReady: {
+            blue: state.trapReady?.blue ?? 1,
+            red: state.trapReady?.red ?? 1,
+            [trap.team]: state.turn + 1 + RULES.trap.cooldown,
+          },
+        }
+      : {}),
   };
 
   let next: MatchState = afterAction;
-  if (action.goal) {
+  // Half time: after the last turn of the first half, when the match goes on.
+  const halfTime = halvesEnabled(state) && state.turn === halfTurns(state) && state.turn < state.maxTurns;
+  if (halfTime) {
+    const second = otherTeam(state.firstKickoff ?? MATCH.firstKickoff);
+    const { trapReady: _cleared, ...rest } = kickoffState(afterAction, second);
+    void _cleared;
+    next = rest;
+    events.push({ type: 'halfTime', score: { ...score }, kickoffTeam: second });
+  } else if (action.goal) {
     const conceding = otherTeam(action.goal.team);
     next = kickoffState(afterAction, conceding);
     events.push({ type: 'kickoff', team: conceding });

@@ -135,3 +135,37 @@ export interface GoalFxView {
   key: number;
   scorer?: { charId: string; team: TeamId };
 }
+
+/** Trap cut-in (DESIGN-UI §16.2): the declaring side's rear-most player. */
+export interface TrapCutInView {
+  key: number;
+  charId: string;
+  team: TeamId;
+}
+
+/** Marks on the participants of the blue offside-trap declaration (§16.1). */
+export interface TrapMarkView {
+  id: PlayerId;
+  charId: string;
+  number: number;
+  abbr: string;
+  /** Current cell. */
+  x: number;
+  y: number;
+  /** Cell one step ahead; equal to `y` when the step is blocked (the player stays). */
+  toY: number;
+}
+
+/** The trap button and its marks on the pitch. */
+export interface TrapView {
+  on: boolean;
+  /** Turns until the next declaration is possible (0 = can declare). */
+  wait: number;
+  marks: TrapMarkView[];
+  onToggle: () => void;
+}
+
+export interface HalfTimeView {
+  score: Record<TeamId, number>;
+  kickoffTeam: TeamId;
+}

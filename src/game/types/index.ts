@@ -122,6 +122,14 @@ export interface MatchState {
    * Always read it through `throughPassMode(state)`.
    */
   throughPass?: ThroughPassMode;
+  /** v0.8 offside-trap switch (DESIGN.md §14.1). Missing = RULES.trap.enabled. Read it through `trapEnabled(state)`. */
+  trap?: boolean;
+  /** v0.8: per team, the first turn number on which a trap may be declared again (missing = 1). */
+  trapReady?: Record<TeamId, number>;
+  /** v0.8 two-halves switch (DESIGN.md §14.2). Missing = MATCH.halves. Read it through `halvesEnabled(state)`. */
+  halves?: boolean;
+  /** v0.8: team that took the opening kickoff (missing = MATCH.firstKickoff). */
+  firstKickoff?: TeamId;
 }
 
 /**
@@ -153,6 +161,8 @@ export interface TeamPlan {
   moves: Partial<Record<PlayerId, Vec>>;
   /** Only used when a player of this team holds the ball at planning time. */
   ballAction?: BallActionPlan;
+  /** v0.8: declare an offside trap (only valid while the opponent holds the ball and the cooldown is over). */
+  trap?: boolean;
 }
 
 export type TurnPlans = Record<TeamId, TeamPlan>;
@@ -250,6 +260,8 @@ export type TurnEvent =
       style: PassStyle;
       /** v0.5: early through pass, judged on turn-start positions (`from` is the kicker's turn-start cell). */
       early?: boolean;
+      /** v0.8: the receiver is onside when the trap participants are put one step back (the declaration made the foul). */
+      byTrap?: true;
     }
   /** A planned pass/cross could not be attempted (e.g. receiver ended out of range). The carrier keeps the ball. */
   | {
@@ -258,6 +270,10 @@ export type TurnEvent =
       action: BallActionKind;
       reason: 'outOfRange' | 'invalidTarget';
     }
+  /** v0.8: a valid offside-trap declaration. First event of the turn. `from === to` for a participant that did not step. */
+  | { type: 'trap'; team: TeamId; steps: { playerId: PlayerId; from: Vec; to: Vec }[] }
+  /** v0.8: end of the first half (last event of that turn). The second half is kicked off by `kickoffTeam`. */
+  | { type: 'halfTime'; score: Record<TeamId, number>; kickoffTeam: TeamId }
   | { type: 'goal'; team: TeamId; scorerId: PlayerId }
   | { type: 'goalKick'; team: TeamId; playerId: PlayerId }
   | { type: 'kickoff'; team: TeamId }

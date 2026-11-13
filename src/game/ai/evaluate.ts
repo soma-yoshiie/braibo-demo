@@ -59,6 +59,15 @@ export const AI_WEIGHTS = {
   coverBack: 0.05, // defence: per row dropped back
   coverAll: 1, // defence: >0 = every defender may cover a target cell, not just the deepest
   coverNear: 0.4, // defence: value of standing next to a target cell, relative to standing on it
+  // ---- v0.8 offside trap (AI) ----
+  trapBase: 0.05, // defence: base chance to declare when at least one attacker could be caught
+  trapScale: 0.3, // defence: added chance per unit of catch threat
+  trapMax: 0.6, // defence: never declare more often than this
+  trapNear: 0.2, // defence: threat of an attacker that is only caught if it runs onto the line (one row behind)
+  trapRisk: 0.2, // offence: assumed chance the opponent declares, discounting a through pass whose runner starts level with the line
+  trapLevelOff: 0.05, // offence: off-ball cell that the stepped-up line would turn offside (only while the opponent may declare)
+  trapFootRisk: 0.06, // offence: discount on a foot pass / cross to a receiver level with the line (caught if the opponent steps up)
+  trapBehind: 0.1, // offence: bonus for a through-pass runner starting behind the line while the opponent may declare
 } as const;
 
 export const key = (v: Vec): string => `${v.x},${v.y}`;

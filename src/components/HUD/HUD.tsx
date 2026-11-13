@@ -8,6 +8,8 @@ interface Props {
   score: Record<TeamId, number>;
   turn: number;
   maxTurns: number;
+  /** 1 / 2 when the match has halves (null = no halves). */
+  half?: 1 | 2 | null;
   possession: TeamId | 'loose';
   /** null = timer disabled */
   secondsLeft: number | null;
@@ -50,6 +52,7 @@ export function HUD({
   score,
   turn,
   maxTurns,
+  half = null,
   possession,
   secondsLeft,
   timerMax,
@@ -118,12 +121,19 @@ export function HUD({
             </span>
           )}
         </div>
+        <div className="hud__turnwrap">
         <div className="hud__turn" data-testid="turn">
           <span className="hud__turn-label a-num">TURN</span>
           <span className="hud__turn-val">
             <b className="a-num">{Math.min(turn, maxTurns)}</b>
             <span className="a-num">/{maxTurns}</span>
           </span>
+        </div>
+        {half && (
+          <span className="hud__half" data-testid="half">
+            {half === 1 ? '前半' : '後半'}
+          </span>
+        )}
         </div>
       </div>
       {secondsLeft !== null && (

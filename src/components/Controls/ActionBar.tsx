@@ -17,9 +17,11 @@ interface Props {
   /** While picking a pass target: shows the style toggle in place of the progress dots. */
   passStyle?: PassStyle | null;
   onPassStyle?: (s: PassStyle) => void;
+  /** Offside-trap button (null = cannot apply: own / loose ball, rule off). It takes the progress dots' place. */
+  trap?: { on: boolean; wait: number; onToggle: () => void } | null;
 }
 
-export function ActionBar({ plannedCount, total, disabled, onReset, onExecute, selected, onOpenInfo, passStyle, onPassStyle }: Props) {
+export function ActionBar({ plannedCount, total, disabled, onReset, onExecute, selected, onOpenInfo, passStyle, onPassStyle, trap }: Props) {
   const sel = selected ?? null;
   return (
     <footer className="bar">
@@ -69,6 +71,28 @@ export function ActionBar({ plannedCount, total, disabled, onReset, onExecute, s
               </button>
             ))}
           </div>
+        ) : trap ? (
+          <>
+            <button
+              type="button"
+              className={`bar__trap${trap.on ? ' is-on' : ''}${trap.wait > 0 ? ' is-wait' : ''}`}
+              data-testid="trap-button"
+              aria-pressed={trap.on}
+              aria-disabled={trap.wait > 0}
+              disabled={disabled}
+              onClick={trap.wait > 0 ? undefined : trap.onToggle}
+            >
+              {trap.wait > 0 ? <span data-testid="trap-wait">あと {trap.wait} ターン</span> : trap.on ? 'トラップ宣言中' : 'トラップ'}
+            </button>
+            <div className="bar__progress bar__progress--row" data-testid="progress">
+              <div className="bar__count a-num">
+                <b>{plannedCount}</b>/{total} 指定
+              </div>
+              <button className="a-btn a-btn--dark a-btn--sm bar__reset" onClick={onReset} disabled={disabled} data-testid="reset">
+                <span>リセット</span>
+              </button>
+            </div>
+          </>
         ) : (
           <div className="bar__progress" data-testid="progress">
             <div className="bar__dots">
@@ -81,9 +105,11 @@ export function ActionBar({ plannedCount, total, disabled, onReset, onExecute, s
             </div>
           </div>
         )}
-        <button className="a-btn a-btn--dark a-btn--sm bar__reset" onClick={onReset} disabled={disabled} data-testid="reset">
-          <span>リセット</span>
-        </button>
+        {!(trap && !passStyle) && (
+          <button className="a-btn a-btn--dark a-btn--sm bar__reset" onClick={onReset} disabled={disabled} data-testid="reset">
+            <span>リセット</span>
+          </button>
+        )}
       </div>
       <button className="a-btn a-btn--yellow a-btn--lg bar__exec" onClick={onExecute} disabled={disabled} data-testid="execute">
         <span>実行！</span>

@@ -18,6 +18,8 @@ export function HowToSheet({ onClose }: { onClose: () => void }) {
       </ol>
       <p className="howto__note">敵と同じマスにも並べる。競り合いはボールがあるマスだけ、負けてもその場に残る。</p>
       <p className="howto__note">スルーパス（空きマスへのパス）は動く前に蹴る。オフサイドは今の位置で決まる。</p>
+      <p className="howto__note">相手ボールのとき『トラップ』で最終ラインを一歩上げられる。当たればオフサイド、外すと動けない。</p>
+      <p className="howto__note">試合は前半 10 ターン、後半 10 ターン。後半は相手のキックオフで始まる。</p>
     </Sheet>
   );
 }
@@ -45,6 +47,7 @@ export function SettingsSheet({ settings, onPatch, onReset, onClose }: SettingsP
     <Sheet title="設定" onClose={onClose} testId="settings-sheet" closeTestId="settings-close">
       <Toggle label="作戦タイマー" value={settings.timerOn} onChange={(v) => onPatch({ timerOn: v })} testId="settings-timer" />
       <Toggle label="先出しスルーパス" value={settings.throughEarly} onChange={(v) => onPatch({ throughEarly: v })} testId="settings-through" />
+      <Toggle label="オフサイドトラップ" value={settings.trap} onChange={(v) => onPatch({ trap: v })} testId="settings-trap" />
       <Toggle label="カットイン演出" value={settings.cutIn} onChange={(v) => onPatch({ cutIn: v })} testId="settings-cutin" />
       <div className="sheet__danger">
         {!ask ? (

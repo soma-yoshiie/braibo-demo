@@ -466,3 +466,65 @@ path.ball-arrow--warn {
   text-anchor: middle;
   dominant-baseline: central;
 }
+
+.offside-line {
+  transition: transform 0.5s ease-in-out;
+}
+.trap-arrow {
+  fill: var(--c-yellow);
+  stroke: var(--ink);
+  stroke-width: 0.06;
+  stroke-linejoin: round;
+}
+.trap-up rect {
+  fill: var(--ink);
+  stroke: var(--c-yellow);
+  stroke-width: 0.04;
+}
+.trap-up text {
+  fill: var(--c-yellow);
+  font-family: var(--font-num);
+  font-size: 0.2px;
+  text-anchor: middle;
+  dominant-baseline: central;
+}
+.trap-btn {
+  cursor: pointer;
+}
+.trap-btn__hit {
+  fill: transparent;
+}
+.trap-btn__shade {
+  fill: var(--ink);
+}
+.trap-btn__face {
+  fill: #9ceaff;
+  stroke: var(--ink);
+  stroke-width: 0.06;
+  stroke-linejoin: round;
+}
+.trap-btn.is-on .trap-btn__face {
+  fill: var(--c-yellow);
+}
+.trap-btn.is-wait {
+  cursor: default;
+}
+.trap-btn.is-wait .trap-btn__face {
+  fill: #6b7399;
+}
+.trap-btn__text {
+  fill: var(--ink);
+  font-family: var(--font-jp);
+  font-weight: 800;
+  font-size: 0.27px;
+  text-anchor: middle;
+  dominant-baseline: central;
+}
+.trap-btn.is-wait .trap-btn__text {
+  fill: #e6e9f5;
+}
+@media (prefers-reduced-motion: reduce) {
+  .offside-line {
+    transition: none;
+  }
+}

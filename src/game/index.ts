@@ -4,6 +4,7 @@ export * from './rules/geometry';
 export * from './rules/moves';
 export * from './rules/probability';
 export * from './rules/offside';
+export * from './rules/trap';
 export * from './rules/estimates';
 export * from './engine/rng';
 export * from './engine/match';
