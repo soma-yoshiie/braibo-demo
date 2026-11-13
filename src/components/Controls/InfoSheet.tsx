@@ -1,4 +1,4 @@
-import { getProfile } from '../../game/data/roster';
+import { getProfile, splitCharId } from '../../game/data/roster';
 import type { CharacterDef, SkillId, Stats } from '../../game/types';
 import { CharaBust, Stars } from '../Chara';
 import { SKILL_LABEL, STAT_LABEL, STAT_ORDER } from '../Shell/chara';
@@ -35,6 +35,8 @@ interface Props {
 
 export function InfoSheet({ info, onClose }: Props) {
   const look = getProfile(info.charId).look;
+  const plus = splitCharId(info.charId).plus;
+  const lvTag = info.team === 'blue' ? `Lv.${plus + 1}` : plus > 0 ? `+${plus}` : null;
   return (
     <>
       {/* modal backdrop: swallows every pointer event so an outside tap only closes the sheet */}
@@ -54,7 +56,10 @@ export function InfoSheet({ info, onClose }: Props) {
           </div>
           <div className="card-sheet__title">
             <i>{info.title}</i>
-            <b className="a-head a-head--lg">{info.name}</b>
+            <b className="a-head a-head--lg">
+              {info.name}
+              {lvTag && <span className="card-sheet__lv a-num">{lvTag}</span>}
+            </b>
             <div className="card-sheet__meta">
               <Stars rarity={info.rarity} size={14} />
               <span className="a-num card-sheet__no">#{info.number}</span>

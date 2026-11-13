@@ -1,12 +1,15 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { CharaBust, Crest, SpeedLines } from '../../components/Chara';
 import { BottomNav } from '../../components/Shell/BottomNav';
-import { HowToSheet, SettingsSheet } from '../../components/Shell/Sheets';
+import { DiffStars, behindText, mulText, rewardMulOf } from '../../components/Shell/bits';
+import { HowToSheet, LoginSheet, SettingsSheet } from '../../components/Shell/Sheets';
 import { TopBar } from '../../components/Shell/TopBar';
-import { patchSettings, type Screen } from '../../components/Shell/actions';
+import { patchSettings, todayString, useToday, type Screen } from '../../components/Shell/actions';
 import { charaInfo } from '../../components/Shell/chara';
 import { SCOUT_POOL } from '../../game/data/roster';
-import type { SaveData } from '../../meta/save';
+import { claimLogin, claimableCount, loginBonus } from '../../meta/missions';
+import { lineupIds, teamPower, type SaveData } from '../../meta/save';
+import { nextStage, stageLineup } from '../../meta/stages';
 import { saveStore } from '../../meta/store';
 import '../../components/Shell/Shell.css';
 import './Home.css';
@@ -14,13 +17,23 @@ import './Home.css';
 interface Props {
   save: SaveData;
   onNav: (s: Screen) => void;
-  onPlay: () => void;
+  onPlay: (stageId: string) => void;
   qa?: string;
 }
 
 export function HomeScreen({ save, onNav, onPlay, qa }: Props) {
   const [sheet, setSheet] = useState<'howto' | 'settings' | null>(qa === 'howto' ? 'howto' : qa === 'settings' ? 'settings' : null);
+  const today = useToday();
+  const [loginOpen, setLoginOpen] = useState(() => loginBonus(saveStore.get(), todayString()) !== null);
+  // A new day (app left open, tab shown again) brings the bonus back.
+  useEffect(() => {
+    if (loginBonus(saveStore.get(), today) !== null) setLoginOpen(true);
+  }, [today]);
   const { profile, def, team } = charaInfo(save.lineup.striker);
+  const next = nextStage(save);
+  const myPower = teamPower(lineupIds(save));
+  const rivalPower = teamPower(stageLineup(next));
+  const claimable = claimableCount(save, today);
   const ownedCount = SCOUT_POOL.filter((p) => (save.owned[p.id] ?? 0) > 0).length;
   const { won, drawn, lost } = save.record;
   return (
@@ -28,7 +41,7 @@ export function HomeScreen({ save, onNav, onPlay, qa }: Props) {
       <div className="scr__bg a-stage a-halftone" />
       <TopBar
         title="HOME"
-        coins={save.coins}
+        save={save}
         right={
           <button type="button" className="icon-btn" onClick={() => setSheet('settings')} aria-label="設定" data-testid="home-settings">
             <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true">
@@ -58,8 +71,28 @@ export function HomeScreen({ save, onNav, onPlay, qa }: Props) {
             </div>
           </div>
         </section>
+        <div className="home__next a-panel" data-testid="home-next">
+          <span className="home__nextno a-num">STAGE {next.no}</span>
+          <span className="home__nextname">
+            <b>{next.name}</b>
+            <span className="home__nextstars">
+              <DiffStars n={next.stars} size={12} />
+              {rewardMulOf(next) > 1 && <em className="home__mul">{mulText(rewardMulOf(next))}</em>}
+            </span>
+          </span>
+          <span className="home__nextpow a-num">
+            <span>相手 <b>{rivalPower}</b></span>
+            <span>自分 <b className={myPower >= rivalPower ? 'is-ok' : 'is-behind'}>{myPower}</b>{behindText(myPower, rivalPower) && <em className="home__behind">{behindText(myPower, rivalPower)}</em>}</span>
+          </span>
+        </div>
+        {claimable > 0 && (
+          <button type="button" className="home__mission" onClick={() => onNav('mission')} data-testid="home-mission">
+            <span className="home__missiondot a-num">{claimable}</span>
+            受け取れるミッションがあります
+          </button>
+        )}
         <div className="home__play">
-          <button type="button" className="a-btn a-btn--yellow a-btn--lg a-btn--block home__playbtn" onClick={onPlay} data-testid="home-play">
+          <button type="button" className="a-btn a-btn--yellow a-btn--lg a-btn--block home__playbtn" onClick={() => onPlay(next.id)} data-testid="home-play">
             <span>試合開始！</span>
           </button>
         </div>
@@ -82,7 +115,17 @@ export function HomeScreen({ save, onNav, onPlay, qa }: Props) {
           </button>
         </div>
       </div>
-      <BottomNav current="home" onNav={onNav} />
+      <BottomNav current="home" onNav={onNav} save={save} />
+      {loginOpen && (
+        <LoginSheet
+          save={save}
+          today={today}
+          onClaim={() => {
+            saveStore.update((cur) => claimLogin(cur, todayString()));
+            setLoginOpen(false);
+          }}
+        />
+      )}
       {sheet === 'howto' && <HowToSheet onClose={() => setSheet(null)} />}
       {sheet === 'settings' && (
         <SettingsSheet settings={save.settings} onPatch={patchSettings} onReset={() => saveStore.reset()} onClose={() => setSheet(null)} />

@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { planAiTurn } from '../../game/ai/simpleAi';
 import { getCharacter } from '../../game/data/characters';
 import { getProfile } from '../../game/data/roster';
-import type { SaveSettings } from '../../meta/save';
+import type { ResultSummary, SaveSettings } from '../../meta/save';
 import { ballHolder, createMatch } from '../../game/engine/match';
 import { describeEvent } from '../../game/engine/log';
 import { createRng, randomSeed } from '../../game/engine/rng';
@@ -66,6 +66,12 @@ export interface MatchScreenProps {
   onSettings: (patch: Partial<SaveSettings>) => void;
   onFinished: (score: Record<TeamId, number>) => void;
   onHome: () => void;
+  /** Stage being played (shown on the VS screen). */
+  stage?: { no: number; name: string; stars: number };
+  /** What the finished match gave; the shell passes it after `onFinished`. null / undefined = not known yet. */
+  summary?: ResultSummary | null;
+  /** Called when 「もう一度」 starts a new match, so the shell can drop the stale summary. */
+  onRematch?: () => void;
 }
 type BallDisp = { kind: 'held'; id: PlayerId } | { kind: 'free'; pos: Vec; snap: boolean };
 

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { CHARACTERS, ROLE_LABEL, getCharacter } from './characters';
-import { ROLE_ORDER, RIVAL_LINEUP, ROSTER, SCOUT_POOL, STARTER_IDS, getProfile } from './roster';
+import { splitCharId, withPlus, ROLE_ORDER, RIVAL_LINEUP, ROSTER, SCOUT_POOL, STARTER_IDS, getProfile } from './roster';
 import { DEFAULT_FORMATION } from './formations';
 import { createMatch } from '../engine/match';
 import type { Stats } from '../types';
@@ -91,5 +91,41 @@ describe('createMatch lineups', () => {
     expect(m.players.filter((p) => p.team === 'blue').map((p) => p.charId)).toEqual(DEFAULT_FORMATION.map((s) => s.charId));
     expect(createMatch()).toEqual(createMatch({}));
     expect(createMatch().players[0].charId).toBe('striker');
+  });
+});
+
+describe('+n ids', () => {
+  it('splitCharId / withPlus', () => {
+    expect(splitCharId('st_kakeru')).toEqual({ base: 'st_kakeru', plus: 0 });
+    expect(splitCharId('st_kakeru+3')).toEqual({ base: 'st_kakeru', plus: 3 });
+    expect(splitCharId('rv_enji+20').plus).toBe(20);
+    for (const bad of ['a+0', 'a+21', 'a+1.5', 'a+', 'a+x', '+3', 'a+-1']) expect(() => splitCharId(bad)).toThrow();
+    expect(withPlus('a', 0)).toBe('a');
+    expect(withPlus('a', 4)).toBe('a+4');
+    expect(() => withPlus('a', 21)).toThrow();
+  });
+
+  it('getCharacter adds n to every stat with clamping', () => {
+    const base = getCharacter('st_kakeru');
+    const c = getCharacter('st_kakeru+3');
+    expect(c.id).toBe('st_kakeru+3');
+    expect(c.name).toBe(base.name);
+    for (const k of Object.keys(base.stats) as (keyof Stats)[]) expect(c.stats[k]).toBe(base.stats[k] + 3);
+    expect(getCharacter('st_ouga+20').stats.shoot).toBe(99);
+    expect(getCharacter('striker+2').stats.shoot).toBe(87);
+    expect(getCharacter('striker+2').id).toBe('striker+2');
+    for (const bad of ['st_kakeru+0', 'st_kakeru+21', 'st_kakeru+1.5', 'nobody+2']) expect(() => getCharacter(bad)).toThrow();
+  });
+
+  it('getProfile keeps content, only id changes', () => {
+    const p = getProfile('wg_sora+4');
+    expect(p).toEqual({ ...getProfile('wg_sora'), id: 'wg_sora+4' });
+    expect(getProfile('wing+2').id).toBe('wing+2');
+    expect(() => getProfile('nobody+2')).toThrow();
+  });
+
+  it('match accepts +n ids', () => {
+    const m = createMatch({ lineups: { red: RIVAL_LINEUP.map((id) => withPlus(id, 4)) } });
+    expect(m.players[5].charId).toBe('rv_enji+4');
   });
 });

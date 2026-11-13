@@ -180,13 +180,33 @@ export const RIVAL_LINEUP: string[] = ['rv_enji', 'rv_homura', 'rv_kagari', 'rv_
 
 export const SCOUT_POOL: CharaProfile[] = ROSTER.filter((p) => p.group === 'player');
 
-/** Roster profile, or for an archetype id a default profile borrowing the role's ★3 starter look. */
+/** Max `+n` strengthening suffix (DESIGN.md §13.1). */
+export const MAX_PLUS = 20;
+
+/** Splits `base+n` into its parts. No suffix = plus 0. Throws on an invalid suffix (0, > MAX_PLUS, non-integer). */
+export function splitCharId(id: string): { base: string; plus: number } {
+  const i = id.lastIndexOf('+');
+  if (i < 0) return { base: id, plus: 0 };
+  const suffix = id.slice(i + 1);
+  const plus = /^[0-9]+$/.test(suffix) ? Number(suffix) : NaN;
+  if (i === 0 || !Number.isInteger(plus) || plus < 1 || plus > MAX_PLUS) throw new Error(`Unknown character: ${id}`);
+  return { base: id.slice(0, i), plus };
+}
+
+/** `base+n`, or `base` when n is 0. */
+export function withPlus(base: string, n: number): string {
+  if (!Number.isInteger(n) || n < 0 || n > MAX_PLUS) throw new Error(`Invalid plus: ${n}`);
+  return n === 0 ? base : `${base}+${n}`;
+}
+
+/** Roster profile (`x+n` allowed), or for an archetype id a default profile borrowing the role's ★3 starter look. */
 export function getProfile(charId: string): CharaProfile {
-  const p = BY_ID.get(charId);
-  if (p) return p;
-  const role = ROLE_ORDER.find((r) => r === charId);
+  const { base, plus } = splitCharId(charId);
+  const p = BY_ID.get(base);
+  if (p) return plus ? { ...p, id: charId } : p;
+  const role = ROLE_ORDER.find((r) => r === base);
   if (!role) throw new Error(`Unknown character: ${charId}`);
   const starter = BY_ID.get(STARTER_IDS[role]);
   if (!starter) throw new Error(`Missing starter for ${role}`);
-  return { ...starter, id: role, name: ARCHETYPE_NAME[role] };
+  return { ...starter, id: charId, name: ARCHETYPE_NAME[role] };
 }

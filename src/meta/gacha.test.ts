@@ -5,6 +5,7 @@ import { META } from './config';
 import { createRng, fixedRng } from '../game/engine/rng';
 import { SCOUT_POOL } from '../game/data/roster';
 
+const D = '2026-01-01';
 const rarityOf = (id: string) => SCOUT_POOL.find((p) => p.id === id)?.rarity;
 
 describe('rollGacha', () => {
@@ -53,7 +54,7 @@ describe('rollGacha', () => {
 describe('applyGacha', () => {
   it('deducts cost, marks new, refunds duplicates (also inside one 10-pull)', () => {
     const s = defaultSave();
-    const { save, results } = applyGacha(s, ['st_ouga', 'st_ouga', 'st_ouga', 'wg_sora', 'st_raiga'], 300);
+    const { save, results } = applyGacha(s, ['st_ouga', 'st_ouga', 'st_ouga', 'wg_sora', 'st_raiga'], 300, D);
     expect(results.map((r) => r.isNew)).toEqual([true, false, false, false, true]);
     expect(results.map((r) => r.refund)).toEqual([0, 150, 150, 10, 0]);
     expect(save.owned.st_ouga).toBe(3);
@@ -63,8 +64,17 @@ describe('applyGacha', () => {
     expect(s.owned.st_ouga).toBeUndefined();
   });
 
+  it('increments daily.pulls and rolls the day over', () => {
+    const a = applyGacha(defaultSave(), ['st_ouga'], 100, D).save;
+    expect(a.daily).toMatchObject({ date: D, pulls: 1 });
+    const b = applyGacha(a, ['st_ouga', 'st_raiga'], 100, D).save;
+    expect(b.daily.pulls).toBe(3);
+    const c = applyGacha(b, ['st_ouga'], 100, '2026-01-02').save;
+    expect(c.daily).toMatchObject({ date: '2026-01-02', pulls: 1 });
+  });
+
   it('rejects unknown ids', () => {
-    expect(() => applyGacha(defaultSave(), ['rv_enji'], 100)).toThrow();
+    expect(() => applyGacha(defaultSave(), ['rv_enji'], 100, D)).toThrow();
   });
 });
 

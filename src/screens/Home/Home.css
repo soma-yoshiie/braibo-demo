@@ -1,4 +1,4 @@
-.home__main { padding: 0 calc(12px + var(--safe-right)) 8px calc(12px + var(--safe-left)); gap: 10px; }
+.home__main { padding: 0 calc(12px + var(--safe-right)) 8px calc(12px + var(--safe-left)); gap: 8px; }
 .home__hero { position: relative; flex: 1; min-height: 0; margin: 0 -12px; overflow: hidden; clip-path: polygon(0 0, 100% 0, 100% 100%, 0 calc(100% - 12px)); }
 .home__rays { position: absolute; inset: 0; opacity: 0.9; }
 .home__rays::before {
@@ -79,3 +79,31 @@
 @media (prefers-reduced-motion: reduce) {
   .home__playbtn, .home__bust { animation: none; }
 }
+
+.home__next { flex: none; display: flex; align-items: center; gap: 10px; padding: 6px 10px; margin: 0 2px; }
+.home__nextno { font-size: 24px; color: var(--c-yellow); text-shadow: 0 2px 0 var(--ink); letter-spacing: 0.04em; flex: none; }
+.home__nextname { display: flex; flex-direction: column; gap: 1px; min-width: 0; flex: 1; }
+.home__nextname b { font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.home__nextpow { display: flex; flex-direction: column; align-items: flex-end; font-size: 11px; color: #c9d3ff; flex: none; line-height: 1.15; }
+.home__nextpow b { font-size: 16px; font-weight: 400; color: #fff; }
+.home__nextpow b.is-behind { color: var(--c-yellow); }
+.home__behind { font-style: normal; margin-left: 4px; font-size: 11px; color: var(--c-yellow); }
+.home__nextstars { display: flex; align-items: center; gap: 6px; }
+.home__mul { font-style: normal; font-size: 11px; color: var(--c-yellow); }
+.home__nextpow b.is-ok { color: var(--c-sky); }
+.home__mission {
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 44px;
+  margin: 0 2px;
+  padding: 0 10px;
+  border: 2px solid var(--ink);
+  border-radius: 6px;
+  background: linear-gradient(90deg, #7d0a16, var(--c-red));
+  color: #fff;
+  font-size: 12px;
+}
+.home__missiondot { min-width: 20px; height: 20px; display: grid; place-items: center; border: 2px solid var(--ink); border-radius: 10px; background: var(--c-yellow); color: var(--ink); font-size: 14px; }

@@ -1,48 +1,42 @@
-import { CharaBust, CharaMedal, Stars } from '../Chara';
+import { CharaBust, CharaMedal } from '../Chara';
 import { charaInfo } from './chara';
 import './Shell.css';
 
-/** 顔アイコン（メダル）。親の大きさに合わせる。 */
-export function Avatar({ id, ball }: { id: string; ball?: boolean }) {
+/** 顔アイコン（メダル）。親の大きさに合わせる。tag は左下の小さな札（Lv.3 や +4）。 */
+export function Avatar({ id, ball, tag }: { id: string; ball?: boolean; tag?: string }) {
   const { profile, abbr, team } = charaInfo(id);
-  return <CharaMedal look={profile.look} team={team} number={profile.number} abbr={abbr} rarity={profile.rarity} ball={ball} />;
+  return <CharaMedal look={profile.look} team={team} number={profile.number} abbr={abbr} rarity={profile.rarity} tag={tag} ball={ball} />;
 }
 
 interface Props {
   id: string;
   owned: boolean;
-  dup?: number;
-  selected?: boolean;
-  badge?: string;
+  level: number;
+  inLineup?: boolean;
   onClick?: () => void;
   testId?: string;
 }
 
-/** 選手ボックスと編成で使う札。持っていない選手は影と「？？？」。 */
-export function CharaCard({ id, owned, dup = 0, selected, badge, onClick, testId }: Props) {
-  const { profile, def, abbr } = charaInfo(id);
+/** 選手ボックスの正方形アイコン。枠の色が ★（3 銀 / 4 金 / 5 虹）。持っていない選手は影。 */
+export function CharaTile({ id, owned, level, inLineup, onClick, testId }: Props) {
+  const { profile, abbr, def } = charaInfo(id);
   return (
     <button
       type="button"
-      className={`ccard ccard--r${profile.rarity}${owned ? '' : ' is-locked'}${selected ? ' is-selected' : ''}`}
+      className={`ctile ctile--r${profile.rarity}${owned ? '' : ' is-locked'}`}
       onClick={onClick}
-      disabled={!owned && !onClick}
+      disabled={!owned}
       data-testid={testId}
+      aria-label={owned ? `${def.name} Lv.${level}` : '未所持'}
     >
-      <span className="ccard__role a-tag">{abbr}</span>
-      {owned && dup > 0 && <span className="ccard__dup a-tag a-tag--dark">×{dup + 1}</span>}
-      <span className="ccard__face">
-        {owned ? (
-          <Avatar id={id} />
-        ) : (
-          <span className="ccard__shadow">
-            <CharaBust look={profile.look} team="blue" />
-          </span>
-        )}
+      <span className="ctile__in">
+        <span className="ctile__bust">
+          <CharaBust look={profile.look} team="blue" />
+        </span>
+        <span className="ctile__role a-tag">{abbr}</span>
+        {owned && inLineup && <span className="ctile__now a-tag a-tag--blue">編成中</span>}
+        <span className="ctile__lv a-num">{owned ? `Lv.${level}` : `★${profile.rarity}`}</span>
       </span>
-      <span className="ccard__stars">{owned ? <Stars rarity={profile.rarity} size={11} /> : <span className="a-num">★{profile.rarity}</span>}</span>
-      <span className="ccard__name">{owned ? def.name : '？？？'}</span>
-      {badge && <span className="ccard__badge a-tag">{badge}</span>}
     </button>
   );
 }

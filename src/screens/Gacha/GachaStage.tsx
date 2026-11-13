@@ -29,9 +29,9 @@ const STAR = Array.from({ length: 32 }, (_, i) => {
 export function GachaStage({ results, canAgain, onClose, onAgain, hold, holdIndex = 0 }: Props) {
   const [phase, setPhase] = useState<StagePhase>(() => hold ?? (prefersReduced() ? 'result' : 'ball'));
   const [idx, setIdx] = useState(hold ? holdIndex : 0);
-  const born = useRef(Date.now());
+  const born = useRef(performance.now());
   const skip = () => {
-    if (Date.now() - born.current < 350) return; // a double tap on a pull button must not skip the reveal
+    if (performance.now() - born.current < 350) return; // a double tap on a pull button must not skip the reveal
     setPhase('result');
   };
   const best = results.reduce<Rarity>((m, r) => (r.rarity > m ? r.rarity : m), 3);

@@ -89,6 +89,7 @@ export function MatchScreen(props: MatchScreenProps) {
           blue={props.lineups.blue}
           red={props.lineups.red}
           onHome={props.onHome}
+          stage={props.stage}
           timerOn={m.timerOn}
           seconds={TIMER_SECONDS}
           onToggleTimer={m.setTimerOn}
@@ -102,7 +103,11 @@ export function MatchScreen(props: MatchScreenProps) {
           score={m.state.score}
           blue={props.lineups.blue}
           red={props.lineups.red}
-          onAgain={m.restart}
+          summary={props.summary}
+          onAgain={() => {
+            props.onRematch?.();
+            m.restart();
+          }}
           onHome={props.onHome}
           onLog={() => m.setLogOpen(true)}
         />

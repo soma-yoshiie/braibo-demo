@@ -1,25 +1,27 @@
 /// <reference types="vite/client" />
-import { Suspense, lazy, useState } from 'react';
+import { Suspense, lazy, useMemo, useState } from 'react';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import type { Screen } from './components/Shell/actions';
-import { patchSettings } from './components/Shell/actions';
-import { RIVAL_LINEUP } from './game/data/roster';
-import { applyMatchResult, lineupIds } from './meta/save';
+import { patchSettings, todayString } from './components/Shell/actions';
+import { applyMatchResult, lineupIds, summarizeMatch, type ResultSummary } from './meta/save';
+import { getStage, nextStage, stageLineup } from './meta/stages';
 import { saveStore, useSave } from './meta/store';
 import { BoxScreen } from './screens/Box/BoxScreen';
 import { GachaScreen } from './screens/Gacha/GachaScreen';
 import { HomeScreen } from './screens/Home/HomeScreen';
 import { MatchScreen } from './screens/MatchScreen/MatchScreen';
+import { MissionScreen } from './screens/Mission/MissionScreen';
+import { StageScreen } from './screens/Stage/StageScreen';
 import { TeamScreen } from './screens/Team/TeamScreen';
 import { TitleScreen } from './screens/Title/TitleScreen';
 
 // Dev-only: the gallery chunk is dropped from production builds.
 const CharaGallery = import.meta.env.DEV ? lazy(() => import('./dev/CharaGallery')) : null;
 
-const SCREENS: Screen[] = ['title', 'home', 'box', 'team', 'gacha', 'match'];
+const SCREENS: Screen[] = ['title', 'home', 'stage', 'box', 'team', 'gacha', 'mission', 'match'];
 
 /**
- * Deep links for checking: #home #box #team #gacha #match, #gallery.
+ * Deep links for checking: #home #stage #box #team #gacha #mission #match, #gallery.
  * DEV-only QA extras (ignored in production builds), after a colon: #home:howto #home:settings #box:<charId> #team:<roleId> #gacha:rates|ball|cut|result.
  */
 function parseHash(): { screen: Screen; qa?: string; gallery: boolean } {
@@ -36,7 +38,15 @@ export function App() {
   const [screen, setScreen] = useState<Screen>(initial.screen);
   const [qa, setQa] = useState<string | undefined>(initial.qa);
   const [save] = useSave();
-  const [lineups, setLineups] = useState(() => ({ blue: lineupIds(saveStore.get()), red: RIVAL_LINEUP }));
+  const [stageId, setStageId] = useState(() => nextStage(saveStore.get()).id);
+  const [summary, setSummary] = useState<ResultSummary | null>(null);
+  const [matchNo, setMatchNo] = useState(0);
+  // Lineups are fixed when a match starts (stable identity for the match screen).
+  const lineups = useMemo(() => {
+    const st = getStage(stageId) ?? nextStage(saveStore.get());
+    return { blue: lineupIds(saveStore.get()), red: stageLineup(st) };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [stageId, matchNo]);
 
   if (initial.gallery && CharaGallery) {
     return (
@@ -54,10 +64,13 @@ export function App() {
     setQa(undefined);
     setScreen(s);
   };
-  const play = () => {
-    setLineups({ blue: lineupIds(saveStore.get()), red: RIVAL_LINEUP });
+  const play = (id: string) => {
+    setStageId(id);
+    setSummary(null);
+    setMatchNo((n) => n + 1);
     go('match');
   };
+  const stage = getStage(stageId) ?? nextStage(save);
 
   let body;
   switch (screen) {
@@ -66,6 +79,9 @@ export function App() {
       break;
     case 'home':
       body = <HomeScreen save={save} onNav={go} onPlay={play} qa={qa} />;
+      break;
+    case 'stage':
+      body = <StageScreen save={save} onNav={go} onPlay={play} />;
       break;
     case 'box':
       body = <BoxScreen save={save} onNav={go} qa={qa} />;
@@ -76,13 +92,24 @@ export function App() {
     case 'gacha':
       body = <GachaScreen save={save} onNav={go} qa={qa} />;
       break;
+    case 'mission':
+      body = <MissionScreen save={save} onNav={go} />;
+      break;
     case 'match':
       body = (
         <MatchScreen
           lineups={lineups}
           settings={save.settings}
+          stage={{ no: stage.no, name: stage.name, stars: stage.stars }}
+          summary={summary}
           onSettings={patchSettings}
-          onFinished={(score) => saveStore.update((s) => applyMatchResult(s, score))}
+          onRematch={() => setSummary(null)}
+          onFinished={(score) => {
+            // Summarise against the save from before this match, then apply it.
+            const before = saveStore.get();
+            setSummary(summarizeMatch(before, stage.id, score));
+            saveStore.update((s) => applyMatchResult(s, stage.id, score, todayString()));
+          }}
           onHome={() => go('home')}
         />
       );

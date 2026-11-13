@@ -1,4 +1,4 @@
-/** Tuning values for the out-of-match layer (DESIGN.md §12). */
+/** Tuning values for the out-of-match layer (DESIGN.md §12, §13). */
 export const META = {
   startCoins: 3000,
   gacha: {
@@ -11,4 +11,12 @@ export const META = {
   },
   reward: { win: 300, draw: 150, lose: 100 },
   defaultSettings: { timerOn: false, throughEarly: true, cutIn: true },
+  /** Experience per match (perGoal counts the player's own goals). */
+  exp: { win: 100, draw: 60, lose: 40, perGoal: 10 },
+  /** Exp needed to leave rank r = base + step * (r - 1). */
+  rank: { base: 100, step: 50, bonusCoins: 200 },
+  /** costs[Lv - 1] = coins to go from Lv to Lv + 1. Each level adds +1 to every stat. */
+  level: { max: 6, costs: [200, 400, 600, 800, 1000] as readonly number[] },
+  /** Daily login coins, cycling every 7 claimed days. */
+  login: { coins: [100, 100, 150, 150, 200, 200, 500] as readonly number[] },
 } as const;

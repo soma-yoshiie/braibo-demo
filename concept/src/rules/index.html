@@ -1,0 +1,1013 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<title>BRAIBO 構想資料03 ルール案の分析</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=Noto+Sans+JP:wght@400;500;700;900&family=Zen+Kaku+Gothic+New:wght@700;900&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../shared/doc.css">
+<script src="../shared/diagram.js"></script>
+<style>
+.issues { display: flex; gap: 3mm; margin: 0 0 3mm; }
+.issues > div { flex: 1 1 0; border: .3mm solid var(--line); border-top: 1mm solid var(--red); border-radius: 2mm; padding: 2.4mm 2.8mm 2mm; }
+.issues b { display: block; font-family: 'Zen Kaku Gothic New', 'Noto Sans JP', sans-serif; font-weight: 900; font-size: 10.4pt; line-height: 1.35; margin-bottom: 1.4mm; }
+.issues b i { display: block; font-style: normal; font-family: 'Barlow Condensed', 'Noto Sans JP', sans-serif; font-size: 8pt; letter-spacing: .14em; color: var(--red); }
+.issues p { font-size: 8.3pt; line-height: 1.6; margin-bottom: 1.6mm; }
+.issues p.ev { font-size: 7.6pt; color: var(--sub); background: var(--tint); border-radius: 1.4mm; padding: 1.2mm 1.8mm; margin: 0; font-weight: 700; }
+/* KPI tiles */
+.kpis { display: flex; gap: 2.6mm; margin: 0 0 3.2mm; }
+.kpi { flex: 1 1 0; border: .3mm solid var(--line); border-radius: 2mm; padding: 2.2mm 2.6mm 1.8mm; }
+.kpi b { display: block; font-family: 'Barlow Condensed', sans-serif; font-weight: 700; font-size: 21pt; line-height: 1; color: var(--ink); }
+.kpi b small { font-size: 10pt; margin-left: .6mm; color: var(--sub); }
+.kpi span { display: block; font-size: 7.6pt; font-weight: 700; color: var(--sub); margin-top: 1.2mm; line-height: 1.35; }
+.kpi.hot { border-color: #f3d08c; background: #fff8ea; }
+/* charts */
+.chart svg { display: block; }
+.chart-cap { font-size: 7.2pt; color: var(--sub); margin-top: 1mm; line-height: 1.45; }
+/* idea cards */
+.idea { border-top: .4mm solid var(--line); padding-top: 3mm; margin-top: 3.2mm; }
+.idea:first-of-type { border-top: 0; padding-top: 0; margin-top: 0; }
+.ih { display: flex; align-items: center; gap: 3mm; margin-bottom: 1.8mm; }
+.ih .id { font-family: 'Barlow Condensed', sans-serif; font-weight: 700; font-size: 20pt; line-height: 1; color: var(--blue); min-width: 9mm; }
+.ih h2 { font-family: 'Zen Kaku Gothic New', 'Noto Sans JP', sans-serif; font-weight: 900; font-size: 13.4pt; line-height: 1.25; margin: 0; }
+.ih .tags { display: flex; gap: 1.4mm; flex-wrap: wrap; margin-left: auto; }
+.tag.now { background: var(--blue); border-color: var(--blue); color: #fff; }
+.tag.next { background: #eef4ff; border-color: #a9c1ff; color: var(--blue-d); }
+.tag.later { background: #f1f3f7; border-color: #d6dbe5; color: var(--sub); }
+.tag.no { background: #ffecec; border-color: #f4b4b6; color: #b3262b; }
+.ilead { font-weight: 700; font-size: 9.6pt; line-height: 1.6; margin-bottom: 2mm; }
+.ilead em { font-style: normal; background: linear-gradient(transparent 62%, #ffe08a 62%); }
+.icols { display: flex; gap: 5mm; }
+.icols > * { flex: 1 1 0; min-width: 0; }
+.icols h4 { font-size: 8.2pt; font-weight: 700; color: var(--sub); letter-spacing: .06em; margin: 0 0 1.2mm; }
+.icols ol.rules li, .icols ul.dots li { font-size: 8.5pt; margin-bottom: 1.1mm; line-height: 1.55; }
+.icols ol.rules li::before { width: 4.4mm; height: 4.4mm; line-height: 4.4mm; font-size: 8pt; }
+.icols ol.rules li { padding-left: 6.4mm; }
+.meta3 { display: flex; gap: 0; border: .3mm solid var(--line); border-radius: 2mm; margin: 2mm 0 0; overflow: hidden; }
+.meta3 > div { flex: 1 1 0; padding: 1.5mm 2.4mm; font-size: 8pt; line-height: 1.5; border-left: .3mm solid var(--line); }
+.meta3 > div:first-child { border-left: 0; }
+.meta3 > div i { display: block; font-style: normal; font-size: 6.9pt; font-weight: 700; color: var(--mute); letter-spacing: .06em; }
+.meta3 > div.v { background: #f3f7ff; flex: 1.6 1 0; }
+.meta3 > div.v.no { background: #fff3f3; }
+.meta3 > div.v.later { background: #f6f7fa; }
+.pm.tight { margin: 2mm 0 0; }
+.pm.tight li { font-size: 8.1pt; }
+.est { font-size: 6.8pt; font-weight: 700; color: #8a5a00; background: #fff4de; border: .3mm solid #f3d08c; border-radius: 1mm; padding: 0 1.2mm; margin-left: 1mm; white-space: nowrap; vertical-align: .2mm; }
+.meas { font-size: 6.8pt; font-weight: 700; color: var(--ok); background: #e9f7ef; border: .3mm solid #a8dcbf; border-radius: 1mm; padding: 0 1.2mm; margin-left: 1mm; white-space: nowrap; vertical-align: .2mm; }
+table.data td, table.data th { padding: 1.3mm 1.8mm; }
+table.data td.n, table.data th.n { text-align: right; font-variant-numeric: tabular-nums; }
+table.cmp { font-size: 7.9pt; }
+table.cmp td, table.cmp th { padding: 1.1mm 1.4mm; text-align: center; }
+table.cmp td:first-child, table.cmp th:first-child { text-align: left; }
+table.cmp .mk { font-size: 9.6pt; min-width: 0; }
+table.cmp tr.grp td { background: var(--tint); font-weight: 700; font-size: 7.4pt; color: var(--sub); text-align: left; padding: 1mm 1.4mm; letter-spacing: .06em; }
+.vd { display: inline-block; font-size: 7pt; font-weight: 700; border-radius: 1mm; padding: .2mm 1.4mm; line-height: 1.5; white-space: nowrap; }
+.vd.s1 { background: var(--blue); color: #fff; } .vd.s2 { background: #5b86ff; color: #fff; } .vd.s3 { background: #a9c1ff; color: #0f1b2d; }
+.vd.l { background: #e6e9ef; color: var(--sub); } .vd.x { background: #ffd9da; color: #b3262b; } .vd.k { background: #fff1d6; color: #8a5a00; }
+.axes { display: grid; grid-template-columns: 1fr 1fr; gap: 2mm 4mm; margin: 0 0 3mm; }
+.axes > div { border: .3mm solid var(--line); border-radius: 2mm; padding: 2mm 2.6mm; font-size: 8.3pt; line-height: 1.55; }
+.axes > div b { display: block; font-size: 9pt; margin-bottom: .6mm; }
+.axes > div b i { font-style: normal; font-family: 'Barlow Condensed', sans-serif; color: var(--blue); margin-right: 1.4mm; font-size: 10.5pt; }
+.combo { display: grid; grid-template-columns: 1fr 1fr; gap: 2.4mm 4mm; margin: 0 0 3mm; }
+.combo > div { border: .3mm solid var(--line); border-left: 1.1mm solid var(--ok); border-radius: 0 2mm 2mm 0; padding: 1.8mm 2.6mm; font-size: 8.2pt; line-height: 1.55; }
+.combo > div.bad { border-left-color: var(--red); }
+.combo > div b { display: block; font-size: 8.8pt; }
+.mini { font-size: 7.6pt; }
+.steps li { font-size: 8.6pt; }
+.steps li .ms { display: block; margin-top: 1mm; font-size: 7.9pt; color: var(--sub); }
+.cards .card { width: 21mm; height: 27mm; }
+.cards .card b { font-size: 10.4pt; margin: 2.6mm 1mm 1.2mm; }
+</style>
+</head>
+<body>
+
+<!-- ===== 1 cover ===== -->
+<section class="page cover" data-safe="40">
+  <div class="grid"></div><div class="glow"></div><div class="glow2"></div>
+  <div class="in body">
+    <div class="brand"><span>BRAIBO</span> ブレイボ ／ 構想資料</div>
+    <div class="docno">CONCEPT 03 ・ RULES</div>
+    <h1>次に試す<br><em>ルール案</em>を<br>測って選ぶ</h1>
+    <p class="sub">駆け引き、キャラクター、サッカーらしさ、試合の形、対人戦。17の案を同じ物差しで比べ、AI同士の試合を延べ約1万9千試合回した数字と合わせて、試す順番を決めるための資料です。</p>
+    <div class="sum">
+      <h2>SUMMARY ・ 先に結論</h2>
+      <ul>
+        <li><i>01</i><b>いま足りないもの。</b>試合は奪ってすぐ撃つ攻防です。得点の87%はボールを奪ってから2ターン以内に入ります。能力の差は勝敗をあまり動かさず、全員の全能力を+9しても勝率は44%（負け32%）です。守備から仕掛ける手と、キャラクターの違いが出る場面が足りません。</li>
+        <li><i>02</i><b>候補。</b>オフサイドトラップ宣言、前後半制、必殺技（性能の上乗せではなく別の手）、競り合いの読み札、PK戦、コーナーキック、陣形とロールの自由編成。</li>
+        <li><i>03</i><b>順番。</b>STEP 1 でトラップ宣言と前後半。STEP 2 で必殺技、読み札、PK戦を同じ「同時に選ぶ画面」で作る。STEP 3 でコーナーと編成の自由化。各段階で測る数字を決めてから進めます。</li>
+      </ul>
+    </div>
+    <div class="meta"><span>2026-11-13 ／ v0.6 ルール時点（先出しスルーパスあり）</span><span>全16ページ</span></div>
+  </div>
+</section>
+
+<!-- ===== 2 current rules ===== -->
+<section class="page">
+  <div class="ph"><span>BRAIBO <b>CONCEPT 03</b></span><span class="ph-r">ルール案の分析</span></div>
+  <div class="body">
+    <div class="sec"><div class="no"><small>CHAPTER</small>01</div><div><h1>いまのルールを1ページで</h1></div></div>
+    <p class="lead">両者が5人の動きを<em>伏せて同時に決め、同時に解決する</em>ゲームです。読むのは「相手が次にどこに立つか」です。</p>
+    <p class="flow-label">1ターンの流れ（先出しスルーパスのときだけ、キックが移動の前に入る）</p>
+    <div class="flow">
+      <div class="st"><b>計画</b><small>5人の移動先とボール行動を伏せて決める。60秒</small></div><div class="ar">▶</div>
+      <div class="st"><b>全員が同時に移動</b><small>ボールのあるマスでだけ競り合い</small></div><div class="ar">▶</div>
+      <div class="st key"><b>ボール行動</b><small>パス、クロス、シュート。移動後の位置で判定</small></div><div class="ar">▶</div>
+      <div class="st"><b>得点ならキックオフ</b><small>20ターンで終了。同点は引き分け</small></div>
+    </div>
+    <h3>ルールの要点</h3>
+    <table class="data">
+      <thead><tr><th style="width:24%">項目</th><th>いまの仕様</th></tr></thead>
+      <tbody>
+        <tr><td><span class="nm">盤と人数</span></td><td>7×10マス、5対5、キーパーなし。ゴールは両端の中央。20ターン、前後半なし。</td></tr>
+        <tr><td><span class="nm">移動</span></td><td>選手ごとに将棋の駒のような動きの型がある。経路のブロックはない。1マスに各チーム1人まで、敵と同じマスには立てる。</td></tr>
+        <tr><td><span class="nm">競り合い</span></td><td>ボールのあるマスで敵と重なったときだけ起きる。勝率は 0.5 ＋ フィジカル差÷200（保持者 +0.05、15〜85%）。負けた側もその場に残る。</td></tr>
+        <tr><td><span class="nm">パス</span></td><td>ゴロは近くて正確だがコース上で切られやすい。浮き玉は遠くまで届き、蹴り手と落下点の近くでしか切られない。</td></tr>
+        <tr><td><span class="nm">スルーパス</span></td><td>マスを狙うパスは動く前に蹴る（v0.5）。オフサイドは計画中に見えている位置で判定する。蹴り手はそのターン動けない。</td></tr>
+        <tr><td><span class="nm">クロス、シュート</span></td><td>サイドから中央へのクロスは空中戦からヘディング。シュートは距離と角度で決まり、コース上の敵がブロックする。外れたらゴールキック。</td></tr>
+        <tr><td><span class="nm">5つのロール</span></td><td>ST（前へ2マス、決定力）、WG（横へ広い、クロス）、LS（狭い、ロングシュート）、IC（斜め2マス、パスカット）、DF（周囲1マス、競り合いとブロック）。受け身のスキルが1つずつ。</td></tr>
+        <tr><td><span class="nm">試合の外側</span></td><td>名前つきの選手20人。★3〜★5（★が高いほど能力が数点高い）。スカウトはゲーム内コインだけ。強化はLv6まで全能力+5。ステージ5の相手は全能力+9。</td></tr>
+      </tbody>
+    </table>
+    <h3>用語</h3>
+    <ul class="dots">
+      <li><b>読み合い</b>：相手の伏せた手を予想し、その予想の裏をかく判断のこと。このゲームの核。</li>
+      <li><b>ボールを持ってからのターン数</b>：チームがボールを得たターンから、得点やボールを失うまでのターン数。短いほど「奪ってすぐ撃つ」試合。</li>
+      <li><b>能力の差</b>：選手の8つの能力値（フィジカル、空中戦、シュートなど、1〜99）の差。★と強化レベルで増える。</li>
+      <li><b>設計上の見立て</b>：計測していない判断。本書では<span class="est">見立て</span>と印を付け、計測した値には<span class="meas">計測</span>と付けます。</li>
+    </ul>
+    <div class="callout blue"><b>この資料の前提。</b>構想資料01の案1（先出しスルーパス）と、02の案C（アニメキャラクターバトル）は実装済みです。本書はその次に何を足すかを扱います。</div>
+  </div>
+  <div class="foot"><span>BRAIBO 構想資料 03</span><span class="pn"></span></div>
+</section>
+
+<!-- ===== 3 data: what happens ===== -->
+<section class="page">
+  <div class="ph"><span>BRAIBO <b>CONCEPT 03</b></span><span class="ph-r">ルール案の分析</span></div>
+  <div class="body">
+    <div class="sec"><div class="no"><small>CHAPTER</small>01</div><div><h1>試合で実際に起きていること</h1></div></div>
+    <p class="lead">点はよく入り、ほどよく荒れます。ただし<em>ほぼ全部が「奪って2ターン以内」の得点</em>で、組み立てて崩す点はほとんどありません。</p>
+    <div class="kpis">
+      <div class="kpi"><b>2.96</b><span>得点／試合<br>目安 2.5〜4</span></div>
+      <div class="kpi"><b>22<small>%</small></b><span>引き分け<br>0対0は1.0%</span></div>
+      <div class="kpi hot"><b>87<small>%</small></b><span>奪ってから2ターン以内の得点<br>5ターン以上は0.3%</span></div>
+      <div class="kpi"><b>12.0</b><span>ボールの持ち主が替わる回数／試合<br>平均1.7ターンに1回</span></div>
+      <div class="kpi hot"><b>0.80</b><span>オフサイド／試合<br>目安 1〜3。スルーパスでは0</span></div>
+    </div>
+    <div class="cols" style="gap:5mm">
+      <div>
+        <h3>得点の形</h3>
+        <div class="chart" id="cSrc"></div>
+        <h3>得点した選手のロール</h3>
+        <div class="chart" id="cRole"></div>
+      </div>
+      <div>
+        <h3>得点の起点（その攻撃がどう始まったか）</h3>
+        <div class="chart" id="cStart"></div>
+        <p class="chart-cap">奪った（パスカット、競り合い、ブロック、空中戦）が合計57.6%。キックオフからが17.2%。</p>
+      </div>
+    </div>
+    <h3>プレーの数（1試合あたり、両チーム合計）</h3>
+    <table class="data">
+      <thead><tr><th style="width:30%">項目</th><th class="n" style="width:14%">回数</th><th class="n" style="width:14%">成功率</th><th>メモ</th></tr></thead>
+      <tbody>
+        <tr><td>シュート（ヘディング除く）</td><td class="n">6.65</td><td class="n">41.8%</td><td>ブロック32%、枠外26%。近距離74%、中距離34%、遠距離24%</td></tr>
+        <tr><td>競り合い</td><td class="n">3.52</td><td class="n">—</td><td>保持者が守れたのは57%。DFは自分の競り合いの72%に勝つ。WGは31%</td></tr>
+        <tr><td>足元へのゴロパス／浮き玉</td><td class="n">5.75 ／ 1.03</td><td class="n">68% ／ 55%</td><td>パスカットは1試合1.86回</td></tr>
+        <tr><td>スルーパス（先出し）</td><td class="n">1.38</td><td class="n">51%</td><td>コース上で切られる20%、精度の失敗29%。裏抜けからの得点は全得点の15%</td></tr>
+        <tr><td>クロス</td><td class="n">1.17</td><td class="n">31%</td><td>空中戦に勝つか競られずに受けた割合。ヘディングは1試合0.36本</td></tr>
+        <tr><td>ボール行動のないターン</td><td class="n">16%</td><td class="n">—</td><td>パス、クロス、シュートが1つもないターンの割合</td></tr>
+        <tr><td>リードを守れなかった試合</td><td class="n">35.5%</td><td class="n">—</td><td>逆転勝ちは14.5%。先に点を取った側の勝率は64%</td></tr>
+      </tbody>
+    </table>
+    <div class="callout"><b>読み方。</b>AI同士400試合（seed 1、先出しスルーパス）。別の seed 2 の400試合でも、得点2.94、引き分け25.8%、2ターン以内の得点87.5%と、ほぼ同じでした。AIは1手先しか見ない評価関数なので、人が遊ぶと組み立ての割合は上がるはずです。それでも「奪ってすぐ撃つ」が最短の勝ち筋であることはルールの性質です<span class="est">見立て</span>。</div>
+  </div>
+  <div class="foot"><span>BRAIBO 構想資料 03</span><span class="pn"></span></div>
+</section>
+
+<!-- ===== 4 data: experiments ===== -->
+<section class="page">
+  <div class="ph"><span>BRAIBO <b>CONCEPT 03</b></span><span class="ph-r">ルール案の分析</span></div>
+  <div class="body">
+    <div class="sec"><div class="no"><small>CHAPTER</small>01</div><div><h1>設定を変えると何が変わるか</h1></div></div>
+    <p class="lead">能力値を上げても<em>勝率はゆっくりしか上がりません</em>。ターン数と得点のしやすさは、ほぼ素直に効きます。</p>
+    <h3>実験1　能力値の差は勝敗をどれだけ決めるか</h3>
+    <div class="cols" style="gap:5mm">
+      <div style="flex:1.15 1 0">
+        <div class="chart" id="cPlus"></div>
+        <p class="chart-cap">片方のチームだけ全員の全能力に＋n。もう片方は基本の能力。AI は同じ。各1000試合（seed 3）、強化した側を試合ごとに青と赤で入れ替え。棒の色の濃い部分が強化側の勝ち、薄い部分が引き分け。</p>
+      </div>
+      <div>
+        <table class="data mini">
+          <thead><tr><th>実際の編成</th><th class="n">勝</th><th class="n">負</th></tr></thead>
+          <tbody>
+            <tr><td>★5の5人 対 紅蓮（★3）</td><td class="n">41.1%</td><td class="n">35.0%</td></tr>
+            <tr><td>★5の5人 Lv6 対 紅蓮</td><td class="n">47.6%</td><td class="n">30.6%</td></tr>
+            <tr><td>初期の★3 対 ステージ5（+9）</td><td class="n">29.7%</td><td class="n">45.5%</td></tr>
+          </tbody>
+        </table>
+        <p class="small">各1000試合（seed 3）。勝率の95%の幅はおよそ±3ポイント。</p>
+        <div class="callout blue" style="margin-bottom:0"><b>意味。</b>全能力+9（ステージ5の相手と同じ強化）でも、勝ちは44%、負けは32%。初期の★3の5人でもステージ5に30%勝てます。育成の手応えとしては弱く、逆に今は★の差で勝負が決まる心配はありません。</div>
+      </div>
+    </div>
+    <h3>実験2　ターン数、得点のしやすさ、盤の大きさ</h3>
+    <table class="data mini">
+      <thead><tr><th style="width:27%">設定（各400試合、seed 1）</th><th class="n">得点</th><th class="n">引き分け</th><th class="n">逆転勝ち</th><th class="n">先制側の勝率</th><th class="n">2ターン以内の得点</th><th class="n">行動なしのターン</th></tr></thead>
+      <tbody>
+        <tr><td>16ターン</td><td class="n">2.35</td><td class="n">24.0%</td><td class="n">10.8%</td><td class="n">67.5%</td><td class="n">88.0%</td><td class="n">14.7%</td></tr>
+        <tr class="rec"><td>20ターン（いま）</td><td class="n">2.96</td><td class="n">22.0%</td><td class="n">14.5%</td><td class="n">64.4%</td><td class="n">87.4%</td><td class="n">16.1%</td></tr>
+        <tr><td>24ターン</td><td class="n">3.55</td><td class="n">22.8%</td><td class="n">18.3%</td><td class="n">60.5%</td><td class="n">87.0%</td><td class="n">15.5%</td></tr>
+        <tr><td>30ターン</td><td class="n">4.48</td><td class="n">17.8%</td><td class="n">26.8%</td><td class="n">57.5%</td><td class="n">86.9%</td><td class="n">15.8%</td></tr>
+        <tr><td>シュート成功率 −0.08（キーパーの代わり）</td><td class="n">2.69</td><td class="n">24.0%</td><td class="n">12.8%</td><td class="n">65.3%</td><td class="n">80.3%</td><td class="n">17.9%</td></tr>
+        <tr><td>シュート成功率 −0.15</td><td class="n">2.24</td><td class="n">22.0%</td><td class="n">7.3%</td><td class="n">75.5%</td><td class="n">72.1%</td><td class="n">21.8%</td></tr>
+        <tr><td>オフサイドを後ろから2人目で判定</td><td class="n">2.62</td><td class="n">26.8%</td><td class="n">13.0%</td><td class="n">63.2%</td><td class="n">88.1%</td><td class="n">15.7%</td></tr>
+        <tr><td>盤を 7×12 に広げる</td><td class="n">2.77</td><td class="n">24.5%</td><td class="n">13.0%</td><td class="n">63.5%</td><td class="n">74.6%</td><td class="n">27.3%</td></tr>
+        <tr><td>旧ルール（スルーパスを後で蹴る）</td><td class="n">2.97</td><td class="n">25.8%</td><td class="n">14.5%</td><td class="n">61.7%</td><td class="n">89.5%</td><td class="n">15.3%</td></tr>
+      </tbody>
+    </table>
+    <div class="cols">
+      <div>
+        <h3>実験3　判断の質はどれだけ効くか</h3>
+        <p class="small" style="margin-bottom:1.2mm">片方のAIの判断に乱れを足す（既定0.15）。各400試合、seed 1。</p>
+        <table class="data mini">
+          <thead><tr><th>乱れ</th><th class="n">乱れた側</th><th class="n">相手</th></tr></thead>
+          <tbody>
+            <tr><td>なし（同じAI）</td><td class="n">37.5%</td><td class="n">40.5%</td></tr>
+            <tr><td>0.6</td><td class="n">34.5%</td><td class="n">44.3%</td></tr>
+            <tr><td>1.2（ほぼでたらめ）</td><td class="n">33.5%</td><td class="n">40.8%</td></tr>
+            <tr><td>0.6 ＋ 全能力+5</td><td class="n">40.8%</td><td class="n">37.0%</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div>
+        <h3>ここから言えること</h3>
+        <ul class="dots">
+          <li><b>運の比重が大きい。</b>AIの判断をほぼでたらめにしても、乱れた側の勝ちは33〜35%で、同じAI同士（37.5%）から数ポイントしか下がらない。400試合の勝率は1つあたり±5ポイントほどぶれる。</li>
+          <li><b>ターン数は得点と逆転に効く。</b>1ターン増えるごとに約0.15点。</li>
+          <li><b>盤を広げると間延びする。</b>行動のないターンが16%から27%に増える。</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+  <div class="foot"><span>BRAIBO 構想資料 03</span><span class="pn"></span></div>
+</section>
+
+<!-- ===== 5 issues + axes ===== -->
+<section class="page">
+  <div class="ph"><span>BRAIBO <b>CONCEPT 03</b></span><span class="ph-r">ルール案の分析</span></div>
+  <div class="body">
+    <div class="sec"><div class="no"><small>CHAPTER</small>02</div><div><h1>3つの課題と評価の物差し</h1></div></div>
+    <p class="lead">データから見えた課題は3つです。<em>守備から仕掛ける手がない、キャラクターの違いが見えにくい、組み立てる場面がない</em>。案はこの3つにどれだけ効くかで見ます。</p>
+    <div class="issues">
+      <div><b><i>課題1</i>守備から仕掛ける手がない</b>
+        <p>オフサイドは1試合0.80回で、スルーパスでは400試合で1回も起きていません<span class="meas">計測</span>。守備がボールを得るのは、パスカット、競り合い、ブロックなど、相手の手を予想して待ち受ける形がほとんどです。最終ラインで罠を張る手がありません。</p>
+        <p class="ev">スルーパス成功率 51%（目安30〜45%）／得点の起点のうちオフサイド後 6.9%</p></div>
+      <div><b><i>課題2</i>キャラクターの違いが見えにくい</b>
+        <p>違いは移動の型と、受け身のスキル1つと、能力値です。能力値は全員+9でも勝率44%（負け32%）、★5の5人でも41%（負け35%）しか動きません<span class="meas">計測</span>。名前つきの選手やカットインが入った今、選手ごとの「手」の違いが欲しい段階です。</p>
+        <p class="ev">DFの得点は全体の1.1%／WGは自分の競り合いの31%しか勝てない</p></div>
+      <div><b><i>課題3</i>組み立てる場面がない</b>
+        <p>得点の87%は奪ってから2ターン以内で、5ターン以上かけた得点は0.3%です<span class="meas">計測</span>。ボールを持っているターンのうち、敵陣で持っているのは24%だけ。止まった盤面から作戦を立てる場面（セットプレーやハーフタイム）がありません。</p>
+        <p class="ev">持ち主が替わる回数 12.0回／試合（1.7ターンに1回）</p></div>
+    </div>
+    <div class="fig" style="padding:2.6mm 3mm 2.2mm">
+      <div class="ft"><i>FIG 1</i>よくある得点の流れ（模式図）：奪って2ターンで撃つ</div>
+      <div class="panels">
+        <div class="panel" style="--pw:158px"><div id="f0a"></div><div class="cap"><span class="n">1</span><span><b>ターン1。</b>赤のパスを青6がコース上でカット。</span></div></div>
+        <div class="panel" style="--pw:158px"><div id="f0b"></div><div class="cap"><span class="n">2</span><span><b>ターン2。</b>前を向いた8へつなぐ。赤は戻りきれない。</span></div></div>
+        <div class="panel" style="--pw:158px"><div id="f0c"></div><div class="cap"><span class="n">3</span><span><b>ターン3。</b>8が遠目から撃つ。遠目からの得点は全体の20%。</span></div></div>
+      </div>
+    </div>
+    <h3>評価の物差し（7つ）</h3>
+    <div class="axes">
+      <div><b><i>1</i>読み合いの深さ</b>伏せた手に、相手の手しだいで勝ち負けが入れ替わる組み合わせがあるか。正解が1つに決まらないか。</div>
+      <div><b><i>2</i>分かりやすさ</b>初めての人が1試合で覚えられるか。結果に納得できるか。</div>
+      <div><b><i>3</i>テンポ</b>1ターンの考える時間と、試合の長さ（目安は1試合10分前後）を延ばさないか。</div>
+      <div><b><i>4</i>キャラクターと育成が活きるか</b>誰を出すかで手が変わるか。強化が「数字が少し上がる」以上の意味を持つか。</div>
+      <div><b><i>5</i>実装規模</b>小（数日）、中（1〜2週）、大（3週以上）、特大（作り直し）<span class="est">見立て</span>。</div>
+      <div><b><i>6</i>AIの難しさ</b>今の1手読みのAIで扱えるか。AIが使えない手は対AI戦では意味が薄い。</div>
+      <div style="grid-column: span 2"><b><i>7</i>バランスの危うさ</b>強すぎる一手が生まれないか。スカウト（ガチャ）や強化と組み合わさって、持っている選手の数で勝敗が決まる流れ（課金がなくても「引いた者勝ち」）にならないか。</div>
+    </div>
+  </div>
+  <div class="foot"><span>BRAIBO 構想資料 03</span><span class="pn"></span></div>
+</section>
+
+<!-- ===== 6 overview ===== -->
+<section class="page">
+  <div class="ph"><span>BRAIBO <b>CONCEPT 03</b></span><span class="ph-r">ルール案の分析</span></div>
+  <div class="body">
+    <div class="sec"><div class="no"><small>CHAPTER</small>02</div><div><h1>17の案と判定</h1></div></div>
+    <p class="lead">STEP に入れたのは7つ。<em>どれも同時ターン制を崩さず、今の判定の仕組みの上に足せる</em>ものです。</p>
+    <table class="cmp">
+      <thead><tr><th style="width:29%">案</th><th style="width:15%">判定</th><th style="text-align:left">ひとことで</th></tr></thead>
+      <tbody>
+        <tr class="grp"><td colspan="3">A　駆け引きを深くする</td></tr>
+        <tr><td>A1　オフサイドトラップ宣言</td><td><span class="vd s1">STEP 1</span></td><td style="text-align:left">守備が「ラインを一斉に上げる」を宣言。外せば棒立ち。</td></tr>
+        <tr><td>A2　競り合いの読み札</td><td><span class="vd s2">STEP 2</span></td><td style="text-align:left">保持者の競り合いだけ、3枚の札を同時に出す。能力は確率に効く。</td></tr>
+        <tr><td>A3　マーク指定</td><td><span class="vd l">後で</span></td><td style="text-align:left">守備者が指名した相手の動きについていく。ICの技として限定。</td></tr>
+        <tr><td>A4　フェイント／予約行動</td><td><span class="vd x">フェイントはしない</span></td><td style="text-align:left">伏せて同時に出す時点で全部の手がフェイント。予約行動は限定版だけ後で。</td></tr>
+        <tr class="grp"><td colspan="3">B　キャラクターを活かす</td></tr>
+        <tr><td>B1　必殺技とゲージ</td><td><span class="vd s2">STEP 2</span></td><td style="text-align:left">ゲージを使って1回だけ特別な手。数値の上乗せではなく別の選択肢にする。</td></tr>
+        <tr><td>B2　スタミナ、交代、ベンチ</td><td><span class="vd l">交代だけ後で</span></td><td style="text-align:left">20ターンでは疲労が意味を持ちにくい。ハーフタイムの交代1回なら可。</td></tr>
+        <tr><td>B3　属性の三すくみ</td><td><span class="vd x">しない</span></td><td style="text-align:left">勝敗が編成の時点で決まり、ガチャを引く理由に直結する。</td></tr>
+        <tr><td>B4　陣形の選択とロールの自由編成</td><td><span class="vd s3">STEP 3</span></td><td style="text-align:left">陣形は3つから選ぶ。ロールは「DFは1人以上」などの制約つきで自由に。</td></tr>
+        <tr class="grp"><td colspan="3">C　サッカーらしさ</td></tr>
+        <tr><td>C1　ゴールキーパー</td><td><span class="vd x">駒としてはしない</span></td><td style="text-align:left">5人中1人が動かない駒になる。得点の調整は数値で足りる。</td></tr>
+        <tr><td>C2　セットプレーとファウル</td><td><span class="vd s3">コーナーは STEP 3</span></td><td style="text-align:left">ブロックの一部をコーナーに。置き方と蹴る先を同時に読み合う。</td></tr>
+        <tr><td>C3　ドリブル突破</td><td><span class="vd l">後で</span></td><td style="text-align:left">今もすれ違いの競り合いで起きている。WGの技として出すなら意味がある。</td></tr>
+        <tr class="grp"><td colspan="3">D　試合の形とテンポ</td></tr>
+        <tr><td>D1　ターン数と前後半</td><td><span class="vd s1">前後半は STEP 1</span></td><td style="text-align:left">10＋10ターン。ハーフタイムに陣形と作戦を変えられる。</td></tr>
+        <tr><td>D2　引き分けの決着（PK戦）</td><td><span class="vd s2">STEP 2</span></td><td style="text-align:left">ステージ戦だけ。キッカーとキーパーが同時に向きを選ぶ。</td></tr>
+        <tr><td>D3　盤面サイズ</td><td><span class="vd x">変えない</span></td><td style="text-align:left">7×12は間延びする（計測）。縦画面にも収まりにくい。</td></tr>
+        <tr><td>D4　得点の入りやすさ</td><td><span class="vd k">調整ノブ</span></td><td style="text-align:left">いまは目安の中。他の案を入れたあとで動かす。</td></tr>
+        <tr class="grp"><td colspan="3">E　対人戦へ向けて</td></tr>
+        <tr><td>E1　同時提出の非同期対戦</td><td><span class="vd l">方向として残す</span></td><td style="text-align:left">今の同時ターン制のまま、1ターンずつ送り合える。</td></tr>
+        <tr><td>E2　交互手番（01の案4）</td><td><span class="vd x">別の作品</span></td><td style="text-align:left">同時に伏せる個性を手放すので、今の作品の改良にはならない。</td></tr>
+      </tbody>
+    </table>
+    <p class="small">判定は計測と設計上の見立てを合わせたもの。各案の詳しい理由は次のページから。</p>
+    <h3>判定の内訳</h3>
+    <div class="flow">
+      <div class="st key"><b>STEP 1</b><small>A1 トラップ宣言、D1 前後半。小さく、測る数字がはっきりしている</small></div><div class="ar">▶</div>
+      <div class="st key"><b>STEP 2</b><small>B1 必殺技、A2 読み札、D2 PK戦。「同時に選ぶ画面」を共有する</small></div><div class="ar">▶</div>
+      <div class="st key"><b>STEP 3</b><small>C2 コーナー、B4 陣形とロール。止まった盤面と試合前の作戦</small></div>
+    </div>
+    <div class="callout blue"><b>判定の言葉。</b>STEP 1〜3 は第5章の進め方の段階。「後で」は STEP 3 のあとに改めて検討する案。「しない」は、このゲームでは入れないほうがよいと考える案（三すくみ、キーパーの駒、盤の拡大、フェイント、毎ターンの疲労、交互手番）です。「調整ノブ」はルールを足さず数値で動かすものです。</div>
+  </div>
+  <div class="foot"><span>BRAIBO 構想資料 03</span><span class="pn"></span></div>
+</section>
+
+<!-- ===== 6 A1 trap ===== -->
+<section class="page">
+  <div class="ph"><span>BRAIBO <b>CONCEPT 03</b></span><span class="ph-r">ルール案の分析 ／ A 駆け引きを深くする</span></div>
+  <div class="body">
+    <div class="sec"><div class="no"><small>IDEA</small>A1</div><div><h1>オフサイドトラップ宣言</h1><div class="tags"><span class="tag now">STEP 1　次に入れる</span><span class="tag">実装規模　小〜中</span><span class="tag">構想資料01の案2</span></div></div></div>
+    <p class="lead">守備に<em>「ラインを一斉に上げる」</em>という能動的な一手を足します。先出しスルーパスと組み合わせて、初めて四すくみが両側から回ります。</p>
+    <div class="cols" style="gap:5mm">
+      <div class="fig" style="flex:0 0 auto;margin-bottom:3mm">
+        <div class="ft"><i>FIG 1</i>トラップの的中と空振り</div>
+        <div class="panels">
+          <div class="panel"><div id="f1a"></div><div class="cap"><span class="n">A</span><span><b>的中。</b>キックの前に最終ラインが1マス上がる。ライン上の9番はオフサイド。</span></div></div>
+          <div class="panel"><div id="f1b"></div><div class="cap"><span class="n bad">B</span><span><b>空振り。</b>相手は足元へのパス。上がった3人は動けず、7番が前を向く。</span></div></div>
+        </div>
+      </div>
+      <div>
+        <h3>ルール</h3>
+        <ol class="rules">
+          <li>守備側は計画中に「トラップ」を宣言できる。最後尾の列の守備者が全員参加する。</li>
+          <li>参加者はスルーパスのキックより前に1マス前へ出る。オフサイドはその位置で判定する。</li>
+          <li>参加者はそのターン、ほかの移動ができない。</li>
+          <li>宣言のあと2ターンは再宣言できない（調整値）。</li>
+        </ol>
+      </div>
+    </div>
+    <h3>なぜ今これか</h3>
+    <ul class="dots">
+      <li><b>オフサイドが目安に届いていない。</b>1試合0.80回（目安1〜3）。先出しスルーパスでのオフサイドは400試合で0回でした<span class="meas">計測</span>。守備がラインで仕掛ける手段がなく、攻撃側の判断ミスでしか反則が起きていません。</li>
+      <li><b>高い位置で奪える。</b>今はオフサイド後のボールが得点の起点の6.9%<span class="meas">計測</span>。宣言が当たれば、ここが増えます。</li>
+      <li><b>スルーパスの成功率51%（目安30〜45%）を下げる</b>直接の対抗手段になります<span class="meas">計測</span>。</li>
+    </ul>
+    <h3>読み合いの表</h3>
+    <table class="mx">
+      <thead><tr><th class="corner" style="width:24%">攻撃 ＼ 守備</th><th class="df">トラップを宣言</th><th class="df">寄せる</th><th class="df">下がってカバー</th></tr></thead>
+      <tbody>
+        <tr><th class="at">スルーパス<br><small style="font-weight:500">ライン上の選手へ</small></th><td class="l"><b>守備の勝ち</b><small>オフサイド</small></td><td class="w"><b>攻撃の大勝ち</b><small>裏へ抜け出す</small></td><td class="e"><b>五分</b><small>目標マスの奪い合い</small></td></tr>
+        <tr><th class="at">スルーパス<br><small style="font-weight:500">1列後ろから</small></th><td class="w"><b>攻撃の大勝ち</b><small>オンサイドで独走</small></td><td class="g"><b>攻撃やや有利</b><small>一歩遅れて追われる</small></td><td class="l"><b>守備やや有利</b><small>先に触られる</small></td></tr>
+        <tr><th class="at">足元パス、ドリブル</th><td class="w"><b>攻撃の勝ち</b><small>棒立ちのラインの前</small></td><td class="l"><b>守備やや有利</b><small>受け手に寄せる</small></td><td class="g"><b>攻撃やや有利</b><small>陣地を得る</small></td></tr>
+      </tbody>
+    </table>
+    <div class="pm">
+      <div><h4>長所</h4><ul><li>守備側の「決まった」が生まれる。旗、ラインの光、カットインと演出も載せやすい。</li><li>今のエンジンの延長。判定の仕組み（開始時の位置）をそのまま使える。</li></ul></div>
+      <div class="con"><h4>リスク</h4><ul><li>毎ターン宣言が最善になると単調。再宣言の間隔で抑える。</li><li>AIが宣言の時機を読めないと、対AI戦で効果が見えない。AIの作業が中心になる。</li></ul></div>
+    </div>
+    <div class="meta3"><div><i>実装規模</i>小〜中。守備コマンド1つと判定順の追加</div><div><i>AIの難しさ</i>中。今の「上げる／下がる」の判断に1択増える</div><div class="v"><i>判定</i><b>STEP 1。</b>測るのは、オフサイド1〜3回、宣言の的中率40〜60%、スルーパス成功率30〜45%</div></div>
+  </div>
+  <div class="foot"><span>BRAIBO 構想資料 03</span><span class="pn"></span></div>
+</section>
+
+<!-- ===== 7 A2 cards + A3 mark ===== -->
+<section class="page">
+  <div class="ph"><span>BRAIBO <b>CONCEPT 03</b></span><span class="ph-r">ルール案の分析 ／ A 駆け引きを深くする</span></div>
+  <div class="body">
+    <div class="idea">
+      <div class="ih"><span class="id">A2</span><h2>競り合いの読み札</h2><div class="tags"><span class="tag next">STEP 2</span><span class="tag">実装規模　中</span><span class="tag warn">じゃんけん化に注意</span></div></div>
+      <p class="ilead">保持者の競り合い（1試合2.7回<span class="meas">計測</span>）だけ、既存のカットインの中で<em>両者が3枚から1枚を同時に出します</em>。札が結果の型を、能力が確率を決めます。</p>
+      <div class="fig" style="padding:2.6mm 3mm 2.2mm">
+        <div class="cards">
+          <div class="card"><div class="top">ATTACK</div><b>突破</b><small>前へ抜く</small></div>
+          <div class="card"><div class="top">ATTACK</div><b>かわす</b><small>横へ逃がす</small></div>
+          <div class="card"><div class="top">ATTACK</div><b>守る</b><small>体で隠す</small></div>
+          <div class="vs">VS</div>
+          <div class="card r"><div class="top">DEFENSE</div><b>当たる</b><small>体をぶつける</small></div>
+          <div class="card r"><div class="top">DEFENSE</div><b>待つ</b><small>前を消す</small></div>
+          <div class="card r"><div class="top">DEFENSE</div><b>つつく</b><small>足を出す</small></div>
+        </div>
+      </div>
+      <table class="mx" style="margin-bottom:2.4mm">
+        <thead><tr><th class="corner" style="width:19%">保持者 ＼ 守備</th><th class="df">当たる</th><th class="df">待つ</th><th class="df">つつく</th></tr></thead>
+        <tbody>
+          <tr><th class="at">突破<small style="display:block;font-weight:500">勝てば1マス前へ</small></th><td class="e"><b>あいこ 50%</b><small>フィジカル差を2倍で効かせる</small></td><td class="l"><b>守備 70%</b><small>前を消されている</small></td><td class="w"><b>攻撃 70%</b><small>足を出した横を抜く</small></td></tr>
+          <tr><th class="at">かわす<small style="display:block;font-weight:500">勝てば横へ1マス</small></th><td class="w"><b>攻撃 70%</b><small>当たりをいなす</small></td><td class="e"><b>あいこ 50%</b><small>にらみ合い</small></td><td class="l"><b>守備 70%</b><small>動いた足に引っかかる</small></td></tr>
+          <tr><th class="at">守る<small style="display:block;font-weight:500">勝てばその場でキープ</small></th><td class="l"><b>守備 70%</b><small>体ごと押し出される</small></td><td class="w"><b>攻撃 70%</b><small>時間を使える</small></td><td class="e"><b>あいこ 50%</b><small>小競り合い</small></td></tr>
+        </tbody>
+      </table>
+      <div class="icols">
+        <div>
+          <h4>ルール</h4>
+          <ol class="rules">
+            <li>保持者のマスで起きた競り合いだけが対象。こぼれ球の競り合いは今のまま。</li>
+            <li>札の組み合わせで基準の勝率を決め（上の表）、フィジカル差の補正を足す。</li>
+            <li>勝った札で結果が変わる。「突破」で勝てば1マス前へ、「かわす」は横へ、「守る」はその場でキープ。</li>
+            <li>札の得手不得手を選手ごとに1枚ずつ持たせる（例：DFは「当たる」+10%）。</li>
+          </ol>
+        </div>
+        <div>
+          <h4>判断の理由</h4>
+          <ul class="dots">
+            <li><b>今の競り合いは、ほぼ能力の比べ合いとサイコロ。</b>有利な側の勝率の平均は65%<span class="meas">計測</span>。読みが入る余地がない。</li>
+            <li><b>対AIでは純粋なじゃんけんになりやすい。</b>AIの出し方が乱数だけなら、読みは成り立たない。選手ごとに「出しやすい札」の癖を持たせ、プロフィールで見せる。読む対象がキャラクターになる<span class="est">見立て</span>。</li>
+            <li><b>勝ったときの得が札ごとに違う。</b>「突破」は前進、「守る」はキープだけ。表は対称でも、均等に出すのが最善にはならない<span class="est">見立て</span>。対人戦（E1）では本物の読み合いになる。</li>
+          </ul>
+        </div>
+      </div>
+      <div class="meta3"><div><i>実装規模</i>中。カットインに選択の画面を足す。PK戦（D2）と共通化できる</div><div><i>バランス</i>補正が小さいと運、大きいと能力差の再現。読み勝ち±20%が出発点</div><div class="v"><i>判定</i><b>STEP 2。</b>必殺技、PK戦と同じ「同時に選ぶ画面」で作る</div></div>
+    </div>
+    <div class="idea">
+      <div class="ih"><span class="id">A3</span><h2>マーク指定</h2><div class="tags"><span class="tag later">後で（ICの技として）</span><span class="tag">実装規模　中</span></div></div>
+      <p class="ilead">守備者に相手を1人指名させ、<em>その相手が動いた先の隣（または同じマス）へついていく</em>ようにします。</p>
+      <div class="icols">
+        <div class="fig" style="flex:0 0 auto;margin:0">
+          <div class="panels">
+            <div class="panel" style="--pw:150px"><div id="f2a"></div><div class="cap"><span class="n">1</span><span>赤6が青9を指名。9の行き先についていく。</span></div></div>
+            <div class="panel" style="--pw:150px"><div id="f2b"></div><div class="cap"><span class="n bad">2</span><span>9はおとり。空いた中央へ7が入って受ける。</span></div></div>
+          </div>
+        </div>
+        <div>
+          <h4>読み合いと判断</h4>
+          <ul class="dots">
+            <li><b>生まれる手。</b>攻撃は「おとりの走り」と「指名されていない選手」で崩す。守備は誰を消すかを読む。</li>
+            <li><b>問題。</b>同時に動くルールの中で、1人だけ「相手の後に動く」例外ができる。移動の解決順に段階が1つ増える。全員に許すと守備が自動化し、読みが減る<span class="est">見立て</span>。</li>
+            <li><b>使い方。</b>ICのスキル「マンマーク」として、1試合に数回だけにする。今ある「同じマスに立つ密着マーク」と役割が重なるので、トラップ宣言を試したあとで要否を決める。</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="foot"><span>BRAIBO 構想資料 03</span><span class="pn"></span></div>
+</section>
+
+<!-- ===== 8 A4 feint + B1 special ===== -->
+<section class="page">
+  <div class="ph"><span>BRAIBO <b>CONCEPT 03</b></span><span class="ph-r">ルール案の分析 ／ A 駆け引き ／ B キャラクター</span></div>
+  <div class="body">
+    <div class="idea">
+      <div class="ih"><span class="id">A4</span><h2>フェイントと予約行動</h2><div class="tags"><span class="tag no">フェイントはしない</span><span class="tag later">予約行動は限定版を後で</span></div></div>
+      <p class="ilead">伏せて同時に出すルールでは、<em>すべての手がすでにフェイント</em>です。見せかけの動きを別に足しても、新しい読みは増えません。</p>
+      <div class="icols">
+        <div>
+          <h4>フェイント</h4>
+          <p class="small">「偽の行き先を相手に見せる」案は、相手が計画中に何も見えない今のルールでは成り立ちません。見せる情報を作るなら、それは「宣言」（A1）や「ゲージ」（B1）のように、本当の情報として出すほうが読み合いになります。</p>
+        </div>
+        <div>
+          <h4>予約行動（条件つきの命令）</h4>
+          <p class="small">「相手が中央に来たらタックル、来なければ下がる」のような命令です。読みは深くなりますが、5人分の条件をスマホで組むのは重く、プログラミングに近くなります<span class="est">見立て</span>。入れるなら「待ち伏せ」1種類（そのマスに入ってきた保持者への競り合いに+10%）を、1試合に1回の技として。</p>
+        </div>
+      </div>
+    </div>
+    <div class="idea">
+      <div class="ih"><span class="id">B1</span><h2>必殺技とゲージ</h2><div class="tags"><span class="tag next">STEP 2</span><span class="tag">実装規模　中</span><span class="tag warn">ガチャとの組み合わせに注意</span></div></div>
+      <p class="ilead">チームで1本のゲージをため、<em>選手ごとの技を1回だけ使えます</em>。技は「数値が上がる」ではなく「普段できない手が1回できる」にします。</p>
+      <div class="icols">
+        <div>
+          <h4>ルール</h4>
+          <ol class="rules">
+            <li>ゲージはボールを奪う、パスを通す、ブロックするとたまる。満タンで1回使える。前後半それぞれ最大1回。</li>
+            <li><b>ゲージは相手にも見える。</b>満タンの相手は何かしてくる、と読める。</li>
+            <li>技は計画中に宣言する。カットインはそのターンの解決で流す。</li>
+            <li>技はロールごとに1つ（下の表）。同じロールなら★が違っても強さは同じ。</li>
+          </ol>
+        </div>
+        <div>
+          <h4>判断の理由</h4>
+          <ul class="dots">
+            <li><b>キャラクターの違いを数字以外で見せられる。</b>能力値で差をつけても勝率はゆっくりしか動かない<span class="meas">計測</span>（4ページ）。違いを出すなら、できることを変えるほうが効く<span class="est">見立て</span>。</li>
+            <li><b>見えるゲージは読み合いになる。</b>守備は満タンのSTに対してカバーを厚くする、攻撃はそれを見ておとりにする。</li>
+            <li><b>最大の危険はガチャとの組み合わせ。</b>★5の技だけ強い、強化で技が強くなる、とすると「引いた者勝ち」の流れになる。★は技の種類を変えるだけにし、強さは同じにする。強化は技に触らない。</li>
+          </ul>
+        </div>
+      </div>
+      <table class="data mini" style="margin:2.4mm 0 0">
+        <thead><tr><th style="width:12%">ロール</th><th style="width:15%">技の例</th><th>できること（1回だけ）</th><th style="width:30%">相手の対抗手段</th></tr></thead>
+        <tbody>
+          <tr><td>ST</td><td><b>裏抜け</b></td><td>先出しスルーパスに合わせて、移動の型より1マス余分に走れる。</td><td>下がってカバー、トラップ宣言</td></tr>
+          <tr><td>WG</td><td><b>切り返し</b></td><td>そのターンだけ後ろ斜めと横2マスに動ける。保持者の競り合いに+10%。</td><td>2人で挟む、パスコースを先に消す</td></tr>
+          <tr><td>LS</td><td><b>無回転</b></td><td>シュートのブロック判定を1人分だけ無視する。</td><td>コース上に2人並べる、LSに寄せて撃たせない</td></tr>
+          <tr><td>IC</td><td><b>先読み</b></td><td>そのターン、パスカットできるコースの幅を1マス分広げる。</td><td>浮き玉、ドリブルで運ぶ</td></tr>
+          <tr><td>DF</td><td><b>壁</b></td><td>隣のマスを通るシュートもブロックの対象にする。</td><td>遠目からのシュート、クロス</td></tr>
+        </tbody>
+      </table>
+      <div class="pm tight">
+        <div><h4>長所</h4><ul><li>カットインと名前つきの選手が一番活きる。見せ場が1試合に2〜4回できる。</li><li>選手を選ぶ理由が「数字」から「戦い方」に変わる。</li></ul></div>
+        <div class="con"><h4>リスク</h4><ul><li>技の数だけ例外ルールが増える。最初はロールごとに1つ、計5つまで。</li><li>AIに使い時を教える必要がある。最初は「満タンなら条件を満たした最初のターンに使う」で足りる。</li></ul></div>
+      </div>
+    </div>
+    <div class="callout" style="margin-top:3mm"><b>スカウトと技の約束（案）。</b>1. ★は技の種類を変えるだけで、強さは同じ。2. 強化（Lv）は能力値だけに効き、技には触らない。3. 技を使える回数はどの選手も同じ。4. ステージの相手にも技を持たせ、「持っていないと勝てない」技を作らない。</div>
+  </div>
+  <div class="foot"><span>BRAIBO 構想資料 03</span><span class="pn"></span></div>
+</section>
+
+<!-- ===== 9 B2-B4 ===== -->
+<section class="page">
+  <div class="ph"><span>BRAIBO <b>CONCEPT 03</b></span><span class="ph-r">ルール案の分析 ／ B キャラクターを活かす</span></div>
+  <div class="body">
+    <div class="idea">
+      <div class="ih"><span class="id">B2</span><h2>スタミナ、疲労、交代、ベンチ</h2><div class="tags"><span class="tag later">交代だけ後で</span><span class="tag no">毎ターンの疲労はしない</span></div></div>
+      <p class="ilead">20ターンの試合では<em>疲労を管理する楽しさが育つ前に試合が終わります</em>。手持ちの選手を使う場としての「交代」だけを残します。</p>
+      <div class="icols">
+        <div>
+          <h4>疲労を入れない理由</h4>
+          <ul class="dots">
+            <li>5人×20ターンの体力の数字を毎ターン気にするのは、スマホの1画面には重い<span class="est">見立て</span>。</li>
+            <li>疲れると能力が下がる、という形なら、能力差の効き方（4ページ）から見て体感しにくい。</li>
+            <li>動けなくなる、という形なら、ルールが重くなるうえに運の要素に見える。</li>
+          </ul>
+        </div>
+        <div>
+          <h4>残す形</h4>
+          <ul class="dots">
+            <li><b>ベンチ1人、ハーフタイムに交代1回。</b>前後半（D1）とセット。同じロールでなくてよい。</li>
+            <li>スカウトで引いた選手の「2人目」に出番ができる。</li>
+            <li>試合の流れで「後半はWGを2人にして横から」といった作戦が立つ。</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+    <div class="idea">
+      <div class="ih"><span class="id">B3</span><h2>属性の相性（三すくみ）</h2><div class="tags"><span class="tag no">しない</span></div></div>
+      <p class="ilead">炎は風に強い、のような相性は分かりやすい反面、<em>勝負が盤の上ではなく編成画面で決まります</em>。</p>
+      <div class="icols">
+        <div>
+          <ul class="dots">
+            <li><b>読み合いを奪う。</b>相性で確率が大きく動くと、位置取りの読みより「相性の良い相手と当てる」が正解になる。小さく動くなら入れる意味がない。</li>
+            <li><b>ガチャへの圧力になる。</b>相手（紅蓮）は固定なので、「紅蓮に強い属性の★5を引く」が攻略法になる。</li>
+          </ul>
+        </div>
+        <div>
+          <ul class="dots">
+            <li><b>じゃんけんの印象が強い。</b>同時に伏せるゲームに、さらに3すくみを重ねると、全体がじゃんけんに見える<span class="est">見立て</span>。</li>
+            <li><b>代わり。</b>選手の違いはロール、移動の型、技（B1）、札の得手不得手（A2）で出す。属性は見た目の色分けにとどめる。</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+    <div class="idea">
+      <div class="ih"><span class="id">B4</span><h2>陣形の選択とロールの自由編成</h2><div class="tags"><span class="tag next">STEP 3</span><span class="tag">実装規模　小〜中</span></div></div>
+      <p class="ilead">いまは<em>ロールごとに1人、陣形は1つ</em>です。陣形を3つから選べるようにし、ロールは制約つきで自由にします。</p>
+      <div class="fig" style="padding:2.6mm 3mm 2.2mm;margin-bottom:2.4mm">
+        <div class="panels">
+          <div class="panel" style="--pw:160px"><div id="f5a"></div><div class="cap"><span class="n">1</span><span><b>標準（今の形）。</b>2列目にWGとLS。</span></div></div>
+          <div class="panel" style="--pw:160px"><div id="f5b"></div><div class="cap"><span class="n">2</span><span><b>前がかり。</b>WG、LS、ICが1列前。裏が空く。</span></div></div>
+          <div class="panel" style="--pw:160px"><div id="f5c"></div><div class="cap"><span class="n">3</span><span><b>守備的。</b>最終ラインが2人。前の人数が減る。</span></div></div>
+        </div>
+        <div class="legend"><span>9 ST</span><span>7 WG</span><span>8 LS</span><span>6 IC</span><span>4 DF</span><span>（自陣と中央の6行を表示）</span></div>
+      </div>
+      <div class="icols">
+        <div>
+          <h4>ルール</h4>
+          <ol class="rules">
+            <li>陣形は3つ。標準（今の形）、前がかり（WG、LS、ICが1列前）、守備的（ICとDFが最終ラインに並ぶ）。キックオフの配置がそれに従う。</li>
+            <li>ロールは自由。ただしDFかICが1人以上、STが2人まで。</li>
+            <li>試合前とハーフタイムに変えられる。相手の陣形は試合前に見える。</li>
+          </ol>
+        </div>
+        <div>
+          <h4>判断の理由</h4>
+          <ul class="dots">
+            <li>試合前に「相手を見て選ぶ」読み合いが1つ増える。操作は試合中に増えない。</li>
+            <li>同じロールの2人目を出せるので、手持ちの選手の使い道が増える。</li>
+            <li>注意：エンジンはキックオフの度に既定の陣形へ戻しているので、試合ごとの陣形を状態に持たせる改修が要る。AIの評価はロール単位なので、そのまま使える<span class="est">見立て</span>。</li>
+            <li>STを2人にした場合などの勝率は、入れる前に計測できる（第5章）。</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="foot"><span>BRAIBO 構想資料 03</span><span class="pn"></span></div>
+</section>
+
+<!-- ===== 10 C ===== -->
+<section class="page">
+  <div class="ph"><span>BRAIBO <b>CONCEPT 03</b></span><span class="ph-r">ルール案の分析 ／ C サッカーらしさ</span></div>
+  <div class="body">
+    <div class="idea">
+      <div class="ih"><span class="id">C1</span><h2>ゴールキーパー</h2><div class="tags"><span class="tag no">駒としては入れない</span><span class="tag">数値で代用できる</span></div></div>
+      <p class="ilead">5人制で1人をキーパーにすると、<em>フィールドの読み合いが4対4に減ります</em>。得点の調整が目的なら数値で足ります。</p>
+      <div class="icols">
+        <div>
+          <ul class="dots">
+            <li><b>計測。</b>シュートの成功率を一律−0.08にすると、得点は2.96から2.69、2ターン以内の得点は87%から80%に下がる<span class="meas">計測</span>。キーパーを置いた効果の近似と見ている<span class="est">見立て</span>。</li>
+            <li>−0.15まで下げると得点2.24、先制した側の勝率が76%に上がり、逆転が減る<span class="meas">計測</span>。下げすぎは試合を固くする。</li>
+          </ul>
+        </div>
+        <div>
+          <ul class="dots">
+            <li><b>入れるなら。</b>操作しない「ゴール前の守り」として、ゴールマスに近いシュートだけ確率を下げる。駒は増やさない。</li>
+            <li>今の得点は目安の中なので、いま動かす理由はない。他の案（特にB1の技）で得点が増えたときの調整に使う。</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+    <div class="idea">
+      <div class="ih"><span class="id">C2</span><h2>セットプレーとファウル</h2><div class="tags"><span class="tag next">コーナーは STEP 3</span><span class="tag later">ファウルは後で</span></div></div>
+      <p class="ilead">セットプレーは<em>止まった盤面から両者が同時に配置を決める</em>場面です。同時に伏せるこのゲームと、とても相性がよい形です。</p>
+      <div class="icols">
+        <div class="fig" style="flex:0 0 auto;margin:0">
+          <div class="panels"><div class="panel" style="--pw:200px"><div id="f3"></div><div class="cap"><span class="n">i</span><span>青は蹴る先（黄の枠）を1つ選ぶ。赤は3人をどこに立てるかを選ぶ。同時に開く。</span></div></div></div>
+        </div>
+        <div>
+          <h4>コーナーのルール</h4>
+          <ol class="rules">
+            <li>ブロックされたシュートのうち、ブロックした選手がゴールから2マス以内ならコーナーになる。ブロックは1試合2.1本<span class="meas">計測</span>なので、コーナーは1試合1本前後<span class="est">見立て</span>。</li>
+            <li>攻撃は蹴る先のマスと、ゴール前3×3の中の配置を決める。守備も3×3の中の配置を決める。同時に開く。</li>
+            <li>蹴る先に味方だけなら空中戦なしでヘディング、両方いれば空中戦（今のクロスの判定）、守備だけならクリア。</li>
+          </ol>
+          <table class="data mini" style="margin:2mm 0 0">
+            <thead><tr><th style="width:42%">蹴る先のマス</th><th>結果</th></tr></thead>
+            <tbody>
+              <tr><td>味方だけ</td><td>競られずにヘディング（今の判定、近ければ約50〜70%）</td></tr>
+              <tr><td>味方と敵</td><td>空中戦。勝てばヘディング、負ければ守備ボール</td></tr>
+              <tr><td>敵だけ</td><td>クリア。守備ボール</td></tr>
+              <tr><td>誰もいない</td><td>こぼれ球。次のターンに拾い合い</td></tr>
+            </tbody>
+          </table>
+          <h4 style="margin-top:2mm">ファウルを後に回す理由</h4>
+          <p class="small">ファウルを確率で起こすと、読み勝ったのに運で止まる場面が増えます。入れるなら「同じ選手が2ターン続けて保持者に競り合ったら2回目はファウル」のように、確率ではなく条件で決めます。</p>
+        </div>
+      </div>
+    </div>
+    <div class="idea">
+      <div class="ih"><span class="id">C3</span><h2>ドリブル突破</h2><div class="tags"><span class="tag later">後で（WGの技として）</span></div></div>
+      <div class="icols">
+        <p class="small">保持者が敵のマスを通り抜けて進む動きは、今も「すれ違いの競り合い」として起きています。全員に「突破」の命令を足すと、競り合いの回数（1試合3.5回<span class="meas">計測</span>）が増え、運の比重が上がります。WGの技（B1の「切り返し」）か、読み札（A2）の「突破」の結果として表すほうが、ルールを増やさずに済みます。</p>
+        <p class="small">フィジカルの低いWGは自分の競り合いの31%しか勝てていません<span class="meas">計測</span>。WGに突破の技を持たせると、能力の弱点を「手」で補う形になり、選手の個性がはっきりします<span class="est">見立て</span>。</p>
+      </div>
+    </div>
+  </div>
+  <div class="foot"><span>BRAIBO 構想資料 03</span><span class="pn"></span></div>
+</section>
+
+<!-- ===== 11 D + E ===== -->
+<section class="page">
+  <div class="ph"><span>BRAIBO <b>CONCEPT 03</b></span><span class="ph-r">ルール案の分析 ／ D 試合の形 ／ E 対人戦</span></div>
+  <div class="body">
+    <div class="idea">
+      <div class="ih"><span class="id">D1</span><h2>ターン数と前後半</h2><div class="tags"><span class="tag now">前後半は STEP 1</span><span class="tag">ターン数は20のまま</span></div></div>
+      <p class="ilead">ターン数は<em>20のままで前後半に分けます</em>（10＋10）。ハーフタイムに陣形と作戦を見直す時間ができます。</p>
+      <div class="flow">
+        <div class="st"><b>前半 10ターン</b><small>キックオフは片方</small></div><div class="ar">▶</div>
+        <div class="st key"><b>ハーフタイム</b><small>陣形（B4）、交代1回（B2）、技の回数を戻す（B1）</small></div><div class="ar">▶</div>
+        <div class="st"><b>後半 10ターン</b><small>キックオフを入れ替える</small></div><div class="ar">▶</div>
+        <div class="st hot"><b>同点なら PK戦</b><small>ステージ戦だけ（D2）</small></div>
+      </div>
+      <div class="icols">
+        <div>
+          <ul class="dots">
+            <li><b>計測。</b>ターン数を増やすと得点も逆転も増える。24ターンで得点3.55、逆転勝ち18%。30ターンで得点4.48（目安の上限超え）<span class="meas">計測</span>。</li>
+            <li>1ターンの計画時間が最大60秒なので、ターンを増やすと試合が長くなる。20ターンでも最大20分。</li>
+          </ul>
+        </div>
+        <div>
+          <ul class="dots">
+            <li><b>前後半の効果。</b>後半は攻める向きと先攻を入れ替え、両者がキックオフを1回ずつ持つ。リードされた側がハーフタイムに陣形を変えて取り返す流れが作れる<span class="est">見立て</span>。</li>
+            <li>交代（B2）、技の回数（B1）、陣形（B4）を「前後半に1回」で揃えると覚えやすい。</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+    <div class="idea">
+      <div class="ih"><span class="id">D2</span><h2>引き分けの決着（PK戦）</h2><div class="tags"><span class="tag next">STEP 2</span><span class="tag">ステージ戦だけ</span></div></div>
+      <p class="ilead">引き分けは<em>22〜26%</em><span class="meas">計測</span>。ステージは引き分けだと未クリアなので、4〜5試合に1回は「何も起きずに終わる」試合になります。</p>
+      <div class="icols">
+        <div>
+          <h4>ルール</h4>
+          <ol class="rules">
+            <li>同点ならPK戦。各3人。蹴る順番は試合前の編成で決める。</li>
+            <li>キッカーは左、中、右の1つを選ぶ。守備側は守る向きを1つ選ぶ。同時に開く。</li>
+            <li>向きが外れれば、得点の確率はキッカーのシュート力で決まる。当たれば、守備側の代表（ブロックの値）との勝負になる。</li>
+          </ol>
+          <table class="data mini" style="margin:1.6mm 0 0">
+            <thead><tr><th>例：守備の代表がDF（ブロック85）<span class="est">見立て</span></th><th class="n" style="width:20%">守備が外れ</th><th class="n" style="width:20%">守備が的中</th></tr></thead>
+            <tbody>
+              <tr><td>ST（シュート85）</td><td class="n">約89%</td><td class="n">約40%</td></tr>
+              <tr><td>DF（シュート35）</td><td class="n">約69%</td><td class="n">約20%</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div>
+          <h4>判断の理由</h4>
+          <ul class="dots">
+            <li>PKは本来じゃんけんの性質を持つので、ここで3択が出ても違和感が小さい。試合の本体には混ぜない。</li>
+            <li>A2の読み札と同じ「同時に選ぶ画面」で作れる。選手のセリフとカットインの見せ場になる。</li>
+            <li>勝ち点やクリアの扱い（PK勝ちはクリアか）はオーナーの判断（第6章）。</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+    <div class="idea">
+      <div class="ih"><span class="id">D3</span><h2>盤面サイズ</h2><div class="tags"><span class="tag no">変えない</span></div><span class="id" style="margin-left:6mm">D4</span><h2>得点の入りやすさ</h2><div class="tags"><span class="tag" style="background:#fff1d6;border-color:#f3d08c;color:#8a5a00">調整ノブ</span></div></div>
+      <div class="icols">
+        <p class="small">7×12に広げると、行動のないターンが16%から27%に増え、スルーパスは1試合1.38本から0.54本に減ります<span class="meas">計測</span>。間延びするうえ、縦画面ではマスが小さくなります。7×10のままがよいと考えます。</p>
+        <p class="small">得点2.96は目安2.5〜4の中です。シュートの基準値を+0.05にすると3.08点、−0.08で2.69点、−0.15で2.24点になります<span class="meas">計測</span>。他の案を入れて得点が動いたときに、ここで戻します。</p>
+      </div>
+    </div>
+    <div class="idea">
+      <div class="ih"><span class="id">E</span><h2>対人戦へ向けて</h2><div class="tags"><span class="tag later">方向として残す</span></div></div>
+      <div class="icols">
+        <div>
+          <h4>E1　同時提出の非同期対戦</h4>
+          <p class="small">今のルールは「両者が計画を出したら解決」なので、相手を待つ形の非同期にそのまま向いています。1ターンごとに通知を送り合えば、20ターンを1日かけて遊べます。読み札（A2）とPK（D2）は対人戦でこそ本物の読み合いになります。同期の対戦なら60秒の計画時間が今のまま使えます。</p>
+        </div>
+        <div>
+          <h4>E2　交互手番（01の案4）</h4>
+          <p class="small">数手先を組み立てる将棋らしさは強まりますが、「伏せて同時に出す」という今の一番の個性を手放します。ルール、AI、画面をほぼ作り直すことになるので、今の作品の次の一歩ではなく、別の作品の案として保留します。</p>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="foot"><span>BRAIBO 構想資料 03</span><span class="pn"></span></div>
+</section>
+
+<!-- ===== 12 comparison table ===== -->
+<section class="page">
+  <div class="ph"><span>BRAIBO <b>CONCEPT 03</b></span><span class="ph-r">ルール案の分析</span></div>
+  <div class="body">
+    <div class="sec"><div class="no"><small>CHAPTER</small>03</div><div><h1>全案の比較</h1></div></div>
+    <p class="lead">手間に対して効果が大きいのは<em>トラップ宣言、前後半、必殺技</em>。危ういのは三すくみと、ガチャに結びついた必殺技です。</p>
+    <table class="cmp">
+      <thead><tr><th style="width:24%">案</th><th>読み合い</th><th>分かり<br>やすさ</th><th>テンポ</th><th>キャラ<br>育成</th><th>実装<br>規模</th><th>AIの<br>難しさ</th><th>バランス<br>の危うさ</th><th style="width:13%">判定</th></tr></thead>
+      <tbody>
+        <tr class="rec"><td>A1　トラップ宣言</td><td><span class="mk a">◎</span></td><td><span class="mk b">○</span></td><td><span class="mk b">○</span></td><td><span class="mk c">△</span></td><td>小〜中</td><td>中</td><td>中</td><td><span class="vd s1">STEP 1</span></td></tr>
+        <tr><td>A2　競り合いの読み札</td><td><span class="mk b">○</span></td><td><span class="mk a">◎</span></td><td><span class="mk c">△</span></td><td><span class="mk a">◎</span></td><td>中</td><td>低</td><td>中</td><td><span class="vd s2">STEP 2</span></td></tr>
+        <tr><td>A3　マーク指定</td><td><span class="mk b">○</span></td><td><span class="mk b">○</span></td><td><span class="mk b">○</span></td><td><span class="mk b">○</span></td><td>中</td><td>中</td><td>中</td><td><span class="vd l">後で</span></td></tr>
+        <tr><td>A4　フェイント／予約行動</td><td><span class="mk c">△</span></td><td><span class="mk d">×</span></td><td><span class="mk d">×</span></td><td><span class="mk c">△</span></td><td>大</td><td>高</td><td>中</td><td><span class="vd x">しない</span></td></tr>
+        <tr class="rec"><td>B1　必殺技とゲージ</td><td><span class="mk b">○</span></td><td><span class="mk b">○</span></td><td><span class="mk c">△</span></td><td><span class="mk a">◎</span></td><td>中</td><td>中</td><td>高</td><td><span class="vd s2">STEP 2</span></td></tr>
+        <tr><td>B2　スタミナ／交代</td><td><span class="mk c">△</span></td><td><span class="mk c">△</span></td><td><span class="mk c">△</span></td><td><span class="mk b">○</span></td><td>中</td><td>中</td><td>中</td><td><span class="vd l">交代だけ後で</span></td></tr>
+        <tr><td>B3　属性の三すくみ</td><td><span class="mk d">×</span></td><td><span class="mk a">◎</span></td><td><span class="mk b">○</span></td><td><span class="mk b">○</span></td><td>小</td><td>低</td><td>高</td><td><span class="vd x">しない</span></td></tr>
+        <tr><td>B4　陣形とロール自由</td><td><span class="mk b">○</span></td><td><span class="mk a">◎</span></td><td><span class="mk a">◎</span></td><td><span class="mk b">○</span></td><td>小〜中</td><td>低</td><td>中</td><td><span class="vd s3">STEP 3</span></td></tr>
+        <tr><td>C1　キーパーの駒</td><td><span class="mk d">×</span></td><td><span class="mk a">◎</span></td><td><span class="mk b">○</span></td><td><span class="mk c">△</span></td><td>大</td><td>中</td><td>低</td><td><span class="vd x">しない</span></td></tr>
+        <tr><td>C2　コーナー</td><td><span class="mk b">○</span></td><td><span class="mk a">◎</span></td><td><span class="mk b">○</span></td><td><span class="mk b">○</span></td><td>中</td><td>中</td><td>低</td><td><span class="vd s3">STEP 3</span></td></tr>
+        <tr><td>C2　ファウルとFK</td><td><span class="mk b">○</span></td><td><span class="mk b">○</span></td><td><span class="mk c">△</span></td><td><span class="mk c">△</span></td><td>中〜大</td><td>中</td><td>中</td><td><span class="vd l">後で</span></td></tr>
+        <tr><td>C3　ドリブル突破</td><td><span class="mk c">△</span></td><td><span class="mk a">◎</span></td><td><span class="mk b">○</span></td><td><span class="mk b">○</span></td><td>中</td><td>低</td><td>中</td><td><span class="vd l">後で</span></td></tr>
+        <tr class="rec"><td>D1　前後半</td><td><span class="mk b">○</span></td><td><span class="mk a">◎</span></td><td><span class="mk b">○</span></td><td><span class="mk b">○</span></td><td>小</td><td>低</td><td>低</td><td><span class="vd s1">STEP 1</span></td></tr>
+        <tr><td>D1　ターン数を増やす</td><td><span class="mk c">△</span></td><td><span class="mk a">◎</span></td><td><span class="mk d">×</span></td><td><span class="mk c">△</span></td><td>小</td><td>低</td><td>低</td><td><span class="vd k">20のまま</span></td></tr>
+        <tr><td>D2　PK戦</td><td><span class="mk b">○</span></td><td><span class="mk a">◎</span></td><td><span class="mk b">○</span></td><td><span class="mk b">○</span></td><td>小〜中</td><td>低</td><td>低</td><td><span class="vd s2">STEP 2</span></td></tr>
+        <tr><td>D3　盤面を広げる</td><td><span class="mk c">△</span></td><td><span class="mk b">○</span></td><td><span class="mk d">×</span></td><td><span class="mk c">△</span></td><td>中</td><td>低</td><td>低</td><td><span class="vd x">しない</span></td></tr>
+        <tr><td>E1　非同期の対人戦</td><td><span class="mk a">◎</span></td><td><span class="mk b">○</span></td><td><span class="mk c">△</span></td><td><span class="mk b">○</span></td><td>大</td><td>—</td><td>中</td><td><span class="vd l">方向</span></td></tr>
+        <tr><td>E2　交互手番</td><td><span class="mk b">○</span></td><td><span class="mk b">○</span></td><td><span class="mk d">×</span></td><td><span class="mk c">△</span></td><td>特大</td><td>中</td><td>中</td><td><span class="vd x">別の作品</span></td></tr>
+      </tbody>
+    </table>
+    <p class="small">◎ とても良い　○ 良い　△ 工夫が要る　× 悪い。テンポは「悪くしない」ほど良い。実装規模とAIの難しさ、バランスの危うさは低いほど良い。評価は計測した数字を参考にした設計上の見立てです。</p>
+    <h3>3つの課題への効き方</h3>
+    <table class="cmp">
+      <thead><tr><th style="width:24%">案</th><th>課題1　守備から仕掛ける</th><th>課題2　キャラクターの違い</th><th>課題3　組み立てる場面</th></tr></thead>
+      <tbody>
+        <tr><td>A1　トラップ宣言</td><td><span class="mk a">◎</span> ラインで罠を張れる</td><td><span class="mk c">△</span></td><td><span class="mk b">○</span> 攻撃は崩し方を選ぶ</td></tr>
+        <tr><td>D1　前後半</td><td><span class="mk c">△</span></td><td><span class="mk b">○</span> 交代と陣形の受け皿</td><td><span class="mk a">◎</span> 止まって作戦を立てる</td></tr>
+        <tr><td>B1　必殺技</td><td><span class="mk b">○</span> IC、DFの技</td><td><span class="mk a">◎</span> 選手ごとの手</td><td><span class="mk b">○</span> 技を使う形を作る</td></tr>
+        <tr><td>A2　読み札</td><td><span class="mk b">○</span> 待ち受けに読みが入る</td><td><span class="mk a">◎</span> 札の得手不得手</td><td><span class="mk c">△</span></td></tr>
+        <tr><td>D2　PK戦</td><td><span class="mk c">△</span></td><td><span class="mk b">○</span> キッカーの選択</td><td><span class="mk c">△</span></td></tr>
+        <tr><td>C2　コーナー</td><td><span class="mk b">○</span> 置き方で守る</td><td><span class="mk b">○</span> 空中戦の強さ</td><td><span class="mk a">◎</span> 止まった盤面</td></tr>
+        <tr><td>B4　陣形とロール</td><td><span class="mk b">○</span> 守備的な陣形</td><td><span class="mk b">○</span> 2人目の出番</td><td><span class="mk b">○</span> 試合前の作戦</td></tr>
+      </tbody>
+    </table>
+    <div class="callout"><b>表の読み方。</b>中心の3案（トラップ宣言、必殺技、読み札）は読み合いかキャラクターに◎があり、実装は中以下です。前後半、PK戦、コーナーは単独の効果は中くらいですが、小さく作れて他の案の受け皿になります。「しない」とした案は、読み合いを減らすか、テンポを悪くします。</div>
+  </div>
+  <div class="foot"><span>BRAIBO 構想資料 03</span><span class="pn"></span></div>
+</section>
+
+<!-- ===== 13 map + combos ===== -->
+<section class="page">
+  <div class="ph"><span>BRAIBO <b>CONCEPT 03</b></span><span class="ph-r">ルール案の分析</span></div>
+  <div class="body">
+    <div class="sec"><div class="no"><small>CHAPTER</small>04</div><div><h1>効果と手間の地図、組み合わせ</h1></div></div>
+    <p class="lead">左上ほど「少ない手間で効く」案です。<em>STEP 1 は左上の2つ、STEP 2 は中央の3つ</em>を、共通の画面でまとめて作ります。</p>
+    <div class="fig" style="padding:3mm">
+      <div class="ft"><i>FIG 4</i>効果（読み合いとキャラクターの活き方）と手間（実装とAI）<span class="est" style="margin-left:2mm">見立て</span></div>
+      <div id="map"></div>
+    </div>
+    <h3>強め合う組み合わせ</h3>
+    <div class="combo">
+      <div><b>A1 トラップ宣言 ＋ 先出しスルーパス</b>攻撃と守備の両方に「仕掛け」ができ、四すくみが回る。片方だけでは強すぎるか、弱すぎる。</div>
+      <div><b>A2 読み札 ＋ D2 PK戦 ＋ B1 必殺技</b>どれも「同時に選んで、カットインで開く」。画面、演出、AIの選び方を1つ作れば3つに使える。</div>
+      <div><b>D1 前後半 ＋ B4 陣形 ＋ B2 交代</b>ハーフタイムに「変えられること」を集める。1試合に1回の作戦タイムになる。</div>
+      <div><b>B1 必殺技 ＋ A2 札の得手不得手</b>選手の個性を数字以外で2か所に出せる。能力差の効きが弱いことを補う。</div>
+    </div>
+    <h3>一緒に入れないほうがよい組み合わせ</h3>
+    <div class="combo">
+      <div class="bad"><b>B1 必殺技 × スカウト（★）× 強化</b>★や強化で技が強くなると、持っている選手で勝敗が決まる。★は技の種類だけを変え、強さは揃える。</div>
+      <div class="bad"><b>B3 三すくみ × A2 読み札</b>伏せて出す3択の上に相性の3すくみを重ねると、試合全体がじゃんけんに見える。</div>
+      <div class="bad"><b>A1 トラップ宣言 × A3 マーク指定</b>守備の命令が一度に2つ増えると、計画の操作が重い。トラップの結果を見てから決める。</div>
+      <div class="bad"><b>B2 毎ターンの疲労 × 20ターン</b>管理の手間に対して効果が出る前に試合が終わる。入れるなら交代だけ。</div>
+    </div>
+  </div>
+  <div class="foot"><span>BRAIBO 構想資料 03</span><span class="pn"></span></div>
+</section>
+
+<!-- ===== 14 roadmap ===== -->
+<section class="page">
+  <div class="ph"><span>BRAIBO <b>CONCEPT 03</b></span><span class="ph-r">ルール案の分析</span></div>
+  <div class="body">
+    <div class="sec"><div class="no"><small>CHAPTER</small>05</div><div><h1>おすすめの進め方</h1></div></div>
+    <p class="lead">3段階で進め、<em>各段階の前に「測る数字」と「目安」を決めておきます</em>。数字が目安を外れたら、次へ進む前に調整します。</p>
+    <ol class="steps">
+      <li class="key"><b>守備の一手と前後半（A1、D1）</b>オフサイドトラップ宣言を設定で切り替えられる形で入れる。試合を10＋10ターンに分け、後半は先攻を入れ替える。AIにトラップの使い時を教える。
+        <span class="ms">測る：オフサイド 1〜3回／試合（今0.80）、宣言の的中率 40〜60%、スルーパス成功率 30〜45%（今51%）、裏抜けからの得点 15〜30%（今15%）、得点 2.5〜4（今2.96）。</span></li>
+      <li class="key"><b>同時に選ぶ場面（A2、B1、D2）</b>「同時に選んでカットインで開く」画面を1つ作り、保持者の競り合いの読み札、必殺技（ロールごとに1つ、前後半に1回）、ステージのPK戦に使う。
+        <span class="ms">測る：技の使用 1試合に両チームで2〜4回、技が絡んだ得点 全体の15〜30%、読み札の対決 1試合2〜3回（今の保持者の競り合い2.7回）、PK戦になる試合 20〜25%（今の引き分け率）。全能力+5のチームの勝率が今の44%（1000試合）から大きく上がらないこと（技の強さが能力に比例していないことの確認）。</span></li>
+      <li><b>サッカーらしさと編成（C2、B4、必要ならB2）</b>コーナーキック（ゴール近くのブロックから）を入れる。陣形を3つにし、ロールを制約つきで自由にする。ベンチ1人とハーフタイムの交代を検討する。
+        <span class="ms">測る：コーナー 1試合0.5〜1.5本、セットプレーからの得点 全体の5〜15%、奪ってから2ターン以内の得点が87%から80%以下へ、陣形ごとの勝率の差が5ポイント以内（1000試合）。</span></li>
+    </ol>
+    <h3>目安の根拠</h3>
+    <table class="data mini">
+      <thead><tr><th style="width:30%">指標</th><th class="n" style="width:12%">今の値</th><th class="n" style="width:14%">目安</th><th>根拠</th></tr></thead>
+      <tbody>
+        <tr><td>オフサイド／試合</td><td class="n">0.80</td><td class="n">1〜3</td><td>構想資料01の目安を引き継ぐ。多すぎると攻撃が雑に見え、少なすぎるとラインの読みがない。</td></tr>
+        <tr><td>宣言の的中率</td><td class="n">—</td><td class="n">40〜60%</td><td>常に当たれば毎ターン宣言、ほぼ外れれば誰も使わない。半分前後なら読みが効いている。</td></tr>
+        <tr><td>得点／試合</td><td class="n">2.96</td><td class="n">2.5〜4</td><td>構想資料01の目安を引き継ぐ。シュート基準値を−0.08にすると約0.3点下がるので、戻すのは容易<span class="meas">計測</span>。</td></tr>
+        <tr><td>奪ってから2ターン以内の得点</td><td class="n">87%</td><td class="n">80%以下</td><td>組み立ての得点が少しは混ざる状態。シュート基準値−0.08で80%になった<span class="meas">計測</span>。</td></tr>
+        <tr><td>逆転勝ち</td><td class="n">14.5%</td><td class="n">15〜25%</td><td>24ターンで18%、30ターンで27%<span class="meas">計測</span>。前後半とハーフタイムの変更で、ターン数を増やさずに近づけたい。</td></tr>
+        <tr><td>能力+9のチームの勝率</td><td class="n">44%</td><td class="n">55〜65%</td><td><span class="est">見立て</span>ステージ5が「強化なしでは苦しい」と感じられる強さ。今は弱め。上げるなら技とAIの差で（数値の上乗せではなく）。</td></tr>
+      </tbody>
+    </table>
+    <div class="callout blue"><b>測り方。</b>npm run sim に本書で使った指標（得点の形、起点、逆転、能力差）を足し、各段階で同じ表を出します。差を見る比較は1000試合以上で行います。400試合では、同じ強さの2チームでも勝率の差が±8ポイントほどぶれます<span class="meas">計測</span>。</div>
+  </div>
+  <div class="foot"><span>BRAIBO 構想資料 03</span><span class="pn"></span></div>
+</section>
+
+<!-- ===== 15 decisions ===== -->
+<section class="page">
+  <div class="ph"><span>BRAIBO <b>CONCEPT 03</b></span><span class="ph-r">ルール案の分析</span></div>
+  <div class="body">
+    <div class="sec"><div class="no"><small>CHAPTER</small>06</div><div><h1>オーナーに決めてほしいこと</h1></div></div>
+    <p class="lead">STEP 1 に入る前に<em>1と2</em>、STEP 2 に入る前に<em>3〜5</em>を決めてください。</p>
+    <table class="data">
+      <thead><tr><th style="width:4%">#</th><th style="width:30%">決めること</th><th>選択肢</th><th style="width:26%">本書のおすすめ</th></tr></thead>
+      <tbody>
+        <tr><td>1</td><td><span class="nm">STEP 1 の範囲</span></td><td>トラップ宣言だけ ／ 前後半も一緒に ／ どちらもまだ</td><td>両方。どちらも小さく、測る数字がはっきりしている。</td></tr>
+        <tr><td>2</td><td><span class="nm">試合の長さ</span></td><td>20ターン（10＋10）／ 24ターン（12＋12）</td><td>20。得点と逆転を増やしたくなったら24を試す。</td></tr>
+        <tr><td>3</td><td><span class="nm">運と能力の比重</span></td><td>今のまま（全能力+9でも勝率44%）／ 能力差をもっと効かせる ／ もっと読みで決まるようにする</td><td>読みで決まるほうへ。強化の手応えは技と編成の幅で出す。</td></tr>
+        <tr><td>4</td><td><span class="nm">必殺技と★の関係</span></td><td>★で技の種類だけ変える ／ ★で技の強さも変える</td><td>種類だけ。強さを変えると「引いた者勝ち」になる。</td></tr>
+        <tr><td>5</td><td><span class="nm">引き分けの扱い</span></td><td>今のまま（ステージは未クリア）／ ステージだけPK戦 ／ 全試合PK戦</td><td>ステージだけPK戦。PK勝ちもクリア、ただし報酬は少し下げる。</td></tr>
+        <tr><td>6</td><td><span class="nm">対人戦を目指すか</span></td><td>対AIに集中 ／ 非同期の対人戦を視野に ／ 交互手番の別作品を検討</td><td>非同期を視野に。決めておくと、読み札とPKのAIへの作り込みを最小限にできる。</td></tr>
+        <tr><td>7</td><td><span class="nm">「しない」とした案</span></td><td>三すくみ、キーパーの駒、盤の拡大、毎ターンの疲労、フェイント</td><td>見送りでよいかの確認だけ。</td></tr>
+      </tbody>
+    </table>
+    <h3>計測の方法と限界</h3>
+    <ul class="dots">
+      <li><b>方法。</b>v0.6 のコミットの写しを別の場所に作り、ゲームのエンジンとAIをそのまま使ってAI同士を対戦させた。試合ごとに先攻と、強化した側の青・赤を入れ替えている。基準の試合は seed 1 と seed 2 で各400試合、設定の比較は各400試合、能力差の曲線と実際の編成は各1000試合（seed 3）。予備の実験を含めて合計約1万9千試合。</li>
+      <li><b>能力の強化。</b>DESIGN.md v0.7 §13.1 の「+n」（全能力+n）と同じ形を写しの中で再現した。リポジトリのコードは変えていない。</li>
+      <li><b>AIの限界。</b>AIは1手先しか見ない評価関数で、相手の伏せた手を読まない。時間（残りターン）や点差も考えない。だから「判断の質がほとんど効かない」「組み立ての得点が少ない」という結果は、人が遊んだ場合より強く出ている可能性がある。人の試遊で確かめる必要がある。</li>
+      <li><b>測れなかったもの。</b>新しい案（トラップ、札、技、PK、コーナー）はまだ実装がないので、効果はすべて<span class="est">見立て</span>。シュート成功率を下げた実験はキーパーの近似にすぎない。テンポ（人が考える時間）、分かりやすさ、楽しさは測れない。</li>
+      <li><b>得点の分類。</b>「裏抜け」はスルーパスを受けた選手が1〜2ターン以内に決めた得点。「遠距離」はゴールまで4.5マス以上のシュート。「起点」は得点したチームがボールを得たきっかけ。</li>
+    </ul>
+    <div class="callout"><b>結論。</b>いまの BRAIBO は「奪ってすぐ撃つ」攻防としてはまとまっています。足りないのは、守備から仕掛ける一手と、キャラクターの違いが手として表れる場面です。トラップ宣言と前後半から始め、同時に選ぶ画面を作って必殺技、読み札、PK戦へ広げるのが、最も小さく確かな順番です。</div>
+  </div>
+  <div class="foot"><span>BRAIBO 構想資料 03</span><span class="pn"></span></div>
+</section>
+
+<script>
+window.PLUS_DATA = [
+  { n: 0, w: 39.4, d: 23.5, cap: '同じ能力' }, { n: 3, w: 40.0, d: 23.9, cap: '' }, { n: 5, w: 43.8, d: 22.0, cap: 'Lv6 相当' },
+  { n: 9, w: 44.0, d: 23.9, cap: 'ステージ5' }, { n: 15, w: 50.2, d: 22.0, cap: '' },
+];
+(function () {
+  const NS = 'http://www.w3.org/2000/svg';
+  function el(n, a, p, t) { const e = document.createElementNS(NS, n); for (const k in a) e.setAttribute(k, a[k]); if (t != null) e.textContent = t; if (p) p.appendChild(e); return e; }
+  const FONT = "'Noto Sans JP', sans-serif", NUM = "'Barlow Condensed', sans-serif";
+  // Horizontal bar list: rows [{l, v, hi}] in percent.
+  function HB(id, rows, o) {
+    o = o || {}; const W = o.w || 320, lw = o.lw || 104, rh = 19, H = rows.length * rh + 2, max = o.max || Math.max(...rows.map((r) => r.v));
+    const svg = el('svg', { viewBox: `0 0 ${W} ${H}`, width: W, height: H }, document.getElementById(id));
+    rows.forEach((r, i) => {
+      const y = i * rh + 1, bw = (W - lw - 40) * r.v / max;
+      el('text', { x: lw - 6, y: y + 13, 'text-anchor': 'end', 'font-family': FONT, 'font-size': 10, 'font-weight': 500, fill: '#0f1b2d' }, svg, r.l);
+      el('rect', { x: lw, y: y + 3, width: Math.max(2, bw), height: 12, rx: 2, fill: r.hi ? '#2f6bff' : '#a9c1ff' }, svg);
+      el('text', { x: lw + bw + 4, y: y + 13.4, 'font-family': NUM, 'font-size': 11.5, 'font-weight': 700, fill: '#0f1b2d' }, svg, r.t || (r.v.toFixed(1) + '%'));
+    });
+  }
+  HB('cSrc', [
+    { l: '近・中距離シュート', v: 59.6, hi: true }, { l: '遠距離シュート', v: 19.7 }, { l: '裏抜け（スルーパス）', v: 14.7 }, { l: 'ヘディング', v: 5.9 },
+  ], { max: 65 });
+  HB('cRole', [
+    { l: 'ST', v: 38.7, hi: true }, { l: 'LS', v: 28.3 }, { l: 'WG', v: 17.0 }, { l: 'IC', v: 15.0 }, { l: 'DF', v: 1.1 },
+  ], { max: 65 });
+  HB('cStart', [
+    { l: 'パスカット', v: 20.8, hi: true }, { l: '相手のシュートが外れた', v: 18.4 }, { l: '競り合いで奪った', v: 18.3, hi: true }, { l: 'キックオフ', v: 17.2 },
+    { l: 'シュートブロック', v: 13.4, hi: true }, { l: '相手のオフサイド', v: 6.9 }, { l: '空中戦で奪った', v: 4.5, hi: true }, { l: 'こぼれ球', v: 0.6, hi: true },
+  ], { max: 24, lw: 128 });
+
+  // Stat curve: stacked win / draw bars for +n.
+  const PLUS = window.PLUS_DATA;
+  (function () {
+    const host = document.getElementById('cPlus'); if (!host || !PLUS) return;
+    const W = 330, H = 150, l = 30, r = 8, t = 10, b = 26, iw = W - l - r, ih = H - t - b;
+    const svg = el('svg', { viewBox: `0 0 ${W} ${H}`, width: W, height: H }, host);
+    for (const g of [0, 25, 50, 75, 100]) {
+      const y = t + ih * (1 - g / 100);
+      el('line', { x1: l, x2: W - r, y1: y, y2: y, stroke: g === 50 ? '#c5cedd' : '#e1e6ee', 'stroke-width': .7, 'stroke-dasharray': g === 50 ? '3 2' : '' }, svg);
+      el('text', { x: l - 4, y: y + 3, 'text-anchor': 'end', 'font-family': NUM, 'font-size': 9, fill: '#8a93a3' }, svg, g + '%');
+    }
+    const n = PLUS.length, slot = iw / n, bw = slot * 0.52;
+    PLUS.forEach((d, i) => {
+      const x = l + slot * i + (slot - bw) / 2, yW = t + ih * (1 - d.w / 100), yD = t + ih * (1 - (d.w + d.d) / 100);
+      el('rect', { x, y: yD, width: bw, height: yW - yD - 1, rx: 2, fill: '#dbe5ff' }, svg);
+      el('rect', { x, y: yW, width: bw, height: t + ih - yW, rx: 2, fill: '#2f6bff' }, svg);
+      el('text', { x: x + bw / 2, y: yW - 3 - (yW - yD > 12 ? 0 : 0), 'text-anchor': 'middle', 'font-family': NUM, 'font-size': 10.5, 'font-weight': 700, fill: '#fff' }, svg, '');
+      el('text', { x: x + bw / 2, y: yW + 12, 'text-anchor': 'middle', 'font-family': NUM, 'font-size': 10, 'font-weight': 700, fill: '#fff' }, svg, d.w.toFixed(0) + '%');
+      el('text', { x: x + bw / 2, y: H - b + 12, 'text-anchor': 'middle', 'font-family': NUM, 'font-size': 10.5, 'font-weight': 700, fill: '#0f1b2d' }, svg, d.n === 0 ? '±0' : '+' + d.n);
+      el('text', { x: x + bw / 2, y: H - b + 22, 'text-anchor': 'middle', 'font-family': FONT, 'font-size': 7, fill: '#55617a' }, svg, d.cap || '');
+    });
+  })();
+
+  // Effect vs cost map.
+  (function () {
+    const host = document.getElementById('map'); if (!host) return;
+    const W = 640, H = 300, l = 34, r = 12, t = 12, b = 30, iw = W - l - r, ih = H - t - b;
+    const svg = el('svg', { viewBox: `0 0 ${W} ${H}`, width: '100%' }, host);
+    el('rect', { x: l, y: t, width: iw / 2, height: ih / 2, fill: '#eaf2ff' }, svg);
+    el('line', { x1: l, x2: W - r, y1: t + ih, y2: t + ih, stroke: '#8a93a3', 'stroke-width': 1 }, svg);
+    el('line', { x1: l, x2: l, y1: t, y2: t + ih, stroke: '#8a93a3', 'stroke-width': 1 }, svg);
+    el('line', { x1: l + iw / 2, x2: l + iw / 2, y1: t, y2: t + ih, stroke: '#c5cedd', 'stroke-dasharray': '3 3' }, svg);
+    el('line', { x1: l, x2: W - r, y1: t + ih / 2, y2: t + ih / 2, stroke: '#c5cedd', 'stroke-dasharray': '3 3' }, svg);
+    el('text', { x: l + 6, y: t + 14, 'font-family': FONT, 'font-size': 9, 'font-weight': 700, fill: '#1b4fd6' }, svg, '少ない手間で効く');
+    el('text', { x: l + iw / 2, y: H - 8, 'text-anchor': 'middle', 'font-family': FONT, 'font-size': 9, 'font-weight': 700, fill: '#55617a' }, svg, '手間（実装規模とAIの難しさ）→ 大きい');
+    const yl = el('text', { x: 12, y: t + ih / 2, 'text-anchor': 'middle', 'font-family': FONT, 'font-size': 9, 'font-weight': 700, fill: '#55617a', transform: `rotate(-90 12 ${t + ih / 2})` }, svg, '効果 → 大きい');
+    const C = { s1: '#2f6bff', s2: '#5b86ff', s3: '#a9c1ff', l: '#b9c0cc', x: '#e5484d', k: '#f5a524' };
+    const P = [
+      ['A1 トラップ宣言', 1.6, 4.2, 's1', 1], ['D1 前後半', 0.8, 2.9, 's1', 1],
+      ['A2 読み札', 2.6, 3.5, 's2', 1], ['B1 必殺技', 3.0, 4.3, 's2', 1], ['D2 PK戦', 1.9, 2.6, 's2', -1],
+      ['C2 コーナー', 2.7, 2.9, 's3', 1], ['B4 陣形とロール', 2.0, 3.2, 's3', -1],
+      ['A3 マーク指定', 3.0, 2.3, 'l', 1], ['B2 交代', 2.4, 1.9, 'l', -1], ['C2 ファウル', 3.5, 2.1, 'l', 1], ['C3 ドリブル', 2.3, 1.4, 'l', -1],
+      ['A4 予約行動', 4.1, 2.8, 'l', 1], ['E1 非同期対戦', 4.3, 3.9, 'l', -1],
+      ['B3 三すくみ', 1.4, 0.8, 'x', 1], ['C1 キーパー駒', 3.6, 0.9, 'x', 1], ['D3 盤の拡大', 2.9, 0.5, 'x', 1], ['A4 フェイント', 1.0, 0.4, 'x', -1], ['E2 交互手番', 4.85, 2.4, 'x', -1],
+      ['D4 得点の調整', 0.4, 1.3, 'k', 1],
+    ];
+    const X = (v) => l + iw * v / 5, Y = (v) => t + ih * (1 - v / 5);
+    P.forEach(([name, cx, cy, k, side]) => {
+      const x = X(cx), y = Y(cy);
+      el('circle', { cx: x, cy: y, r: 6.5, fill: C[k], stroke: '#fff', 'stroke-width': 1.6 }, svg);
+      el('text', { x: x + side * 10, y: y + 3.4, 'text-anchor': side > 0 ? 'start' : 'end', 'font-family': FONT, 'font-size': 9.4, 'font-weight': 700, fill: '#0f1b2d' }, svg, name);
+    });
+    const L = [['STEP 1', 's1'], ['STEP 2', 's2'], ['STEP 3', 's3'], ['後で／方向', 'l'], ['しない', 'x'], ['調整ノブ', 'k']];
+    L.forEach(([n, k], i) => {
+      const x = W - r - 6 - (L.length - i) * 74 + 10, y = t + 12;
+      el('circle', { cx: x, cy: y - 3, r: 4.5, fill: C[k] }, svg);
+      el('text', { x: x + 8, y: y, 'font-family': FONT, 'font-size': 8.4, fill: '#55617a' }, svg, n);
+    });
+  })();
+
+  // Diagrams
+  const B = (x, y, n, o) => Object.assign({ t: 'b', x, y, n }, o || {});
+  const Rd = (x, y, n, o) => Object.assign({ t: 'r', x, y, n }, o || {});
+  const V = { y0: 0, y1: 5 };
+  const up = (from, to, o) => [1, 3, 5].map((x) => Object.assign({ f: [x, from], to: [x, to], k: 'rmove' }, o || {}));
+  D('f1a', Object.assign({}, V, { oldLine: 2, line: 3,
+    tokens: [B(3, 5, 8, { ball: true }), B(5, 2, 9, { ring: true }), B(1, 4, 7), Rd(1, 3, 5, { lock: true }), Rd(3, 3, 4, { lock: true }), Rd(5, 3, 3, { lock: true })],
+    arrows: [...up(2, 3, { s: 0, e: .45 }), { f: [3, 5], to: [5, 0], k: 'pass', curve: .45 }],
+    marks: [{ k: 'tgt', x: 5, y: 0 }, { k: 'off', x: 5, y: 1.15 }] }));
+  D('f1b', Object.assign({}, V, { line: 3,
+    tokens: [B(3, 5, 8, { ball: true }), B(5, 2, 9), B(1, 4, 7, { ring: 'ok' }), Rd(1, 3, 5, { lock: true }), Rd(3, 3, 4, { lock: true }), Rd(5, 3, 3, { lock: true })],
+    arrows: [{ f: [1, 4], to: [2, 4], k: 'move', e: .45 }, { f: [3, 5], to: [2, 4], k: 'pass', e: .5 }],
+    marks: [{ k: 'txt', x: 2, y: 4.75, text: '前を向く' }] }));
+  D('f2a', Object.assign({}, V, { cell: 21,
+    tokens: [B(3, 5, 8, { ball: true }), B(3, 3, 9), B(1, 4, 7), Rd(3, 2, 6, { ring: true }), Rd(1, 1, 4), Rd(5, 1, 3)],
+    arrows: [{ f: [3, 3], to: [4, 1], k: 'move', e: .2 }, { f: [3, 2], to: [4, 2], k: 'rmove', e: .3 }],
+    marks: [{ k: 'txt', x: 4, y: 3.2, text: 'MARK' }] }));
+  D('f2b', Object.assign({}, V, { cell: 21,
+    tokens: [B(3, 5, 8, { ball: true }), B(4, 1, 9), B(3, 3, 7, { ring: 'ok' }), Rd(4, 2, 6), Rd(1, 1, 4), Rd(5, 1, 3)],
+    arrows: [{ f: [1, 4], to: [3, 3], k: 'move', s: 0, e: .45 }, { f: [3, 5], to: [3, 3], k: 'pass', e: .5 }],
+    marks: [{ k: 'tgt', x: 3, y: 3 }] }));
+  const F0 = { y0: 0, y1: 5, cell: 21 };
+  D('f0a', Object.assign({}, F0, {
+    tokens: [B(2, 4, 6), B(4, 5, 8), B(0, 5, 7), Rd(3, 2, 9, { ball: true }), Rd(1, 4, 7), Rd(5, 1, 8), Rd(3, 0, 4)],
+    arrows: [{ f: [3, 2], to: [1, 4], k: 'pass', e: .45 }, { f: [2, 4], to: [2, 3], k: 'move', s: .4, e: .42 }],
+    marks: [{ k: 'x', x: 2.45, y: 2.55 }] }));
+  D('f0b', Object.assign({}, F0, {
+    tokens: [B(2, 3, 6, { ball: true }), B(4, 4, 8), B(0, 5, 7), Rd(3, 2, 9), Rd(1, 4, 7), Rd(5, 1, 8), Rd(3, 0, 4)],
+    arrows: [{ f: [4, 5], to: [4, 4], k: 'move', s: 0, e: .45 }, { f: [2, 3], to: [4, 4], k: 'pass', e: .5 }] }));
+  D('f0c', Object.assign({}, F0, {
+    tokens: [B(2, 3, 6), B(4, 4, 8, { ball: true }), B(0, 5, 7), Rd(3, 3, 9), Rd(1, 3, 7), Rd(5, 2, 8), Rd(3, 0, 4)],
+    arrows: [{ f: [4, 4], to: [3, -0.45], k: 'pass', e: .05 }],
+    marks: [{ k: 'txt', x: 1.6, y: 1.2, text: 'GOAL' }] }));
+  const FB = { y0: 4, y1: 9, cell: 21 };
+  const form = (pos) => [B(pos[0][0], pos[0][1], 9), B(pos[1][0], pos[1][1], 7), B(pos[2][0], pos[2][1], 8), B(pos[3][0], pos[3][1], 6), B(pos[4][0], pos[4][1], 4)];
+  D('f5a', Object.assign({}, FB, { tokens: form([[3, 5], [1, 6], [5, 6], [2, 7], [3, 8]]) }));
+  D('f5b', Object.assign({}, FB, { tokens: form([[3, 5], [1, 5], [5, 5], [2, 6], [3, 8]]) }));
+  D('f5c', Object.assign({}, FB, { tokens: form([[3, 5], [1, 6], [5, 7], [2, 8], [4, 8]]) }));
+  D('f3', { y0: 0, y1: 4, cell: 26,
+    tokens: [B(6, 0, 7, { ball: true }), B(2, 2, 9), B(3, 3, 6), B(4, 2, 2), Rd(3, 0, 4), Rd(2, 1, 3), Rd(4, 1, 5)],
+    arrows: [{ f: [6, 0], to: [3, 1], k: 'pass', curve: -.3, e: .4 }, { f: [2, 2], to: [3, 1], k: 'move', e: .45 }],
+    marks: [{ k: 'tgt', x: 3, y: 1 }, { k: 'tgt', x: 2, y: 1 }, { k: 'tgt', x: 4, y: 1 }, { k: 'txt', x: 3, y: 4.1, text: 'ゴール前 3×3 で配置を伏せて選ぶ' }] });
+})();
+</script>
+</body>
+</html>

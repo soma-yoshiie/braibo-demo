@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { BottomNav } from '../../components/Shell/BottomNav';
+import { behindText } from '../../components/Shell/bits';
 import { Avatar } from '../../components/Shell/CharaCard';
 import { Stars } from '../../components/Chara';
 import { TopBar } from '../../components/Shell/TopBar';
@@ -7,9 +8,10 @@ import type { Screen } from '../../components/Shell/actions';
 import { STAT_LABEL, charaInfo } from '../../components/Shell/chara';
 import { Crest } from '../../components/Chara';
 import { DEFAULT_FORMATION } from '../../game/data/formations';
-import { ROLE_ORDER, RIVAL_LINEUP, SCOUT_POOL } from '../../game/data/roster';
-import { ROLE_LABEL } from '../../game/data/characters';
-import { setLineup, type SaveData } from '../../meta/save';
+import { ROLE_ORDER, SCOUT_POOL, splitCharId, withPlus } from '../../game/data/roster';
+import { ROLE_LABEL, getCharacter } from '../../game/data/characters';
+import { levelOf, lineupIds, setLineup, teamPower, type SaveData } from '../../meta/save';
+import { nextStage, stageLineup } from '../../meta/stages';
 import { saveStore } from '../../meta/store';
 import type { RoleId } from '../../game/types';
 import '../../components/Shell/Shell.css';
@@ -28,18 +30,30 @@ const COLS = 7;
 
 export function TeamScreen({ save, onNav, qa }: Props) {
   const [role, setRole] = useState<RoleId | null>(ROLE_ORDER.find((r) => r === qa) ?? null);
+  const ids = lineupIds(save);
+  const myPower = teamPower(ids);
+  const next = nextStage(save);
+  const rivals = stageLineup(next);
+  const rivalPower = teamPower(rivals);
+  const ahead = myPower >= rivalPower;
   const options = role
     ? SCOUT_POOL.filter((p) => p.role === role && (save.owned[p.id] ?? 0) > 0).sort((a, b) => b.rarity - a.rarity)
     : [];
   return (
     <div className="scr team" data-testid="team-screen">
       <div className="scr__bg a-stage a-halftone" />
-      <TopBar title="編成" sub="LINE-UP" coins={save.coins} />
+      <TopBar title="編成" save={save} />
       <div className="scr__main team__main">
-        <div className="team__label">
+        <div className="team__power a-panel" data-testid="team-power-box">
           <Crest team="blue" size={22} />
           <span className="a-head a-head--md">蒼嵐</span>
-          <span className="team__hint">スロットをタップして選手を変更</span>
+          <span className="team__powerlbl">総合力</span>
+          <b className={`a-num team__powernum ${ahead ? 'is-ahead' : 'is-behind'}`} data-testid="team-power">{myPower}</b>
+          <span className="team__vs">
+            <span>STAGE {next.no} 相手</span>
+            <b className="a-num" data-testid="team-rival-power">{rivalPower}</b>
+            {behindText(myPower, rivalPower) && <em className="team__behind">{behindText(myPower, rivalPower)}</em>}
+          </span>
         </div>
         <div className="team__pitch">
           <div className="team__line team__line--mid" />
@@ -60,7 +74,7 @@ export function TeamScreen({ save, onNav, qa }: Props) {
                 data-testid={`team-slot-${r}`}
                 aria-label={`${ROLE_LABEL[r]} ${def.name}`}
               >
-                <span className="team__medal"><Avatar id={id} /></span>
+                <span className="team__medal"><Avatar id={ids[ROLE_ORDER.indexOf(r)]} tag={`Lv.${levelOf(save, id)}`} /></span>
                 <span className="team__sname">{def.name}</span>
               </button>
             );
@@ -72,7 +86,8 @@ export function TeamScreen({ save, onNav, qa }: Props) {
               <div className="team__picklabel"><span className="a-tag">{ROLE_LABEL[role]}</span> を選ぶ</div>
               <div className="team__picklist">
                 {options.map((p) => {
-                  const { def } = charaInfo(p.id);
+                  const lv = levelOf(save, p.id);
+                  const def = getCharacter(withPlus(p.id, lv - 1));
                   const top = (Object.keys(def.stats) as (keyof typeof def.stats)[]).sort((x, y) => def.stats[y] - def.stats[x]).slice(0, 2);
                   const on = save.lineup[role] === p.id;
                   return (
@@ -84,7 +99,7 @@ export function TeamScreen({ save, onNav, qa }: Props) {
                       data-testid={`team-pick-${p.id}`}
                     >
                       {on && <span className="team__optnow a-tag a-tag--blue">編成中</span>}
-                      <span className="team__optface"><Avatar id={p.id} /></span>
+                      <span className="team__optface"><Avatar id={p.id} tag={`Lv.${lv}`} /></span>
                       <span className="team__optname">{def.name}</span>
                       <Stars rarity={p.rarity} size={12} />
                       <span className="team__optstats">
@@ -105,7 +120,7 @@ export function TeamScreen({ save, onNav, qa }: Props) {
                   const id = save.lineup[r];
                   return (
                     <button key={r} type="button" className="team__chip" onClick={() => setRole(r)} aria-label={charaInfo(id).def.name}>
-                      <span className="team__chipface"><Avatar id={id} /></span>
+                      <span className="team__chipface"><Avatar id={id} tag={`Lv.${levelOf(save, id)}`} /></span>
                       <span className="a-num team__chiprole">{charaInfo(id).abbr}</span>
                     </button>
                   );
@@ -118,19 +133,19 @@ export function TeamScreen({ save, onNav, qa }: Props) {
           <div className="team__rivalhead">
             <Crest team="red" size={20} />
             <span className="a-head a-head--sm">紅蓮</span>
-            <span className="team__hint">対戦相手</span>
+            <span className="team__hint">STAGE {next.no} {next.name}</span>
           </div>
           <div className="team__rivalrow">
-            {RIVAL_LINEUP.map((id) => (
+            {rivals.map((id) => (
               <div key={id} className="team__rv">
-                <span className="team__rvmedal"><Avatar id={id} /></span>
+                <span className="team__rvmedal"><Avatar id={id} tag={splitCharId(id).plus ? `+${splitCharId(id).plus}` : undefined} /></span>
                 <span className="team__rvname">{charaInfo(id).def.name}</span>
               </div>
             ))}
           </div>
         </div>
       </div>
-      <BottomNav current="team" onNav={onNav} />
+      <BottomNav current="team" onNav={onNav} save={save} />
     </div>
   );
 }

@@ -1,6 +1,9 @@
+import { useEffect, useRef, useState } from 'react';
 import { CharaBust, SpeedLines, Stars } from '../Chara';
-import { ROLE_LABEL } from '../../game/data/characters';
-import type { SaveData } from '../../meta/save';
+import { ROLE_LABEL, getCharacter } from '../../game/data/characters';
+import { withPlus } from '../../game/data/roster';
+import { META } from '../../meta/config';
+import { levelOf, levelUpCost, teamPower, type SaveData } from '../../meta/save';
 import { MoveDiagram } from './MoveDiagram';
 import { Sheet } from './Sheet';
 import { StatBars } from './StatBars';
@@ -12,20 +15,37 @@ interface Props {
   save: SaveData;
   onClose: () => void;
   onSet: (id: string) => void;
+  onLevelUp: (id: string) => void;
 }
 
-export function CharaDetail({ id, save, onClose, onSet }: Props) {
-  const { profile, def, team } = charaInfo(id);
+export function CharaDetail({ id, save, onClose, onSet, onLevelUp }: Props) {
+  const { profile, def: baseDef, team } = charaInfo(id);
+  const lv = levelOf(save, id);
+  const def = getCharacter(withPlus(id, lv - 1)); // stats with the level applied
+  const power = teamPower([withPlus(id, lv - 1)]);
+  const cost = levelUpCost(save, id);
+  const max = lv >= META.level.max;
+  const can = cost !== null && save.coins >= cost;
   const inLineup = save.lineup[profile.role] === id;
   const dup = Math.max(0, (save.owned[id] ?? 0) - 1);
+
+  // Level-up feedback: the number jumps and the head flashes when Lv rises.
+  const prev = useRef(lv);
+  const [flash, setFlash] = useState(0);
+  useEffect(() => {
+    if (lv > prev.current) setFlash((n) => n + 1);
+    prev.current = lv;
+  }, [lv]);
+
   return (
     <Sheet onClose={onClose} testId="chara-detail" closeTestId="chara-detail-close" className="detail">
       <div className={`detail__head detail__head--r${profile.rarity}`}>
         <div className="detail__rays"><SpeedLines /></div>
+        {flash > 0 && <div key={flash} className="detail__flash" aria-hidden="true" />}
         <div className="detail__bust"><CharaBust look={profile.look} team={team} /></div>
         <div className="detail__id">
           <span className="detail__title">{profile.title}</span>
-          <span className="a-head a-head--lg detail__name">{def.name}</span>
+          <span className="a-head a-head--lg detail__name">{baseDef.name}</span>
           <Stars rarity={profile.rarity} size={16} />
           <span className="detail__tags">
             <span className="a-tag a-tag--dark">#{profile.number}</span>
@@ -36,10 +56,32 @@ export function CharaDetail({ id, save, onClose, onSet }: Props) {
       <div className="detail__skill">
         <span className="a-tag a-tag--dark">SKILL</span>
         <b>{def.skills.length ? def.skills.map((s) => SKILL_LABEL[s]).join(' / ') : 'なし'}</b>
+        <span className="detail__power">総合力 <b className="a-num" data-testid="detail-power">{power}</b></span>
       </div>
       <div className="detail__body">
         <StatBars stats={def.stats} role={profile.role} />
         <MoveDiagram moves={def.moves} />
+      </div>
+      <div className="detail__lv" data-testid="detail-level">
+        <div className="detail__lvhead">
+          <span key={flash} className={`a-num detail__lvnum${flash > 0 ? ' is-bump' : ''}`}>Lv.{lv}</span>
+          <span className="a-num detail__lvmax">/ {META.level.max}</span>
+          <span className="detail__lvbar">
+            {Array.from({ length: META.level.max }, (_, i) => (
+              <i key={i} className={i < lv ? 'is-on' : ''} />
+            ))}
+          </span>
+        </div>
+        {max ? (
+          <div className="detail__lvbtn"><span className="a-tag detail__max" data-testid="chara-levelmax">MAX</span></div>
+        ) : (
+          <div className="detail__lvbtn">
+            <button type="button" className="a-btn a-btn--yellow a-btn--sm" disabled={!can} onClick={() => onLevelUp(id)} data-testid="chara-levelup">
+              <span>強化する <b className="a-num">{cost}</b></span>
+            </button>
+            <span className="detail__lvnote">{can ? '全能力 +1' : `あと ${(cost ?? 0) - save.coins} コイン`}</span>
+          </div>
+        )}
       </div>
       <p className="detail__quote">「{profile.quotes.duel}」</p>
       <div className="detail__foot">

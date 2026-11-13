@@ -57,10 +57,10 @@ function Card({ e }: { e: Entry }) {
           <div key={t} className="cg-medalset">
             {[96, 48, 36].map((px) => (
               <div key={px} style={{ width: px, height: (px * 118) / 112 }}>
-                <CharaMedal look={e.look} team={t} number={e.number} abbr={e.role} rarity={e.rarity} />
+                <CharaMedal look={e.look} team={t} number={e.number} abbr={e.role} rarity={e.rarity} tag={e.rarity === 3 ? 'Lv.3' : e.rarity === 4 ? '+4' : undefined} />
               </div>
             ))}
-            <svg width="36" height="38" viewBox="0 0 112 118" className="cg-g"><g transform="translate(6 6)"><CharaMedalG look={e.look} team={t} number={e.number} abbr={e.role} rarity={e.rarity} /></g></svg>
+            <svg width="36" height="38" viewBox="0 0 112 118" className="cg-g"><g transform="translate(6 6)"><CharaMedalG look={e.look} team={t} number={e.number} abbr={e.role} rarity={e.rarity} tag={e.rarity === 3 ? 'Lv.3' : e.rarity === 4 ? '+4' : undefined} /></g></svg>
           </div>
         ))}
       </div>

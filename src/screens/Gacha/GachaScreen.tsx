@@ -3,7 +3,7 @@ import { CharaBust, SpeedLines } from '../../components/Chara';
 import { BottomNav } from '../../components/Shell/BottomNav';
 import { RatesSheet } from '../../components/Shell/Sheets';
 import { TopBar } from '../../components/Shell/TopBar';
-import type { Screen } from '../../components/Shell/actions';
+import { todayString, type Screen } from '../../components/Shell/actions';
 import { charaInfo } from '../../components/Shell/chara';
 import { createRng, randomSeed } from '../../game/engine/rng';
 import { META } from '../../meta/config';
@@ -35,7 +35,7 @@ function pull(count: 1 | 10, seed: number): PullResult[] | null {
   const cur = saveStore.get();
   if (!canPull(cur, count)) return null;
   const ids = rollGacha(createRng(seed), count);
-  const { save: next, results } = applyGacha(cur, ids, count === 1 ? META.gacha.cost1 : META.gacha.cost10);
+  const { save: next, results } = applyGacha(cur, ids, count === 1 ? META.gacha.cost1 : META.gacha.cost10, todayString());
   saveStore.update(() => next);
   return results;
 }
@@ -44,23 +44,24 @@ let qaStage: Stage | null | undefined;
 let nonceSeq = 0;
 
 function initialStage(qa?: string): Stage | null {
-  if (!import.meta.env.DEV || !qa) return null;
-  if (qaStage !== undefined) return qaStage;
-  qaStage = buildQaStage(qa);
-  return qaStage;
-}
-
-function buildQaStage(qa?: string): Stage | null {
-  // DEV only (App ignores qa in production). Uses a throwaway in-memory save: saveStore is never touched.
-  if (qa !== 'ball' && qa !== 'cut' && qa !== 'card' && qa !== 'result') return null;
-  const { results } = applyGacha(defaultSave(), rollGacha(createRng(7), 10), META.gacha.cost10);
-  const at = (rarity: number, fallback: number): number => {
-    const i = results.findIndex((r) => r.rarity === rarity);
-    return i >= 0 ? i : fallback;
-  };
-  if (qa === 'card') return { nonce: ++nonceSeq, results, count: 10, hold: 'card', holdIndex: at(4, 1) };
-  if (qa === 'cut') return { nonce: ++nonceSeq, results, count: 10, hold: 'card', holdIndex: at(5, 0) };
-  return { nonce: ++nonceSeq, results, count: 10, hold: qa === 'ball' ? 'ball' : 'result' };
+  // DEV only (App ignores qa in production; the whole builder is dead code there and is dropped from the bundle).
+  // Uses a throwaway in-memory save: saveStore is never touched.
+  if (import.meta.env.DEV && qa) {
+    if (qaStage !== undefined) return qaStage;
+    qaStage = null;
+    if (qa === 'ball' || qa === 'cut' || qa === 'card' || qa === 'result') {
+      const { results } = applyGacha(defaultSave(), rollGacha(createRng(7), 10), META.gacha.cost10, '2000-01-01');
+      const at = (rarity: number, fallback: number): number => {
+        const i = results.findIndex((r) => r.rarity === rarity);
+        return i >= 0 ? i : fallback;
+      };
+      if (qa === 'card') qaStage = { nonce: ++nonceSeq, results, count: 10, hold: 'card', holdIndex: at(4, 1) };
+      else if (qa === 'cut') qaStage = { nonce: ++nonceSeq, results, count: 10, hold: 'card', holdIndex: at(5, 0) };
+      else qaStage = { nonce: ++nonceSeq, results, count: 10, hold: qa === 'ball' ? 'ball' : 'result' };
+    }
+    return qaStage;
+  }
+  return null;
 }
 
 export function GachaScreen({ save, onNav, qa }: Props) {
@@ -70,14 +71,14 @@ export function GachaScreen({ save, onNav, qa }: Props) {
   const can10 = canPull(save, 10);
 
   const start = (count: 1 | 10) => {
-    const results = pull(count, randomSeed() ^ Date.now());
+    const results = pull(count, randomSeed());
     if (results) setStage({ nonce: ++nonceSeq, results, count });
   };
 
   return (
     <div className="scr gacha" data-testid="gacha-screen">
       <div className="scr__bg a-stage a-halftone" />
-      <TopBar title="スカウト" sub="SCOUT" coins={save.coins} />
+      <TopBar title="スカウト" save={save} />
       <div className="scr__main gacha__main">
         <section className="gacha__banner">
           <div className="gacha__rays"><SpeedLines /></div>
@@ -107,7 +108,7 @@ export function GachaScreen({ save, onNav, qa }: Props) {
         <button type="button" className="gacha__ratesbtn" onClick={() => setRates(true)} data-testid="gacha-rates">提供割合を見る</button>
         <p className="gacha__notice" data-testid="gacha-notice">コインはゲーム内で手に入るものだけ。購入はありません</p>
       </div>
-      <BottomNav current="gacha" onNav={onNav} />
+      <BottomNav current="gacha" onNav={onNav} save={save} />
       {rates && <RatesSheet onClose={() => setRates(false)} />}
       {stage && (
         <GachaStage

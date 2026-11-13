@@ -38,10 +38,11 @@ src/
     engine/          match（初期化/キックオフ）, resolve（同時ターン解決）, log, rng
     ai/              簡易 AI（TeamPlan を返すだけ。対人戦では相手の TeamPlan に差し替え可能）
     data/            ロールの原型（characters）・選手名鑑（roster）・フォーメーション
-  meta/              試合の外側（純関数）: セーブ、編成、スカウトの抽選、報酬。store.ts だけが localStorage に触る
+  meta/              試合の外側（純関数）: セーブ、編成、スカウトの抽選、報酬、ランク、強化、ステージ、ミッション。
+                     store.ts だけが localStorage と日付に触る
   components/        Pitch(SVG) / Player / HUD / Controls / Overlays（表示専用・props 駆動）
                      Chara（コードで描く仮のキャラクター絵）/ Shell（上の帯、下のタブ、選手カードなど）
-  screens/           Title / Home / Box / Team / Gacha と、MatchScreen（useMatchController が進行の状態機械）
+  screens/           Title / Home / Stage / Box / Team / Gacha / Mission と、MatchScreen（useMatchController が進行の状態機械）
   styles/            global.css（デザイントークン）, anime.css（案 C の共通部品）
   dev/               確認用の絵の一覧（開発サーバーの #gallery）
 DESIGN.md            ルール仕様・暫定決定の理由・モジュール API 契約
@@ -59,5 +60,6 @@ concept/             構想資料の PDF と、その元になった HTML（conc
 - キャラクターの移動ベクトル・能力・スキル: `src/game/data/characters.ts`
 - 初期配置: `src/game/data/formations.ts`
 - 選手の名前・二つ名・見た目・★・能力の上乗せ: `src/game/data/roster.ts`
-- 初期コイン・スカウトの費用と提供割合・重複時の返却・試合の報酬: `src/meta/config.ts` の `META`
-- 画面を直接開く（確認用）: URL の末尾に `#home` `#box` `#team` `#gacha` `#match`
+- 初期コイン・スカウトの費用と提供割合・重複時の返却・試合の報酬・経験値とランク・強化の費用・ログインボーナス: `src/meta/config.ts` の `META`
+- ステージ（相手の強化値、初クリア報酬）: `src/meta/stages.ts`。ミッション: `src/meta/missions.ts`
+- 画面を直接開く（確認用）: URL の末尾に `#home` `#stage` `#box` `#team` `#gacha` `#mission` `#match`

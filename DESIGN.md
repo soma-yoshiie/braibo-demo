@@ -1,4 +1,4 @@
-# BRAIBO（ブレイボ）設計仕様 v0.6
+# BRAIBO（ブレイボ）設計仕様 v0.7
 
 サッカー × 将棋的読み合いの 5 対 5 同時行動ボードゲーム。本書はプロトタイプの
 ルール仕様・ゲームデザイン上の暫定決定とその理由・モジュール間 API 契約をまとめたもの。
@@ -419,3 +419,121 @@ export function rollGacha(rng: Rng, count: 1 | 10): string[];
 export function applyGacha(save: SaveData, charIds: string[], cost: number): { save: SaveData; results: PullResult[] };
 export function gachaRates(): { slot: 'normal' | 'guaranteed'; rows: { rarity: Rarity; rate: number; each: number; ids: string[] }[] }[];
 ```
+
+## 13. ランク・ステージ・強化・ミッション・ログインボーナス（v0.7、試合ルールの外側）
+
+国内のスマホゲーム（パズドラなど）でおなじみの「続けて遊ぶ理由」を足す。参考にするのは **仕組みの型** だけで、
+名前、絵、画面の見た目、文言は借りない。試合ルール（§1〜§9）は変えない。乱数と日付は注入する
+（純関数は `today: string`（`YYYY-MM-DD`）を引数で受け取る。`Date` に触るのは `src/meta/store.ts` と UI だけ）。
+調整値はすべて `src/meta/config.ts` の `META`。
+
+### 13.1 強化値つきの選手 id（`+n`）
+- 選手 id の末尾に `+n`（n は 1〜20 の整数）を付けると、**全能力 +n（上限 99）** の選手になる。例: `st_kakeru+3`、`rv_enji+6`。
+- `getCharacter('x+n')` は `getCharacter('x')` の stats に n を足したもの（id は `x+n`、名前などは同じ）。
+  `getProfile('x+n')` は `getProfile('x')` と同じ内容で `id` だけ `x+n`。
+- `splitCharId(id): { base: string; plus: number }` と `withPlus(base, n): string`（n = 0 なら base のまま）を `roster.ts` から出す。
+- 試合に渡す `lineups` はこの形の id を使う。セーブの `owned` / `lineup` / `levels` のキーは **base の id** のまま。
+
+### 13.2 セーブ v2（`src/meta/save.ts`）
+保存キーは `braibo.save.v1` のまま。`parseSave` は v1 のデータを読み、足りない項目を既定値で補って `v: 2` にする。
+```ts
+export interface SaveData {
+  v: 2; coins: number;
+  owned: Record<string, number>; lineup: Record<RoleId, string>;
+  levels: Record<string, number>;                 // base id → Lv（1〜META.level.max）。ない選手は Lv1
+  settings: SaveSettings;
+  record: { played: number; won: number; drawn: number; lost: number; goals: number };
+  pulls: number; levelUps: number;
+  rank: number; exp: number;                      // exp は今のランクでためた分
+  stages: Record<string, { cleared: boolean; bestDiff: number | null }>;   // bestDiff = 最高の得失点差
+  daily: { date: string; played: number; won: number; pulls: number; claimed: string[] };
+  claimed: string[];                              // 受け取り済みの通常ミッション id
+  login: { lastDate: string; day: number };       // day = これまでに受け取った日数
+}
+```
+- `lineupIds(save)` はスロット順に **`+(Lv-1)` を付けた id** を返す（Lv1 は base のまま）。
+- `teamPower(charIds: string[]): number` = 5 人の 8 能力の合計（`+n` 込み）。表示用の「総合力」。
+
+### 13.3 ランクと経験値
+- 試合ごとの経験値: `META.exp = { win: 100, draw: 60, lose: 40, perGoal: 10 }`（ゴールは自分の得点）。
+- 次のランクまで: `META.rank.base + META.rank.step * (rank - 1)`（既定 `base: 100`, `step: 50`）。あふれた分は次へ持ち越す。
+- ランクが上がるたびに `META.rank.bonusCoins`（既定 200）コイン。
+
+### 13.4 強化（レベル）
+- 所持している選手だけ。`META.level = { max: 6, costs: [200, 400, 600, 800, 1000] }`（`costs[Lv-1]` が次の Lv への費用）。
+- 1 レベルにつき全能力 +1（§13.1 の `+n` で試合に反映）。Lv6 で +5。
+- `canLevelUp(save, baseId)` / `levelUp(save, baseId): SaveData`（できないときは同じオブジェクトを返す）。`levelUps` を +1。
+
+### 13.5 ステージ（`src/meta/stages.ts`）
+相手は「紅蓮」の同じ 5 人で、ステージが進むほど強化値が上がる。AI の考え方は同じ。
+```ts
+export interface StageDef { id: string; no: number; name: string; note: string; plus: number; stars: 1|2|3|4|5; firstClear: number }
+export const STAGES: StageDef[];
+export function stageLineup(stage: StageDef): string[];                 // RIVAL_LINEUP に +plus
+export function isUnlocked(save: SaveData, stageId: string): boolean;   // 1 つ前をクリア済み、または最初のステージ
+export function nextStage(save: SaveData): StageDef;                    // まだクリアしていない最初のステージ（全部済みなら最後）
+```
+| id | no | name | note | plus | stars | firstClear | rewardMul |
+|---|---|---|---|---|---|---|---|
+| s1 | 1 | 練習試合 | まずは 1 勝 | 0 | 1 | 300 | 1.0 |
+| s2 | 2 | 地区予選 | 相手が少し手強い | 1 | 2 | 400 | 1.2 |
+| s3 | 3 | 地区決勝 | 相手の能力が上がる | 3 | 3 | 600 | 1.4 |
+| s4 | 4 | 全国大会 | 強化して挑みたい | 5 | 4 | 800 | 1.7 |
+| s5 | 5 | 紅蓮・本気 | 相手の全力 | 7 | 5 | 1200 | 2.0 |
+- `rewardMul`: 試合の報酬コイン（`META.reward`）に掛ける倍率（四捨五入）。進んだステージほど報酬が多く、最初のステージの周回が最善にならない。
+  `StageDef` に `rewardMul: number` を足す。`summarizeMatch` / `applyMatchResult` の `coins` に反映する。経験値には掛けない。
+- 強化値は「最強の編成（★5 を 5 人、Lv6、総合力 2500）がステージ 5（2465）を上回れる」範囲に収めた。
+- **計測（AI 同士 300 試合）では、能力値の差は勝率を 5〜10 ポイントしか動かさない**（構想資料 03 と v0.7 の QA）。
+  ステージの難しさは今のところ目安の表示に近い。本当に難しくするには AI の強さかルール側で差を付ける（オーナーの判断待ち）。
+- クリア = そのステージで勝つ（引き分けは未クリア）。初クリアのときだけ `firstClear` コイン。何度でも再戦できる。
+
+### 13.6 試合結果のまとめ
+```ts
+export interface ResultSummary {
+  result: 'win' | 'draw' | 'lose';
+  coins: number;            // 試合の報酬（META.reward）
+  firstClear: number;       // 初クリアのコイン（なければ 0）
+  expGain: number;
+  rankBefore: number; rankAfter: number; expBefore: number; expAfter: number; expNeedAfter: number;
+  rankUpCoins: number;      // ランクアップで得たコインの合計
+  totalCoins: number;       // coins + firstClear + rankUpCoins
+}
+export function summarizeMatch(save: SaveData, stageId: string, score: Record<TeamId, number>): ResultSummary;   // 保存しない
+export function applyMatchResult(save: SaveData, stageId: string, score: Record<TeamId, number>, today: string): SaveData;
+```
+`applyMatchResult` は戦績、ゴール数、コイン、経験値とランク、ステージの記録、デイリーの回数をまとめて更新する。
+`summarizeMatch` の値と必ず一致すること（テストで確かめる）。`matchReward(score)` は残す。
+
+### 13.7 ミッション（`src/meta/missions.ts`）
+```ts
+export interface MissionDef { id: string; kind: 'daily' | 'normal'; title: string; goal: number; reward: number }
+export interface MissionState { def: MissionDef; progress: number; done: boolean; claimed: boolean }
+export const MISSIONS: MissionDef[];
+export function rolloverDaily(save: SaveData, today: string): SaveData;        // 日付が変わっていたら daily を空にする
+export function missionStates(save: SaveData, today: string): MissionState[];
+export function claimMission(save: SaveData, id: string, today: string): SaveData;   // 達成済み・未受け取りのときだけ
+export function claimAllMissions(save: SaveData, today: string): { save: SaveData; coins: number };
+export function claimableCount(save: SaveData, today: string): number;
+```
+| id | kind | title | goal | reward | 進み具合の元 |
+|---|---|---|---|---|---|
+| d_play | daily | 試合を 1 回する | 1 | 100 | daily.played |
+| d_win | daily | 試合に 1 回勝つ | 1 | 150 | daily.won |
+| d_scout | daily | スカウトを 1 回引く | 1 | 50 | daily.pulls |
+| n_win1 | normal | 初勝利 | 1 | 300 | record.won |
+| n_win5 | normal | 通算 5 勝 | 5 | 500 | record.won |
+| n_goal10 | normal | 通算 10 ゴール | 10 | 300 | record.goals |
+| n_own10 | normal | 選手を 10 人集める | 10 | 500 | 所持人数 |
+| n_lv | normal | 選手を 1 回強化する | 1 | 200 | levelUps |
+| n_s3 | normal | 地区決勝をクリア | 1 | 500 | stages.s3.cleared |
+| n_s5 | normal | 紅蓮・本気をクリア | 1 | 1000 | stages.s5.cleared |
+スカウトを引いたら `daily.pulls` を増やす（`applyGacha` に `today` を足す: `applyGacha(save, charIds, cost, today)`）。
+
+### 13.8 ログインボーナス
+- 1 日 1 回。`META.login.coins = [100, 100, 150, 150, 200, 200, 500]` を 7 日で一巡（`day % 7`）。連続でなくてよい。
+- 端末の日付が **前に進んだときだけ** 新しい日として扱う（`today > lastDate`、`today > daily.date` の文字列比較）。
+  日付が戻った場合は、ログインボーナスもデイリーの巻き戻しも起こさない（日付を行き来して何度も受け取れないようにする）。
+- `loginBonus(save, today): { day: number; coins: number } | null`（今日まだなら次にもらえる内容）と `claimLogin(save, today): SaveData`。
+
+### 13.9 課金について
+コインはすべてゲーム内で手に入る。購入、広告、外部送信、スタミナ（遊べる回数の制限）は入れない。

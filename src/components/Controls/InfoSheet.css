@@ -148,3 +148,15 @@
   font-size: 13px;
   color: var(--c-yellow);
 }
+
+.card-sheet__lv {
+  display: inline-block;
+  margin-left: 6px;
+  padding: 1px 6px 0;
+  border: 2px solid var(--ink);
+  background: var(--c-yellow);
+  color: var(--ink);
+  font-size: 14px;
+  -webkit-text-stroke: 0;
+  vertical-align: 3px;
+}

@@ -1,7 +1,7 @@
 import type { Rng } from '../game/types';
 import { SCOUT_POOL, type Rarity } from '../game/data/roster';
 import { META } from './config';
-import type { SaveData } from './save';
+import { rolloverDaily, type SaveData } from './save';
 
 export interface PullResult { charId: string; rarity: Rarity; isNew: boolean; refund: number }
 
@@ -46,7 +46,8 @@ export function rollGacha(rng: Rng, count: 1 | 10): string[] {
   return out;
 }
 
-export function applyGacha(save: SaveData, charIds: string[], cost: number): { save: SaveData; results: PullResult[] } {
+export function applyGacha(save: SaveData, charIds: string[], cost: number, today: string): { save: SaveData; results: PullResult[] } {
+  const base = rolloverDaily(save, today);
   const owned = { ...save.owned };
   let refunds = 0;
   const results: PullResult[] = charIds.map((charId) => {
@@ -59,7 +60,13 @@ export function applyGacha(save: SaveData, charIds: string[], cost: number): { s
     return { charId, rarity, isNew, refund };
   });
   return {
-    save: { ...save, coins: save.coins - cost + refunds, owned, pulls: save.pulls + charIds.length },
+    save: {
+      ...base,
+      coins: base.coins - cost + refunds,
+      owned,
+      pulls: base.pulls + charIds.length,
+      daily: { ...base.daily, pulls: base.daily.pulls + charIds.length },
+    },
     results,
   };
 }

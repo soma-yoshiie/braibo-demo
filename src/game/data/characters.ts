@@ -1,5 +1,5 @@
 import type { CharacterDef, RoleId, Stats } from '../types';
-import { ROSTER } from './roster';
+import { ROSTER, splitCharId } from './roster';
 
 /**
  * Initial roster. Adding a character = adding an entry here.
@@ -102,8 +102,7 @@ const clamp = (v: number): number => Math.min(99, Math.max(1, v));
 const PROFILE_BY_ID = new Map(ROSTER.map((p) => [p.id, p]));
 const ROSTER_CACHE = new Map<string, CharacterDef>();
 
-/** Resolves archetype ids and roster ids (archetype of the same role + name + stats with bonus, DESIGN.md §12.1). */
-export function getCharacter(id: string): CharacterDef {
+function resolveBase(id: string): CharacterDef {
   const c = BY_ID.get(id);
   if (c) return c;
   const cached = ROSTER_CACHE.get(id);
@@ -116,6 +115,23 @@ export function getCharacter(id: string): CharacterDef {
   const def: CharacterDef = { ...base, id: profile.id, name: profile.name, stats };
   ROSTER_CACHE.set(id, def);
   return def;
+}
+
+/**
+ * Resolves archetype ids, roster ids (§12.1) and `x+n` ids (all stats +n, capped at 99, §13.1).
+ * Throws on anything unknown or a malformed suffix.
+ */
+export function getCharacter(id: string): CharacterDef {
+  const { base, plus } = splitCharId(id);
+  const def = resolveBase(base);
+  if (plus === 0) return def;
+  const cached = ROSTER_CACHE.get(id);
+  if (cached) return cached;
+  const stats = { ...def.stats };
+  for (const k of Object.keys(stats) as (keyof Stats)[]) stats[k] = clamp(stats[k] + plus);
+  const out: CharacterDef = { ...def, id, stats };
+  ROSTER_CACHE.set(id, out);
+  return out;
 }
 
 export const ROLE_LABEL: Record<RoleId, string> = {

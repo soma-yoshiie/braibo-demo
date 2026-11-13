@@ -3,7 +3,8 @@ import { gachaRates } from '../../meta/gacha';
 import { META } from '../../meta/config';
 import { getProfile } from '../../game/data/roster';
 import { Stars } from '../Chara';
-import type { SaveSettings } from '../../meta/save';
+import { loginBonus } from '../../meta/missions';
+import type { SaveData, SaveSettings } from '../../meta/save';
 import { Sheet } from './Sheet';
 import './Shell.css';
 
@@ -108,5 +109,32 @@ export function RatesSheet({ onClose, startTab = 'normal' }: { onClose: () => vo
         10連の10人目は★{META.gacha.guaranteedMin10}以上が確定します。
       </p>
     </Sheet>
+  );
+}
+
+export function LoginSheet({ save, today, onClaim }: { save: SaveData; today: string; onClaim: () => void }) {
+  const bonus = loginBonus(save, today);
+  const todayIdx = bonus ? bonus.day - 1 : -1;
+  return (
+    <>
+      <div className="a-backdrop" />
+      <div className="a-sheet a-panel sheet login" role="dialog" aria-modal="true" aria-label="ログインボーナス" data-testid="login-sheet">
+        <h2 className="a-head a-head--lg sheet__title">ログインボーナス</h2>
+        <ul className="login__grid">
+          {META.login.coins.map((c, i) => (
+            <li key={i} className={`login__cell${i < todayIdx ? ' is-done' : ''}${i === todayIdx ? ' is-today' : ''}${i === 6 ? ' is-big' : ''}`}>
+              <span className="a-num login__day">DAY {i + 1}</span>
+              <i className="coins__icon" aria-hidden="true" />
+              <b className="a-num login__coin">{c}</b>
+              {i < todayIdx && <span className="login__check" aria-label="受け取り済み">✓</span>}
+            </li>
+          ))}
+        </ul>
+        <p className="howto__note">1 日 1 回。連続でなくても大丈夫です。</p>
+        <button type="button" className="a-btn a-btn--yellow a-btn--lg a-btn--block login__btn" onClick={onClaim} data-testid="login-claim">
+          <span>受け取る</span>
+        </button>
+      </div>
+    </>
   );
 }

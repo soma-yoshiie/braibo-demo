@@ -23,10 +23,10 @@ const EYES: Record<EyeId, EyeDef> = {
   narrow: { outline: 'M32 50.8 Q39 46.6 47.4 49.6 Q41 53.6 32 50.8 Z', iris: [40.5, 50.2, 3.1, 3.2], lid: 'M31.4 50.8 Q39 45.6 47.8 49.4', lidW: 2.6, brow: [43.6, 45.2], mouth: 'M45.5 62.6 Q50 63.8 54.5 62', strokes: { y1: 50, y2: 52, w: 3 } },
 };
 
-interface Props { look: CharaLook; team: TeamId; expression?: Expression; small?: boolean; sw?: number }
+interface Props { look: CharaLook; team: TeamId; expression?: Expression; small?: boolean; sw?: number; halo?: boolean }
 
 /** 胸像の中身（0..100 空間、defs 込み）。Bust / BustG / Medal が共有する。 */
-export function BustContent({ look, team, expression = 'normal', small = false, sw }: Props) {
+export function BustContent({ look, team, expression = 'normal', small = false, sw, halo = false }: Props) {
   const id = useUid();
   const c = TEAM[team];
   const H = HAIR[look.hair];
@@ -40,8 +40,8 @@ export function BustContent({ look, team, expression = 'normal', small = false, 
     a.map((s, i) => (
       <g key={i}>
         {s.cloud && <path d={s.d} fill="none" stroke={INK} strokeWidth={w * 2} strokeLinejoin="round" />}
-        <path d={s.d} fill={look.hairColor} stroke={s.cloud ? 'none' : INK} strokeWidth={w} strokeLinejoin="round" />
-        {s.stub && <path d={s.d} fill="#000" opacity=".38" />}
+        <path d={s.d} fill={look.hairColor} stroke={s.cloud ? 'none' : INK} strokeWidth={s.stub ? w * 0.6 : w} strokeLinejoin="round" />
+        {s.stub && <path d={s.d} fill="#000" opacity=".5" />}
       </g>
     ));
   const shade = (clip: string) => (
@@ -102,12 +102,7 @@ export function BustContent({ look, team, expression = 'normal', small = false, 
       </g>
     );
   } else if (expression === 'lose') {
-    mouth = (
-      <g>
-        <path d="M44 60.4 L56 60.4 L55 64.4 L45 64.4 Z" fill="#fff" stroke={INK} strokeWidth="1.7" strokeLinejoin="round" />
-        <path d="M48 60.4 V64.4 M52 60.4 V64.4 M44.4 62.4 H55.6" stroke={INK} strokeWidth="1" />
-      </g>
-    );
+    mouth = <path d="M44 62.4 L46.6 61 L49 63 L51.4 61 L54 63 L56 61.6" stroke={skin.mouth} strokeWidth="1.7" fill="none" strokeLinecap="round" strokeLinejoin="round" />;
   } else {
     mouth = <path d={E.mouth} stroke={skin.mouth} strokeWidth="1.8" fill="none" strokeLinecap="round" />;
   }
@@ -159,6 +154,11 @@ export function BustContent({ look, team, expression = 'normal', small = false, 
         <clipPath id={`${id}h`}><ellipse cx="50" cy="47" rx={rx} ry="19" /></clipPath>
         <clipPath id={`${id}jc`}><path d="M2 100 C4 84 22 77 38 72 L62 72 C78 77 96 84 98 100 Z" /></clipPath>
       </defs>
+      {halo && (
+        <g fill="none" stroke="#fff" strokeWidth="6" strokeLinejoin="round" opacity=".9">
+          {H.back.concat(H.front).map((sh, i) => <path key={i} d={sh.d} />)}
+        </g>
+      )}
       {/* ジャージ */}
       <path d="M2 100 C4 84 22 77 38 72 L62 72 C78 77 96 84 98 100 Z" fill={`url(#${id}j)`} />
       <g clipPath={`url(#${id}jc)`}>
