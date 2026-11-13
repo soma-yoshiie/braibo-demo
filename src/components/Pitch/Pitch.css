@@ -528,3 +528,54 @@ path.ball-arrow--warn {
     transition: none;
   }
 }
+
+.radial__label .radial__note {
+  fill: #cdd3f5;
+  font-family: var(--font-jp);
+  font-size: 0.16px;
+  font-weight: 700;
+}
+.keeper {
+  cursor: pointer;
+}
+.keeper__hit {
+  fill: transparent;
+}
+.keeper__dive--blue {
+  animation: keeper-dive-up 0.42s cubic-bezier(0.2, 1.4, 0.4, 1) both;
+}
+.keeper__dive--red {
+  animation: keeper-dive-down 0.42s cubic-bezier(0.2, 1.4, 0.4, 1) both;
+}
+@keyframes keeper-dive-up {
+  to {
+    transform: translate(-0.25px, -0.4px) scale(1.2) rotate(-14deg);
+  }
+}
+@keyframes keeper-dive-down {
+  to {
+    transform: translate(0.25px, 0.4px) scale(1.2) rotate(14deg);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .keeper__dive--blue,
+  .keeper__dive--red {
+    animation: none;
+  }
+}
+
+.keeper__base {
+  fill: #f2f5fb;
+  stroke-width: 0.07;
+  stroke: var(--ink);
+}
+.keeper__base--blue {
+  fill: #cfeeff;
+  stroke: var(--c-blue-hi);
+  paint-order: stroke;
+}
+.keeper__base--red {
+  fill: #ffe1c4;
+  stroke: var(--c-red-hi);
+  paint-order: stroke;
+}

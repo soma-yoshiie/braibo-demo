@@ -1,6 +1,7 @@
-import type { RoleId, TeamId } from '../game/types';
-import { ROLE_ORDER, SCOUT_POOL, STARTER_IDS, getProfile, withPlus } from '../game/data/roster';
+import type { FieldPosition, TeamId, TeamLineup } from '../game/types';
+import { SCOUT_POOL, STARTER_LINEUP, withPlus } from '../game/data/roster';
 import { getCharacter } from '../game/data/characters';
+import { fieldSlotOrder } from '../game/data/formations';
 import { META } from './config';
 import { STAGES, getStage } from './stages';
 
@@ -8,10 +9,11 @@ export interface SaveSettings { timerOn: boolean; throughEarly: boolean; cutIn: 
 export interface StageRecord { cleared: boolean; bestDiff: number | null }
 export interface DailyState { date: string; played: number; won: number; pulls: number; claimed: string[] }
 export interface SaveData {
-  v: 2;
+  v: 3;
   coins: number;
   owned: Record<string, number>;
-  lineup: Record<RoleId, string>;
+  /** field = the five slots in the player's own order (DF/MF/FW free); gk = the goalkeeper. Base ids (levels apply in `lineupOf`). */
+  lineup: TeamLineup;
   levels: Record<string, number>;
   settings: SaveSettings;
   record: { played: number; won: number; drawn: number; lost: number; goals: number };
@@ -27,9 +29,14 @@ export interface SaveData {
 
 const OWNABLE = new Set(SCOUT_POOL.map((p) => p.id));
 
-function starterLineup(): Record<RoleId, string> {
-  return { ...STARTER_IDS };
+function starterLineup(): TeamLineup {
+  return { field: [...STARTER_LINEUP.field], gk: STARTER_LINEUP.gk };
 }
+
+/** Old v1/v2 lineup keys in slot order. */
+const OLD_ROLE_KEYS = ['striker', 'wing', 'longShooter', 'interceptor', 'physicalDefender'] as const;
+
+const isGk = (id: string): boolean => getCharacter(id).position === 'GK';
 
 export function emptyDaily(date: string): DailyState {
   return { date, played: 0, won: 0, pulls: 0, claimed: [] };
@@ -37,9 +44,9 @@ export function emptyDaily(date: string): DailyState {
 
 export function defaultSave(): SaveData {
   const owned: Record<string, number> = {};
-  for (const role of ROLE_ORDER) owned[STARTER_IDS[role]] = 1;
+  for (const id of [...STARTER_LINEUP.field, STARTER_LINEUP.gk]) owned[id] = 1;
   return {
-    v: 2,
+    v: 3,
     coins: META.startCoins,
     owned,
     lineup: starterLineup(),
@@ -68,7 +75,43 @@ const count = (x: unknown, fallback: number): number =>
 const bool = (x: unknown, fallback: boolean): boolean => (typeof x === 'boolean' ? x : fallback);
 const strings = (x: unknown): string[] => (Array.isArray(x) ? [...new Set(x.filter((v): v is string => typeof v === 'string'))] : []);
 
-/** Reads a v1 or v2 save (or garbage) and returns a valid v2 save. */
+const usable = (id: unknown, owned: Record<string, number>): id is string =>
+  typeof id === 'string' && (owned[id] ?? 0) >= 1 && OWNABLE.has(id);
+
+/**
+ * v3 lineup, or a v1/v2 role-keyed one (field = striker, wing, longShooter, interceptor, physicalDefender order).
+ * Slots that are not owned / a goalkeeper / duplicated / unknown are filled with unused starters (the starter of the same slot first); a bad gk becomes the starter keeper.
+ */
+function parseLineup(raw: unknown, owned: Record<string, number>): TeamLineup {
+  const wanted: unknown[] = [];
+  let gk: unknown;
+  if (isObj(raw) && Array.isArray(raw.field)) {
+    for (let i = 0; i < 5; i++) wanted.push(raw.field[i]);
+    gk = raw.gk;
+  } else if (isObj(raw)) {
+    for (const k of OLD_ROLE_KEYS) wanted.push(raw[k]);
+  }
+  const used = new Set<string>();
+  const field: (string | undefined)[] = [];
+  for (let i = 0; i < 5; i++) {
+    const id = wanted[i];
+    if (usable(id, owned) && !isGk(id) && !used.has(id)) {
+      field.push(id);
+      used.add(id);
+    } else field.push(undefined);
+  }
+  // An empty slot takes the starter of the same slot when unused, else the first unused starter.
+  const filled = field.map((id, i) => {
+    if (id) return id;
+    const own = STARTER_LINEUP.field[i] as string;
+    const pick = !used.has(own) ? own : (STARTER_LINEUP.field.find((x) => !used.has(x)) as string);
+    used.add(pick);
+    return pick;
+  });
+  return { field: filled, gk: usable(gk, owned) && isGk(gk) ? gk : STARTER_LINEUP.gk };
+}
+
+/** Reads a v1, v2 or v3 save (or garbage) and returns a valid v3 save. */
 export function parseSave(raw: unknown): SaveData {
   const def = defaultSave();
   if (!isObj(raw)) return def;
@@ -78,13 +121,7 @@ export function parseSave(raw: unknown): SaveData {
       if (OWNABLE.has(id) && typeof n === 'number' && Number.isFinite(n) && n >= 1) owned[id] = Math.floor(n);
     }
   }
-  const lineup = starterLineup();
-  if (isObj(raw.lineup)) {
-    for (const role of ROLE_ORDER) {
-      const id = raw.lineup[role];
-      if (typeof id === 'string' && (owned[id] ?? 0) >= 1 && OWNABLE.has(id) && getProfile(id).role === role) lineup[role] = id;
-    }
-  }
+  const lineup = parseLineup(raw.lineup, owned);
   const levels: Record<string, number> = {};
   if (isObj(raw.levels)) {
     for (const [id, n] of Object.entries(raw.levels)) {
@@ -113,7 +150,7 @@ export function parseSave(raw: unknown): SaveData {
   const d = isObj(raw.daily) ? raw.daily : {};
   const lg = isObj(raw.login) ? raw.login : {};
   return {
-    v: 2,
+    v: 3,
     coins: count(raw.coins, 0),
     owned,
     lineup,
@@ -152,28 +189,45 @@ export function levelOf(save: SaveData, baseId: string): number {
   return Math.min(META.level.max, Math.max(1, save.levels[baseId] ?? 1));
 }
 
-/** Slot order (ST, WG, LS, IC, DF), each with `+(Lv-1)` applied. */
-export function lineupIds(save: SaveData): string[] {
-  return ROLE_ORDER.map((r) => withPlus(save.lineup[r], levelOf(save, save.lineup[r]) - 1));
+/** The six to take into a match: field in slot order (FW, MF, DF), each with `+(Lv-1)` applied. */
+export function lineupOf(save: SaveData): TeamLineup {
+  const lv = (id: string): string => withPlus(id, levelOf(save, id) - 1);
+  return { field: fieldSlotOrder(save.lineup.field).map(lv), gk: lv(save.lineup.gk) };
 }
 
-/** Sum of all 8 stats of the given characters (`+n` ids allowed). */
-export function teamPower(charIds: string[]): number {
+/** Sum of all 8 stats of the six players (`+n` ids allowed). */
+export function teamPower(lineup: TeamLineup): number {
   let sum = 0;
-  for (const id of charIds) for (const v of Object.values(getCharacter(id).stats)) sum += v;
+  for (const id of [...lineup.field, lineup.gk]) for (const v of Object.values(getCharacter(id).stats)) sum += v;
   return sum;
 }
 
-export function setLineup(save: SaveData, role: RoleId, charId: string): SaveData {
-  if ((save.owned[charId] ?? 0) < 1) return save;
-  let profileRole: RoleId;
-  try {
-    profileRole = getProfile(charId).role;
-  } catch {
-    return save;
+/** Players per position in the field five. */
+export function formationCounts(lineup: TeamLineup): Record<FieldPosition, number> {
+  const out: Record<FieldPosition, number> = { DF: 0, MF: 0, FW: 0 };
+  for (const id of lineup.field) {
+    const pos = getCharacter(id).position;
+    if (pos !== 'GK') out[pos] += 1;
   }
-  if (profileRole !== role || !OWNABLE.has(charId)) return save;
-  return { ...save, lineup: { ...save.lineup, [role]: charId } };
+  return out;
+}
+
+/** Puts an owned non-keeper into field slot `index`; a player already in another slot swaps places with it. */
+export function setFieldSlot(save: SaveData, index: 0 | 1 | 2 | 3 | 4, charId: string): SaveData {
+  if ((save.owned[charId] ?? 0) < 1 || !OWNABLE.has(charId) || isGk(charId)) return save;
+  const field = [...save.lineup.field];
+  const cur = field[index];
+  if (cur === charId) return save;
+  const other = field.indexOf(charId);
+  if (other >= 0) field[other] = cur as string;
+  field[index] = charId;
+  return { ...save, lineup: { ...save.lineup, field } };
+}
+
+/** Sets the goalkeeper (owned, position GK). */
+export function setKeeper(save: SaveData, charId: string): SaveData {
+  if ((save.owned[charId] ?? 0) < 1 || !OWNABLE.has(charId) || !isGk(charId) || save.lineup.gk === charId) return save;
+  return { ...save, lineup: { ...save.lineup, gk: charId } };
 }
 
 // --- strengthening -----------------------------------------------------------

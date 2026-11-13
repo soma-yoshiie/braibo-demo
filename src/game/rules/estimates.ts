@@ -9,7 +9,8 @@ import type {
   TeamId,
   Vec,
 } from '../types';
-import { BOARD, RULES, goalTarget } from './config';
+import { BOARD, RULES, goalTarget, otherTeam } from './config';
+import { keeperStats } from './keeper';
 import { getCharacter } from '../data/characters';
 import { cellsOnSegment, dist, neighbors8, vecEq } from './geometry';
 import { getEffectiveStats } from './moves';
@@ -19,6 +20,7 @@ import {
   blockProbability,
   crossDelivery,
   headerGoalProbability,
+  keeperSaveProbability,
   interceptProbability,
   passAccuracy,
   passMaxDistance,
@@ -74,9 +76,12 @@ export function estimateShot(
   const angleSin = distance === 0 ? 0 : Math.abs(from.x - target.x) / distance;
   const skills = getCharacter(shooter.charId).skills;
   const oneTouchActive = shooter.flags.receivedPassTurn === state.turn - 1;
-  const pGoalIfUnblocked = shotGoalProbability(distance, angleSin, getEffectiveStats(state, shooter), skills, {
+  const pShot = shotGoalProbability(distance, angleSin, getEffectiveStats(state, shooter), skills, {
     oneTouchActive,
   });
+  const keeper = keeperStats(state, otherTeam(shooter.team));
+  const pSave = keeper ? keeperSaveProbability('shot', distance, keeper) : 0;
+  const pGoalIfUnblocked = pShot * (1 - pSave);
   const blockers = onLane(state, defs, from, target, RULES.shot.laneWidth)
     .map(({ player, offset }) => {
       const pos = defs[player.id] as Vec;
@@ -90,7 +95,7 @@ export function estimateShot(
     .sort((a, b) => a.d - b.d)
     .map(({ playerId, pBlock }) => ({ playerId, pBlock }));
   const pBlocked = complement(blockers.map((b) => b.pBlock));
-  return { distance, pGoalIfUnblocked, pBlocked, pGoal: pGoalIfUnblocked * (1 - pBlocked), blockers };
+  return { distance, pGoalIfUnblocked, pSave, pBlocked, pGoal: pGoalIfUnblocked * (1 - pBlocked), blockers };
 }
 
 /**
@@ -306,8 +311,12 @@ export function estimateCross(
       )
     : 1;
   const gd = dist(to, goalTarget(passer.team));
+  const keeper = keeperStats(state, otherTeam(passer.team));
   const pHeaderGoal =
-    gd > RULES.cross.header.maxDistance ? 0 : headerGoalProbability(gd, getEffectiveStats(state, target).aerial);
+    gd > RULES.cross.header.maxDistance
+      ? 0
+      : headerGoalProbability(gd, getEffectiveStats(state, target).aerial) *
+        (1 - (keeper ? keeperSaveProbability('header', gd, keeper) : 0));
   return {
     distance,
     pDelivery,

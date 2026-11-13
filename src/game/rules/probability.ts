@@ -97,3 +97,16 @@ export function blockProbability(
     r.max,
   );
 }
+
+/**
+ * v0.9 keeper save chance (DESIGN.md §15.5), given the shot / header is on target.
+ * shot: farther shots are easier to save. header: only the keeper's `aerial` matters.
+ */
+export function keeperSaveProbability(kind: 'shot' | 'header', distance: number, keeperStats: Stats): number {
+  const r = RULES.keeper;
+  const raw =
+    kind === 'shot'
+      ? r.base + r.perCell * distance + (keeperStats.block - 50) / r.statDivisor
+      : r.headerBase + (keeperStats.aerial - 50) / r.statDivisor;
+  return clamp(raw, r.min, r.max);
+}

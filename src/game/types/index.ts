@@ -31,12 +31,17 @@ export interface Rng {
 // Character data (static, data-driven)
 // ---------------------------------------------------------------------------
 
-export type RoleId =
-  | 'striker'
-  | 'wing'
-  | 'longShooter'
-  | 'interceptor'
-  | 'physicalDefender';
+/** v0.9: movement, base stats and skills belong to the type (DESIGN.md §15.1). */
+export type TypeId = 'physical' | 'speed' | 'technical' | 'support' | 'playmaker';
+/** v0.9: position decides the starting cell and a small stat correction (§15.2). */
+export type Position = 'GK' | 'DF' | 'MF' | 'FW';
+export type FieldPosition = Exclude<Position, 'GK'>;
+
+/** v0.9: one team's six: five field players (any DF/MF/FW mix) and one goalkeeper. Ids may carry `+n`. */
+export interface TeamLineup {
+  field: string[];
+  gk: string;
+}
 
 /**
  * One movement vector in TEAM-RELATIVE coordinates.
@@ -73,8 +78,9 @@ export type SkillId =
 export interface CharacterDef {
   id: string;
   name: string; // display name (Japanese)
-  role: RoleId;
-  abbr: string; // 2-letter badge, e.g. 'ST'
+  type: TypeId;
+  position: Position;
+  abbr: string; // = position ('GK' | 'DF' | 'MF' | 'FW')
   moves: MoveStep[];
   stats: Stats;
   skills: SkillId[];
@@ -130,6 +136,10 @@ export interface MatchState {
   halves?: boolean;
   /** v0.8: team that took the opening kickoff (missing = MATCH.firstKickoff). */
   firstKickoff?: TeamId;
+  /** v0.9: kickoff home cell (board coordinates) of the players of teams created with a lineup. */
+  homes?: Partial<Record<PlayerId, Vec>>;
+  /** v0.9: goalkeeper character id per team (not on the board). Missing = no keeper. */
+  keepers?: Partial<Record<TeamId, string>>;
 }
 
 /**
@@ -241,9 +251,12 @@ export type TurnEvent =
       kind: 'shot' | 'header';
       from: Vec;
       target: Vec; // goal target point (may be off-board)
-      outcome: 'goal' | 'blocked' | 'missed';
+      outcome: 'goal' | 'blocked' | 'saved' | 'missed';
       blockerId?: PlayerId;
-      pGoal: number; // P(goal | not blocked)
+      /** P(goal | not blocked), keeper included. */
+      pGoal: number;
+      /** v0.9: keeper's save chance (only when the defending team has a keeper). */
+      pSave?: number;
     }
   /**
    * The intended receiver was in an offside position when the pass/cross was played (judged at final positions).
@@ -298,7 +311,10 @@ export interface TurnResult {
 
 export interface ShotEstimate {
   distance: number;
+  /** Keeper included (v0.9). */
   pGoalIfUnblocked: number;
+  /** v0.9: the keeper's save chance for this shot (0 without a keeper). */
+  pSave: number;
   pBlocked: number;
   /** pGoalIfUnblocked * (1 - pBlocked) */
   pGoal: number;

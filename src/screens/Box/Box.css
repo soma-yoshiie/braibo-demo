@@ -1,5 +1,7 @@
 .box__bar { flex: none; padding: 8px calc(10px + var(--safe-right)) 4px calc(10px + var(--safe-left)); }
-.box__filters { display: grid; grid-template-columns: 1.3fr repeat(5, 1fr); gap: 6px; }
+.box__filters { display: grid; grid-template-columns: 1.5fr repeat(5, 1fr); gap: 5px; }
+.box__filters--pos { grid-template-columns: repeat(4, 1fr); margin-top: 6px; }
+.box__typename { margin-left: 6px; color: #fff; }
 .box__chip {
   min-height: 44px;
   padding: 0 2px;

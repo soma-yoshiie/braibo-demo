@@ -7,7 +7,7 @@ import { isOffsidePosition } from '../rules/offside';
 import { canDeclareTrap, trapSteps } from '../rules/trap';
 import { getCharacter } from '../data/characters';
 import { ballHolder, playersOf } from '../engine/match';
-import { AI_WEIGHTS, advancement, chebyshev, countNear, key, positionValue } from './evaluate';
+import { AI_WEIGHTS, advancement, isAnchoredDefender, isStrikerLike, chebyshev, countNear, key, positionValue } from './evaluate';
 
 export { AI_WEIGHTS };
 
@@ -133,11 +133,11 @@ function planOffBall(c: Ctx, players: PlayerState[], anchor: Vec, holding = fals
   const carrierRole = holding ? c.foes && c.me.find((m) => vecEq(m.pos, anchor)) : undefined;
   const crossSetup =
     !!carrierRole &&
-    getCharacter(carrierRole.charId).role === 'wing' &&
+    getCharacter(carrierRole.charId).type === 'speed' &&
     BOARD.wideColumns.includes(anchor.x) &&
     advancement(c.team, anchor) >= 6;
   for (const p of order) {
-    const role = getCharacter(p.charId).role;
+    const ch = getCharacter(p.charId);
     let best = p.pos;
     let bestV = -Infinity;
     for (const t of candidates(c, p)) {
@@ -147,12 +147,12 @@ function planOffBall(c: Ctx, players: PlayerState[], anchor: Vec, holding = fals
         if (off) v -= throughMode(c) ? c.W.offsideEarly : c.W.offside;
         else if (trapAfter && isOffsidePosition(c.team, t, anchor, trapAfter)) v -= c.W.trapLevelOff;
         const a = advancement(c.team, t);
-        const striking = role === 'striker' || role === 'longShooter';
+        const striking = isStrikerLike(ch);
         if (striking && advancement(c.team, anchor) >= 4 && lastAdv >= 4) {
           if (a === lastAdv) v += c.W.holdLine;
           else if (a === lastAdv - 1) v += c.W.holdLine * 0.6;
         }
-        if (crossSetup && !off && role !== 'wing' && role !== 'physicalDefender' && BOARD.centralColumns.includes(t.x) && a >= BOARD.rows - BOARD.crossZoneRows)
+        if (crossSetup && !off && ch.type !== 'speed' && !isAnchoredDefender(c.state, p) && BOARD.centralColumns.includes(t.x) && a >= BOARD.rows - BOARD.crossZoneRows)
           v += c.W.crossZone;
       }
       if (v > bestV) {
@@ -400,7 +400,7 @@ function planDefenders(c: Ctx, defenders: PlayerState[], carrier: PlayerState, g
   const shotRiskAt = (hyp: Record<PlayerId, Vec>): number =>
     top.reduce((s, g) => s + g.w * estimateShot(state, carrier.id, g.cell, hyp).pGoal, 0);
   for (const p of order) {
-    const isDf = getCharacter(p.charId).role === 'physicalDefender';
+    const isDf = isAnchoredDefender(state, p);
     const stayRisk = trapOn && p.id === deepest.id ? shotRiskAt({ ...c.pos, [p.id]: p.pos }) : Infinity;
     const topReceiver = receiverThreats(c, carrier, c.pos).sort((a, b) => b.threat - a.threat)[0];
     let best = p.pos;

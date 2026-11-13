@@ -159,7 +159,7 @@ describe('probability and estimates', () => {
     expect(passAccuracy(4, 50, [], 'lofted')).toBeLessThan(passAccuracy(4, 50, []));
   });
   it('shot stat blend', () => {
-    const st = getCharacter('striker').stats;
+    const st = getCharacter('technical').stats;
     const near = shotGoalProbability(2, 0, st, [], { oneTouchActive: false });
     const far = shotGoalProbability(5, 0, st, [], { oneTouchActive: false });
     expect(near).toBeGreaterThan(far);

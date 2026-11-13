@@ -1,4 +1,4 @@
-import type { PlayerId, TeamId, Vec } from '../game/types';
+import type { PlayerId, TeamId, TypeId, Vec } from '../game/types';
 
 /** A token as displayed (position is in fractional cell units and may be mid-animation). */
 export interface TokenView {
@@ -90,6 +90,8 @@ export interface RadialMenuItem {
   label: string;
   /** Second line (e.g. a percentage). */
   sub?: string;
+  /** Small third line (e.g. 「GKセーブ n%込み」, test id `shot-save-note`). */
+  note?: string;
   enabled: boolean;
   active?: boolean;
   onTap: () => void;
@@ -117,6 +119,7 @@ export interface SelectedView {
   number: number;
   abbr: string;
   rarity: 3 | 4 | 5;
+  type: TypeId;
 }
 
 /** Duel cut-in (DESIGN-UI §14.10). Rates are 0..1 and add up to 1. */
@@ -168,4 +171,22 @@ export interface TrapView {
 export interface HalfTimeView {
   score: Record<TeamId, number>;
   kickoffTeam: TeamId;
+}
+
+/** A goalkeeper standing in the goal net (DESIGN-UI §17.4). `dive` changes when it jumps for a shot. */
+export interface KeeperView {
+  team: TeamId;
+  charId: string;
+  number: number;
+  abbr: string;
+  dive?: number;
+}
+
+/** Save cut-in (DESIGN-UI §17.4). */
+export interface SaveCutInView {
+  key: number;
+  charId: string;
+  /** The saving (defending) team. */
+  team: TeamId;
+  pSave: number;
 }

@@ -8,7 +8,8 @@ import { patchSettings, todayString, useToday, type Screen } from '../../compone
 import { charaInfo } from '../../components/Shell/chara';
 import { SCOUT_POOL } from '../../game/data/roster';
 import { claimLogin, claimableCount, loginBonus } from '../../meta/missions';
-import { lineupIds, teamPower, type SaveData } from '../../meta/save';
+import { lineupOf, teamPower, type SaveData } from '../../meta/save';
+import { fieldSlotOrder } from '../../game/data/formations';
 import { nextStage, stageLineup } from '../../meta/stages';
 import { saveStore } from '../../meta/store';
 import '../../components/Shell/Shell.css';
@@ -29,9 +30,10 @@ export function HomeScreen({ save, onNav, onPlay, qa }: Props) {
   useEffect(() => {
     if (loginBonus(saveStore.get(), today) !== null) setLoginOpen(true);
   }, [today]);
-  const { profile, def, team } = charaInfo(save.lineup.striker);
+  const ace = fieldSlotOrder(save.lineup.field)[0] ?? save.lineup.field[0];
+  const { profile, def, team } = charaInfo(ace);
   const next = nextStage(save);
-  const myPower = teamPower(lineupIds(save));
+  const myPower = teamPower(lineupOf(save));
   const rivalPower = teamPower(stageLineup(next));
   const claimable = claimableCount(save, today);
   const ownedCount = SCOUT_POOL.filter((p) => (save.owned[p.id] ?? 0) > 0).length;

@@ -25,7 +25,7 @@ npm test           # ルール判定・同時移動・得点処理などのユ�
 npm run typecheck  # TypeScript 型検査
 npm run build      # dist/ に通常ビルド
 npm run build:single   # dist-single/index.html に JS/CSS を全て埋め込んだ単一 HTML
-npm run sim -- 400 1   # AI 同士を 400 試合（seed 1）。トラップあり／なしの指標を並べて出す
+npm run sim -- 400 1   # AI 同士を 400 試合（seed 1）。初期編成 対 紅蓮・GK あり。トラップあり／なしの指標を並べて出す
                        # 引数: [試合数] [seed] [early|legacy|both] [trap=on|off|both] [halves=on|off|both]
 ```
 
@@ -38,7 +38,7 @@ src/
     rules/           config（全調整値）, geometry, moves, probability, estimates
     engine/          match（初期化/キックオフ）, resolve（同時ターン解決）, log, rng
     ai/              簡易 AI（TeamPlan を返すだけ。対人戦では相手の TeamPlan に差し替え可能）
-    data/            ロールの原型（characters）・選手名鑑（roster）・フォーメーション
+    data/            タイプの原型（characters）・ポジション補正と GK の能力（positions）・選手名鑑（roster）・配置（formations）
   meta/              試合の外側（純関数）: セーブ、編成、スカウトの抽選、報酬、ランク、強化、ステージ、ミッション。
                      store.ts だけが localStorage と日付に触る
   components/        Pitch(SVG) / Player / HUD / Controls / Overlays（表示専用・props 駆動）
@@ -57,6 +57,7 @@ concept/             構想資料の PDF と、その元になった HTML（conc
 - ターン数・作戦時間・先攻: `MATCH`
 - 先出しスルーパス（v0.5）の既定の新旧: `RULES.throughPass.defaultMode`（切り替えは対戦前の画面か設定）
 - オフサイドトラップ宣言（v0.8）: `RULES.trap`（有効・再宣言の待ち）。前後半: `MATCH.halves`
+- GK のセーブ（v0.9）: `RULES.keeper`。ポジション補正と GK の能力: `src/game/data/positions.ts`。初期配置の行と列: `src/game/data/formations.ts` の `FORMATION`
 - AI の重み: `src/game/ai/evaluate.ts` の `AI_WEIGHTS`（`AIW_<名前>=値 npm run sim` でその実行だけ上書きできる）
 - 競り合い／パス／クロス／シュート／ブロックの各確率式: `RULES`
 - キャラクターの移動ベクトル・能力・スキル: `src/game/data/characters.ts`

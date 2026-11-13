@@ -5,6 +5,7 @@ import { RatesSheet } from '../../components/Shell/Sheets';
 import { TopBar } from '../../components/Shell/TopBar';
 import { todayString, type Screen } from '../../components/Shell/actions';
 import { charaInfo } from '../../components/Shell/chara';
+import { SCOUT_POOL } from '../../game/data/roster';
 import { createRng, randomSeed } from '../../game/engine/rng';
 import { META } from '../../meta/config';
 import { applyGacha, canPull, rollGacha, type PullResult } from '../../meta/gacha';
@@ -89,7 +90,7 @@ export function GachaScreen({ save, onNav, qa }: Props) {
             );
           })}
           <div className="gacha__sign">
-            <span className="a-tag">★5 は全 5 人</span>
+            <span className="a-tag">★5 は全 {SCOUT_POOL.filter((p) => p.rarity === 5).length} 人</span>
             <span className="a-head a-head--lg gacha__signtitle">選手スカウト</span>
           </div>
         </section>

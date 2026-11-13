@@ -155,6 +155,17 @@ export const RULES = {
       max: 0.97,
     },
   },
+  // ---- goalkeeper (v0.9, DESIGN.md §15.5) -------------------------------------
+  keeper: {
+    /** Save chance of a shot = base + perCell * distance + (block - 50) / statDivisor. */
+    base: 0.10,
+    perCell: 0.03,
+    /** Save chance of a header = headerBase + (aerial - 50) / statDivisor. */
+    headerBase: 0.15,
+    statDivisor: 250,
+    min: 0.05,
+    max: 0.6,
+  },
   // ---- skills -------------------------------------------------------------
   skills: {
     counterExtraRange: 1,

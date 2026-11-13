@@ -96,7 +96,7 @@ describe('gachaRates', () => {
       expect(t.rows.reduce((a, r) => a + r.rate, 0)).toBeCloseTo(1, 10);
       for (const r of t.rows) expect(r.each * r.ids.length).toBeCloseTo(r.rate, 10);
     }
-    expect(tables[0].rows.map((r) => r.ids.length)).toEqual([5, 5, 5]);
+    expect(tables[0].rows.map((r) => r.ids.length)).toEqual([6, 6, 6]);
     expect(tables[1].rows.map((r) => [r.rarity, r.rate])).toEqual([[5, expect.closeTo(0.15, 10)], [4, expect.closeTo(0.85, 10)]]);
   });
 });

@@ -1,4 +1,4 @@
-# BRAIBO（ブレイボ）設計仕様 v0.8
+# BRAIBO（ブレイボ）設計仕様 v0.9
 
 サッカー × 将棋的読み合いの 5 対 5 同時行動ボードゲーム。本書はプロトタイプの
 ルール仕様・ゲームデザイン上の暫定決定とその理由・モジュール間 API 契約をまとめたもの。
@@ -204,6 +204,7 @@
   シューターと同じマスの敵（競り合いに負けた選手、§4.3）はブロックできない。
 - 外れたシュートは **ゴールキック**: 守備側で自ゴールに最も近い選手が保持。
 - UI はシュート選択時に `estimateShot` の値を「現在の守備位置基準の推定」と明示して表示する。
+- v0.9 から GK がいる（§15.5）。ブロックされなかったシュートとヘディングは、GK のセーブ判定を通る。
 
 ## 7. 得点・キックオフ・勝敗
 
@@ -213,8 +214,11 @@
 - 試合開始は `MATCH.firstKickoff`（既定: 青）。
 - 規定ターン（既定 20）終了で得点差により勝敗、同点は引き分け。
 - v0.8 から前後半制（§14.2）。攻める向きは入れ替えない（青が常に上へ攻める方が UI が分かりやすい）。
+- v0.9 の編成つきの試合（`lineups` あり）では、配置とキックオフの並びは §15.4 の規則で決まる。上の `kickoffGap` は `lineups` なしの盤面だけに使う。
 
-## 8. キャラクター（初期 5 種）
+## 8. キャラクター（5 タイプ）
+
+v0.9 でロールをやめ、タイプ 5 種とポジション 4 種にした（§15）。5 件の原型の id はタイプ id（`technical` など）。
 
 `src/game/data/characters.ts` 参照。移動と能力はデータ定義のみで追加可能。
 スキルは `getEffectiveStats()` / 距離上限などに影響する受動効果としてフックしてあり、
@@ -300,7 +304,7 @@ src/game/engine/log.ts
 src/game/ai/simpleAi.ts
   planAiTurn(state, team, rng, options?: AiOptions): TeamPlan
 
-scripts/sim.ts   （`npm run sim -- [試合数=200] [seed=1] [early|legacy|both] [trap=on|off|both] [halves=on|off|both]`）
+scripts/sim.ts   （`npm run sim -- [試合数=200] [seed=1] [early|legacy|both] [trap=on|off|both] [halves=on|off|both] [keeper=on|off|both] [blue=id,…] [red=id,…] [bluegk=id] [redgk=id] [formation=legacy]`。§15.8）
                  列 = スペースパスのルール × トラップ × 前後半。既定は early・trap=both・halves=on。
                  宣言回数、的中率、byTrap の内訳（足元／スルー／クロス）、前後半別の得点、宣言ターンの足元パス／スルーパス成功率も出す。
   AI 同士の対戦を legacy / early の両方で回し、§5 の指標を表で出す
@@ -321,6 +325,9 @@ scripts/sim.ts   （`npm run sim -- [試合数=200] [seed=1] [early|legacy|both]
 - 初期化失敗時は ErrorBoundary ＋ `index.html` のフォールバックでエラー内容と再試行ボタンを表示。
 
 ## 12. 選手名鑑・編成・スカウト・セーブ（v0.6、試合ルールの外側）
+
+**v0.9 でロール、ロールごとの編成、`STARTER_IDS`、`lineupIds`、`setLineup` は廃止した。タイプ・ポジション・GK・編成・セーブ v3 は §15 が正。**
+この節のうち、見た目のデータ、スカウトの抽選、セーブの読み書きの方針は今も有効。
 
 試合ルール（§1〜§9）は変えない。ここは「どの選手で試合をするか」と、アプリとしての外側のデータを決める。
 乱数は従来どおり注入する。ストレージ（`localStorage`）に触るのは `src/meta/store.ts` だけ。
@@ -625,3 +632,214 @@ SaveSettings.trap: boolean   // 既定 true。parseSave は欠けていたら tr
 ```
 `describeEvent` は `trap` と `halfTime` の文を返す（「紅蓮がオフサイドトラップ！」「前半終了 1-0」）。`byTrap` のオフサイドは「（トラップ成功）」を添える。
 `npm run sim` は宣言回数、的中率、前後半別の得点を出し、`trap` の有無を並べて比べられるようにする。
+
+## 15. タイプ・ポジション・GK・自由編成（v0.9）
+
+オーナー決定（2026-11-14）:
+- 選手の **タイプ** は 5 つ: フィジカル / スピード / テクニカル / サポート / プレイメーカー。
+- **ポジション** は 4 つ: GK / DF / MF / FW。
+- 試合は **6 人制**（GK 1 人＋フィールド 5 人）。GK はゴール前に固定でセーブだけを行う。
+- **動き方はタイプで決まる**。ポジションは初期配置と能力の補正を決める。
+- フィールドの 5 人は **DF・MF・FW を好きな人数** で組める。
+
+v0.8 までの「ロール」（ST / WG / LS / IC / DF）はなくなる。盤面（7×10）、ターン構造、パス、オフサイド、競り合いのルールは変えない。
+`lineups` を渡さない `createMatch()`（テストと旧来の盤面）は、GK なし・従来の配置のまま動く。
+
+### 15.1 タイプ（`TypeId`）
+
+`RoleId` を `TypeId` に置き換える。動き（`moves`）、基本能力、スキルはタイプが持つ（`CHARACTERS` の 5 件、id はタイプ id と同じ）。
+
+| TypeId | 表示名 | 略号 | 旧ロール | 動き | スキル | 変更点 |
+|---|---|---|---|---|---|---|
+| `physical` | フィジカル | PHY | フィジカルDF | 周囲 1 マス（8 方向） | blockMaster, airBattler | なし |
+| `speed` | スピード | SPD | ウイング | 前 2・横 2・斜め前 1・後ろ 1 | なし | `passMaster` を外す。pass 75 → 70、shoot 55 → 60 |
+| `technical` | テクニカル | TEC | ストライカー | 前 2・斜め前 1・横 1・後ろ 1 | oneTouch | なし |
+| `support` | サポート | SUP | インターセプター | 斜め 2・前後 1 | counter | なし |
+| `playmaker` | プレイメーカー | PM | ロングシューター | 前後左右 1・斜め前 1 | passMaster | pass 65 → 80、longShot 90 → 80、shoot 60 → 55 |
+
+- 能力の合計は旧ロールと同じ（変更は足し引きゼロ）。プレイメーカーは「長いパスとミドルシュート」、スピードは「動きの広さとクロス」が持ち味。
+- 既定のポジション（タイプ id をそのまま選手 id として使うときだけ）: `technical` FW、`speed` MF、`playmaker` MF、`support` DF、`physical` DF。
+  タイプ id の選手にはポジション補正を掛けない（テストと計測の基準になる素の値）。
+
+```ts
+export type TypeId = 'physical' | 'speed' | 'technical' | 'support' | 'playmaker';
+export type Position = 'GK' | 'DF' | 'MF' | 'FW';
+export type FieldPosition = Exclude<Position, 'GK'>;
+export interface CharacterDef { id; name; type: TypeId; position: Position; abbr: string /* = position */; moves; stats; skills; description }
+export const TYPE_ORDER: TypeId[];       // ['physical','speed','technical','support','playmaker']
+export const TYPE_LABEL: Record<TypeId, string>;   // フィジカル…
+export const TYPE_ABBR: Record<TypeId, string>;    // PHY…
+export const POSITION_ORDER: Position[]; // ['GK','DF','MF','FW']
+export const POSITION_LABEL: Record<Position, string>; // ゴールキーパー / ディフェンダー / ミッドフィルダー / フォワード
+```
+`CharacterDef.role`、`RoleId`、`ROLE_ORDER`、`ROLE_LABEL` は削除する（別名も残さない）。
+
+### 15.2 ポジション補正と GK の能力
+
+名鑑の選手（§15.3）の能力 = `clamp(タイプの基本値 + ポジション補正 + bonus (+ 強化値), 1, 99)`。調整値は `src/game/data/positions.ts`。
+
+| ポジション | 補正（合計 0） |
+|---|---|
+| FW | shoot +5、longShot +3、aerial +2、block −5、intercept −5 |
+| MF | pass +5、cross +3、intercept +2、physical −5、aerial −5 |
+| DF | block +5、intercept +3、physical +2、shoot −5、longShot −5 |
+
+GK はタイプの動きを使わない（盤上にいない）。GK の能力は **共通の基本値 ＋ タイプごとの傾き ＋ bonus**:
+- `GK_BASE: Stats` = physical 60、aerial 60、shoot 30、longShot 30、pass 60、cross 40、intercept 50、block 60。
+- `GK_TYPE_MOD`: physical → aerial +8 / speed → block +6 / technical → block +3、aerial +3 / support → aerial +4、block +2 / playmaker → pass +8。
+- 試合で使うのは **block（セーブ）と aerial（ハイボール）** の 2 つだけ。画面では GK の block を「セーブ」、aerial を「ハイボール」と表示する。
+
+### 15.3 選手名鑑（24 人）
+
+`CharaProfile.role` を `type: TypeId` と `position: Position` に置き換える。**既存 20 人の id は変えない**（セーブ互換。`st_` などの接頭辞は名残り）。
+GK を 4 人足す（プレイヤー側 3 人、紅蓮 1 人）。名前・見た目・セリフは従来どおり仮のオリジナル。
+
+| id | タイプ | ポジション | ★ | 備考 |
+|---|---|---|---|---|
+| st_kakeru / st_raiga / st_ouga | technical | FW | 3 / 4 / 5 | |
+| wg_sora / wg_tsubame | speed | MF | 3 / 4 | |
+| wg_hayate | speed | FW | 5 | |
+| ls_taiga / ls_iori | playmaker | MF | 3 / 4 | |
+| ls_kou | playmaker | FW | 5 | |
+| ic_shinobu / ic_rei | support | DF | 3 / 5 | |
+| ic_jin | support | MF | 4 | |
+| df_daigo / df_gou / df_genbu | physical | DF | 3 / 4 / 5 | |
+| rv_enji | technical | FW | 3 | 紅蓮 |
+| rv_homura / rv_kagari | speed / playmaker | MF | 3 | 紅蓮 |
+| rv_ren / rv_gantetsu | support / physical | DF | 3 | 紅蓮 |
+| **gk_tsukasa** | physical | GK | 3 | 盾野ツカサ「最後の砦」#1。初期所持。bonus なし |
+| **gk_towa** | speed | GK | 4 | 速水トワ「反射の守護神」#12。bonus block+5、aerial+3 |
+| **gk_mikoto** | technical | GK | 5 | 鏡ミコト「千里眼の守護者」#21。bonus block+9、aerial+8 |
+| **rv_jou** | physical | GK | 3 | 黒鉄ジョウ「紅蓮の門番」#1。紅蓮。bonus なし |
+
+```ts
+export interface TeamLineup { field: string[]; gk: string }   // src/game/types に置く。field は 5 人
+export const STARTER_LINEUP: TeamLineup;  // field: [st_kakeru, wg_sora, ls_taiga, ic_shinobu, df_daigo], gk: gk_tsukasa
+export const RIVAL_LINEUP: TeamLineup;    // field: [rv_enji, rv_homura, rv_kagari, rv_ren, rv_gantetsu], gk: rv_jou
+export const SCOUT_POOL: CharaProfile[];  // group === 'player' の 18 人（★5 は 6 人）
+```
+`STARTER_IDS: Record<RoleId, string>` は削除し、`STARTER_LINEUP` に置き換える。
+
+### 15.4 自由編成と初期配置
+
+- 編成 = GK 1 人（ポジションが GK の選手）＋フィールド 5 人（GK 以外。DF・MF・FW の人数は自由、同じ選手は 1 回だけ）。
+- 初期配置は選手のポジションから **自動で決まる**。調整値は `src/game/data/formations.ts` の `FORMATION`。
+  - スロット順: FW → MF → DF（同じポジションの中は編成の並び順）。スロット 0 がキックオフを蹴る（FW がいなければ先頭の MF、それもいなければ DF）。
+  - 行（青から見た y）: **蹴る側** は FW 5、MF 6、DF 7（`FORMATION.rows`）。**蹴らない側** は FW 6、MF 7、DF 7（`FORMATION.defendRows`）。
+    蹴らない側で MF と同じマスになる DF は 1 行下がる（y=8、`FORMATION.defendDrop`）。例: FW 1・MF 1・DF 3 → MF `(3,7)`、DF `(1,7)` `(3,8)` `(5,7)`。
+  - この行に決めた経緯（計測、GK あり）: 全員 1 行深い案（FW 6・MF 7・DF 8）は得点 1.6。DF を 8 に置く案は、ゴール前の 2 人が壁になって
+    ブロックが片側 1.9 回（v0.8 の配置は 0.7 回）に増え、得点 1.9。DF を 7 に上げるとブロック 1.05 回、得点 2.85〜2.90 で目安に入った。
+  - 列（その行の人数ごと）: 1 人 `[3]`、2 人 FW・DF `[2,4]` / MF `[1,5]`、3 人 `[1,3,5]`、4 人 `[0,2,4,6]`、5 人 `[1,2,3,4,5]`。
+    最前列ではスロット 0 が中央にいちばん近い列を取り、残りは編成順に空いた列へ入る。
+  - **キックオフ**: 蹴る側のスロット 0 はセンタースポット（青から見て `(3,5)`）に立つ（最前列が偶数人のときは隣の列から寄る）。
+    蹴らない側は最前列が y=6 なので、両チームのどの 2 人も隣り合わない。キックオフのたびに、蹴る側・蹴らない側の行で並べ直す。
+- 赤は従来どおり点対称に写す。
+
+```ts
+export const FORMATION: { rows: Record<FieldPosition, number>; defendRows: Record<FieldPosition, number>; cols: Record<FieldPosition, Record<1|2|3|4|5, number[]>>; kickoffSpot: Vec };
+export function fieldSlotOrder(charIds: string[]): string[];       // FW → MF → DF、安定ソート
+export function layoutField(charIds: string[], phase: 'kick' | 'defend' = 'kick'): Vec[];   // スロット順の charIds に対する青基準の配置
+```
+- `createMatch({ lineups?: Partial<Record<TeamId, TeamLineup>> })`:
+  渡されたチームは `fieldSlotOrder` → `layoutField` で配置し、`MatchState.homes` にその選手の定位置を、`MatchState.keepers[team]` に GK を入れる。
+  渡されなかったチームは従来どおり（`DEFAULT_FORMATION`、`kickoffGap`、GK なし）。
+- `MatchState.homes?: Partial<Record<PlayerId, Vec>>`（盤面座標。蹴らない側の配置 = AI の定位置の基準）。
+  `kickoffState` は `homes` があるチームをこの規則で、ないチームを従来の規則で並べる。
+- `MatchState.keepers?: Partial<Record<TeamId, string>>`（GK の選手 id。`+n` 可）。
+
+### 15.5 GK のセーブ
+
+GK は盤上の駒ではない（`players` は 10 人のまま）。移動、競り合い、パス、オフサイドには関わらない
+（オフサイドの「最後尾の 1 人」は、GK を数えれば実際のルールの「後ろから 2 人目」と同じになる）。
+
+- シュート（ブロックされなかったとき）: 従来の成功率を `pShot` とする。守る側に GK がいれば
+  `pSave = clamp(keeper.base + keeper.perCell·d + (GK の block − 50)/keeper.statDivisor, keeper.min, keeper.max)`（d はシュート距離。遠いほど止めやすい）。
+- ヘディング: `pSave = clamp(keeper.headerBase + (GK の aerial − 50)/keeper.statDivisor, keeper.min, keeper.max)`。
+- **乱数は従来と同じ 1 個**: `r < pShot·(1 − pSave)` → ゴール、`r < pShot` → **セーブ**、それ以外 → 枠外。GK がいなければ `pSave = 0` で従来と完全に同じ。
+- セーブと枠外はどちらもゴールキック（従来の規則）。
+- イベント: `shot.outcome` に `'saved'` を足す。`pGoal` は GK を含めた値（`pShot·(1 − pSave)`）。`pSave?: number`（GK がいるときだけ）。
+- 推定値: `ShotEstimate.pSave`（GK なしは 0）、`pGoalIfUnblocked` と `pGoal` は GK 込み。`CrossEstimate.pHeaderGoal` も GK 込み。
+- 純関数: `keeperSaveProbability(kind: 'shot' | 'header', distance, keeperStats): number`（`probability.ts`）。
+- 調整値 `RULES.keeper`（初期値。計測で合わせる）: `base 0.10`、`perCell 0.03`、`headerBase 0.15`、`statDivisor 250`、`min 0.05`、`max 0.6`。
+- 得点が目安（1 試合 2.5〜4 点）を下回るときは `RULES.keeper` を先に見直し、それでも足りなければ `RULES.shot.falloffPerCell`、
+  `RULES.cross.header.base` を動かしてよい（動かした値と理由を §15.8 に書く）。
+
+### 15.6 AI
+
+- ロール名での分岐をやめ、**ポジションとタイプ**で決める:
+  DF（`position === 'DF'`）は従来の `physicalDefender` の扱い（定位置の行に留まる、自陣から離れすぎない）。
+  FW は中央を好む（従来の striker / longShooter）。`speed` は敵陣のサイドを好み、クロスの起点になる（従来の wing）。
+- 定位置の行は `homes` があればその行、なければ従来の `defenderHomeRow`。DF が 0 人の編成でも破綻しないこと（最後尾の選手が下がる既存の動きは残る）。
+- シュートの判断は `estimateShot`（GK 込み）をそのまま使う。
+
+- **v0.9 実装での扱い（計測後）**: 「中央を好む」「オフサイドラインに並ぶ」など v0.8 の striker / longShooter の攻めの好みは、
+  ポジションが FW、またはタイプが technical / playmaker の選手に掛ける。`speed` のサイド・クロスの扱いは変えない。
+  定位置に張り付くのは DF のうち最後尾の 1 人（同じ深さなら index の小さい方）だけで、その行は v0.8 の守備ラインの行（`AI_WEIGHTS.defenderHomeRow`）。
+  `homes` の行（配置の最後尾）に張り付かせると、ラインが深すぎて 1 試合あたり約 0.3 点減るので使わない。
+
+### 15.7 セーブ v3 と編成（`src/meta`）
+
+```ts
+export interface SaveData { v: 3; …; lineup: TeamLineup }   // field は並び順を保つ（5 人、重複なし、GK 以外）、gk は GK
+export function lineupOf(save): TeamLineup;                 // 強化値（+n）つき。field はスロット順（FW → MF → DF）
+export function setFieldSlot(save, index: 0|1|2|3|4, charId): SaveData; // 所持・GK 以外のときだけ。すでに別の枠にいる選手なら入れ替える
+export function setKeeper(save, charId): SaveData;          // 所持・GK のときだけ
+export function formationCounts(lineup: TeamLineup): Record<FieldPosition, number>;
+export function teamPower(lineup: TeamLineup): number;      // 6 人の全能力の合計
+```
+- v1 / v2 からの移行: `field = [striker, wing, longShooter, interceptor, physicalDefender]` の順に旧編成の選手、`gk = gk_tsukasa`。
+  `gk_tsukasa` を所持に加える（1 人）。キー（`braibo.save.v1`）は変えない。
+- 検証: 未所持・GK・重複・不明な id の枠は、まだ使っていない初期選手で埋める。`gk` が不正なら `gk_tsukasa`。
+- `lineupIds` と `setLineup(save, role, …)` は削除する。
+- ステージ: `stageLineup(stage): TeamLineup`（紅蓮の 6 人に `+plus`）。
+- 画面の props: `MatchScreenProps.lineups: { blue: TeamLineup; red: TeamLineup }`。
+
+### 15.8 計測
+
+`npm run sim -- [試合数] [seed] [early|legacy|both] [trap=on|off|both] [halves=on|off|both] [keeper=on|off|both] [blue=id,id,id,id,id] [red=…] [bluegk=id] [redgk=id] [formation=legacy]`
+既定は名鑑の初期編成（蒼嵐）対 紅蓮、GK あり、トラップあり・なしを並べる。セーブ数／試合、セーブ率、シュート数と平均距離、
+青・赤別のシュート数・ブロック数・セーブ数・パス試行とカットされた数・ボール保持ターンも出す。`formation=legacy` は v0.8 の 5 人制配置（GK なし）で動かす。
+調整用に `RULE_<group>.<key>=値`、`AIO_<option>=値`、`AIW_<weight>=値`、`TYPE_<type>.<stat>=値`、`FORM_rows.FW=行` で設定を 1 回だけ上書きできる。
+
+**最終の調整値**: `RULES.shot` と `RULES.cross.header` は v0.8 のまま（falloffPerCell 0.11、block.base 0.95、header.base 0.80）、`RULES.keeper` は base 0.10 / perCell 0.03。
+`FORMATION.rows` は FW 5・MF 6・DF 7、`defendRows` は FW 6・MF 7・DF 7、`defendDrop` 1。プレイメーカーは pass 80 / longShot 80 / shoot 55 のまま。
+AI は「中央を好む・ラインに並ぶ」を FW・technical・playmaker に掛け、張り付く DF は最後尾の 1 人だけ（行は v0.8 の守備ライン）。
+
+**得点が戻らなかった原因は配置の DF の行だった。** DF を 8 行目に置くと、ゴール前の 2 枚が壁になる（ブロックが片側 1.9 回／試合、旧配置は 0.7 回）。
+経過（GK あり、トラップあり、400 試合）:
+
+| 配置の DF の行 | 得点 | ブロック（片側） |
+|---|---|---|
+| 8（蹴るとき・守るとき） | 1.9 前後（block.base・シュートの値・AI を変えても 1.8〜2.1） | 1.9 回 |
+| 蹴るときだけ 7 | 1.79〜1.89 | – |
+| 7 / 7（守るときに MF と同じマスになる DF は 1 行下がる） | **2.90 / 2.90** | 約 1.05 回 |
+
+**最終設定の計測**（400 試合、早出しスルーパス、前後半あり、seed 1 / seed 2）:
+
+| 指標 | GK あり トラップ有 | GK なし トラップ有 | GK あり トラップ無 | GK なし トラップ無 | 目安 |
+|---|---|---|---|---|---|
+| 得点 / 試合 | 2.90 / 2.90 | 4.30 / 4.25 | 2.88 / 2.87 | 4.05 / 4.14 | 2.5〜4 |
+| オフサイド / 試合 | 1.81 / 1.84 | 1.31 / 1.40 | 1.64 / 1.51 | 1.22 / 1.13 | 1〜3 |
+| トラップ宣言 / 試合 | 1.80 / 1.73 | 1.56 / 1.74 | – | – | 1〜4 |
+| 的中率（参考） | 36.9 / 40.5% | 30.8 / 33.1% | – | – | |
+| スルーパス成功率 | 49.8 / 55.6% | 53.7 / 54.1% | 55.4 / 58.0% | 61.6 / 63.0% | 30〜45% |
+| セーブ / 試合 | 0.79 / 0.82 | – | 0.72 / 0.75 | – | |
+| セーブ率 | 21.4 / 22.0% | – | 20.1 / 20.7% | – | 15〜30% |
+| 平均シュート距離 | 3.0 / 3.0 | 3.1 / 3.1 | 2.9 / 2.9 | 3.0 / 3.0 | 3.3 以下 |
+| 青の勝 / 負 / 引分 | 37.3 / 35.0 / 27.8% と 32.8 / 39.0 / 28.2% | 39.8 / 34.8 / 25.5% と 39.0 / 36.0 / 25.0% | 33.8 / 36.8 / 29.5% と 34.0 / 35.5 / 30.5% | 34.3 / 39.0 / 26.8% と 38.5 / 38.5 / 23.0% | |
+
+得点、オフサイド、トラップ宣言、セーブ率、平均シュート距離は目安の中。スルーパス成功率は 50〜56%（試行は 0.7 回／試合）で、目安をやや上回る。
+GK なしは得点が 4.2 前後と目安の上限を超える（GK が約 1.4 点を止める）。青と赤の偏りはない。
+
+**編成の偏り**（青にだけ置く。赤は紅蓮・GK あり、トラップあり、400 試合。総合力＝6 人の全能力の合計。標準・紅蓮とも 2583）:
+
+| 青の編成（FW-MF-DF） | 総合力 | 勝 / 負 / 分（seed 1） | 勝 / 負 / 分（seed 2） | 得点 / 失点（seed 1 / 2） |
+|---|---|---|---|---|
+| 標準 1-2-2（初期編成） | 2583 | 37.3 / 35.0 / 27.8% | 32.8 / 39.0 / 28.2% | 1.49 / 1.42、1.41 / 1.49 |
+| DF 0（2-3-0） | 2547 | 36.5 / 41.3 / 22.3% | 34.0 / 42.5 / 23.5% | 1.40 / 1.61、1.34 / 1.64 |
+| FW 多め（3-1-1） | 2555 | 44.5 / 30.5 / 25.0% | 41.5 / 34.8 / 23.8% | 1.56 / 1.33、1.48 / 1.42 |
+| DF 多め（1-1-3） | 2630 | 37.5 / 35.3 / 27.3% | 38.0 / 35.0 / 27.0% | 1.38 / 1.34、1.41 / 1.40 |
+
+- DF 多めは標準と同等（差は 1〜5 ポイント）。DF 0 は失点が増えて標準よりやや弱い（勝ち −1〜−3、負け +6〜+3）。
+- **FW 多めが標準より勝率が 7〜9 ポイント高い**（得点が増えて失点が減る）。400 試合のばらつき（±3〜4 ポイント）を考えると、有利な傾向はあるが断定できない。要判断。
+- AI は編成ごとの戦い方を持たない。人間が編成の意図に沿って動かしたときの強さは測れていない。

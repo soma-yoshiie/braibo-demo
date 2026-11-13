@@ -1,5 +1,5 @@
 import { useId } from 'react';
-import { GOLD, INK, SKIN, TEAM, type TeamId } from './palette';
+import { GOLD, INK, KEEPER, SKIN, TEAM, type TeamId } from './palette';
 import { HAIR, mirrorPath, type HairShape } from './hair';
 import type { CharaLook, EyeId } from './lookTypes';
 
@@ -23,12 +23,12 @@ const EYES: Record<EyeId, EyeDef> = {
   narrow: { outline: 'M32 50.8 Q39 46.6 47.4 49.6 Q41 53.6 32 50.8 Z', iris: [40.5, 50.2, 3.1, 3.2], lid: 'M31.4 50.8 Q39 45.6 47.8 49.4', lidW: 2.6, brow: [43.6, 45.2], mouth: 'M45.5 62.6 Q50 63.8 54.5 62', strokes: { y1: 50, y2: 52, w: 3 } },
 };
 
-interface Props { look: CharaLook; team: TeamId; expression?: Expression; small?: boolean; sw?: number; halo?: boolean }
+interface Props { look: CharaLook; team: TeamId; expression?: Expression; small?: boolean; sw?: number; halo?: boolean; keeper?: boolean }
 
 /** 胸像の中身（0..100 空間、defs 込み）。Bust / BustG / Medal が共有する。 */
-export function BustContent({ look, team, expression = 'normal', small = false, sw, halo = false }: Props) {
+export function BustContent({ look, team, expression = 'normal', small = false, sw, halo = false, keeper = false }: Props) {
   const id = useUid();
-  const c = TEAM[team];
+  const c = keeper ? { ...TEAM[team], ...KEEPER[team] } : TEAM[team];
   const H = HAIR[look.hair];
   const skin = SKIN[look.skin];
   const rx = H.rx;
@@ -224,24 +224,26 @@ export interface CharaBustProps {
   expression?: Expression;
   flip?: boolean;
   className?: string;
+  /** GK のユニフォーム（チームの色と別の色） */
+  keeper?: boolean;
 }
 
 const flipT = 'translate(100 0) scale(-1 1)';
 
-export function CharaBust({ look, team, expression = 'normal', flip = false, className }: CharaBustProps) {
+export function CharaBust({ look, team, expression = 'normal', flip = false, className, keeper = false }: CharaBustProps) {
   return (
     <svg viewBox="0 0 100 100" className={className} width="100%" height="100%" overflow="visible" aria-hidden="true">
       <g transform={flip ? flipT : undefined}>
-        <BustContent look={look} team={team} expression={expression} />
+        <BustContent look={look} team={team} expression={expression} keeper={keeper} />
       </g>
     </svg>
   );
 }
 
-export function CharaBustG({ look, team, expression = 'normal' }: Omit<CharaBustProps, 'flip' | 'className'>) {
+export function CharaBustG({ look, team, expression = 'normal', keeper = false }: Omit<CharaBustProps, 'flip' | 'className'>) {
   return (
     <g>
-      <BustContent look={look} team={team} expression={expression} />
+      <BustContent look={look} team={team} expression={expression} keeper={keeper} />
     </g>
   );
 }

@@ -6,7 +6,7 @@ const C = 2;
 const S = 14;
 
 /** 移動できるマスの小さな図。上が前。 */
-export function MoveDiagram({ moves }: { moves: MoveStep[] }) {
+export function MoveDiagram({ moves, size = 78, caption = '進める範囲' }: { moves: MoveStep[]; size?: number; caption?: string | null }) {
   const reach = new Set<string>();
   const far = new Set<string>();
   for (const m of moves) {
@@ -20,7 +20,7 @@ export function MoveDiagram({ moves }: { moves: MoveStep[] }) {
   }
   return (
     <div className="mdia">
-      <svg viewBox={`0 0 ${N * S + 2} ${N * S + 2}`} width="78" height="78" role="img" aria-label="移動できるマス">
+      <svg viewBox={`0 0 ${N * S + 2} ${N * S + 2}`} width={size} height={size} role="img" aria-label="移動できるマス">
         <rect x="0" y="0" width={N * S + 2} height={N * S + 2} rx="4" fill="#1a8a4a" stroke="#151a2d" strokeWidth="2" />
         {Array.from({ length: N * N }, (_, i) => {
           const x = i % N;
@@ -44,7 +44,7 @@ export function MoveDiagram({ moves }: { moves: MoveStep[] }) {
         <circle cx={1 + C * S + S / 2} cy={1 + C * S + S / 2} r="5.2" fill="#ffd34d" stroke="#151a2d" strokeWidth="1.8" />
         <path d={`M${1 + C * S + S / 2} ${1 + 1.5} l-4 5 h8z`} fill="#fff" stroke="#151a2d" strokeWidth="1" strokeLinejoin="round" />
       </svg>
-      <span className="mdia__cap">進める範囲</span>
+      {caption && <span className="mdia__cap">{caption}</span>}
     </div>
   );
 }

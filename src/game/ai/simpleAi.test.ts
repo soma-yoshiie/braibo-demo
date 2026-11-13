@@ -8,6 +8,8 @@ import { estimatePass, estimateShot } from '../rules/estimates';
 import { isOffsidePosition } from '../rules/offside';
 import { vecEq } from '../rules/geometry';
 import { planAiTurn } from './simpleAi';
+import { isAnchoredDefender, isStrikerLike } from './evaluate';
+import { getCharacter } from '../data/characters';
 import { held, scene } from '../testUtils';
 
 const at = (x: number, y: number): Vec => ({ x, y });
@@ -329,15 +331,15 @@ describe('offside trap (v0.8)', () => {
 
   it('attackers discount a foot pass to a receiver level with the line, only while the opponent may declare', () => {
     // blue-1 is level with the red line (y=3), blue-0 carries; count how often blue passes to blue-1 while it stays level.
-    const base = { 'blue-0': at(3, 6), 'blue-1': at(1, 3), 'red-4': at(5, 3), 'red-3': at(6, 6), 'blue-2': at(0, 9), 'blue-3': at(1, 9), 'blue-4': at(2, 9) };
+    const base = { 'blue-0': at(3, 6), 'blue-1': at(1, 3), 'red-4': at(5, 3), 'red-3': at(6, 6), 'blue-2': at(0, 9), 'blue-3': at(6, 9), 'blue-4': at(5, 9) };
     const passesToLevel = (opts: { trap: boolean; turn?: number; trapReady?: Record<TeamId, number> }): number => {
       const st = scene(base, held('blue-0'), opts);
       let n = 0;
-      for (let seed = 1; seed <= 120; seed++) {
+      for (let seed = 1; seed <= 200; seed++) {
         const plan = planAiTurn(st, 'blue', createRng(seed));
         const a = plan.ballAction;
         const dest = plan.moves['blue-1'] ?? at(1, 3);
-        if (a && (a.kind === 'pass' || a.kind === 'cross') && a.targetId === 'blue-1' && dest.y === 3) n++;
+        if (a && (a.kind === 'pass' || a.kind === 'cross') && a.targetId === 'blue-1' && dest.y <= 3) n++; // at or beyond the current line
       }
       return n;
     };
@@ -346,7 +348,8 @@ describe('offside trap (v0.8)', () => {
     const cooling = passesToLevel({ trap: true, turn: 2, trapReady: { blue: 1, red: 9 } });
     expect(free).toBeGreaterThan(0);
     expect(cooling).toBe(free); // the opponent cannot declare: no discount
-    expect(guarded).toBeLessThanOrEqual(free); // a discount (weight 0.06), never a reason to pass more
+    expect(guarded).toBeLessThan(free); // a discount ...
+    expect(guarded).toBeGreaterThan(0); // ... not a ban: it still sometimes walks into the trap
   });
 
   it('a whole match with trap and halves on stays legal', () => {
@@ -357,5 +360,40 @@ describe('offside trap (v0.8)', () => {
       s = resolveTurn(s, p, rng).after;
     }
     expect(s.turn).toBe(21);
+  });
+});
+
+describe('anchored defender (v0.9)', () => {
+  it('only the deepest DF of a team is tied to its home row (the lowest index on a tie, see the 5-DF case below); other DFs and non-DFs are free', () => {
+    const m = createMatch({ lineups: { blue: { field: ['st_kakeru', 'wg_sora', 'df_daigo', 'df_gou', 'ic_rei'], gk: 'gk_tsukasa' } } });
+    const anchored = m.players.filter((p) => p.team === 'blue' && isAnchoredDefender(m, p)).map((p) => p.id);
+    expect(anchored).toEqual(['blue-3']); // FW st_kakeru, MF wg_sora, DF daigo / gou / rei: the middle DF stepped back to row 8 behind the MF, so it is the deepest
+    expect(m.players.filter((p) => p.team === 'red' && isAnchoredDefender(m, p))).toHaveLength(1); // legacy formation: the physical type
+    expect(m.players.find((p) => p.team === 'red' && isAnchoredDefender(m, p))?.charId).toBe('physical');
+  });
+
+  it('equally deep DFs: the lowest index is the anchor', () => {
+    const m = createMatch({ lineups: { blue: { field: ['df_daigo', 'df_gou', 'ic_rei', 'ic_shinobu', 'df_genbu'], gk: 'gk_tsukasa' } } });
+    expect(m.players.filter((p) => p.team === 'blue' && isAnchoredDefender(m, p)).map((p) => p.id)).toEqual(['blue-0']);
+  });
+
+  it('a team without any DF has no anchored defender and still plans legally', () => {
+    const m = createMatch({ lineups: { blue: { field: ['st_kakeru', 'st_raiga', 'wg_sora', 'ls_taiga', 'ic_jin'], gk: 'gk_tsukasa' } }, firstKickoff: 'red' });
+    expect(m.players.filter((p) => p.team === 'blue' && isAnchoredDefender(m, p))).toHaveLength(0);
+    for (let seed = 1; seed <= 5; seed++) checkPlan(m, 'blue', seed);
+  });
+});
+
+describe('striker-like preferences (v0.9)', () => {
+  it('FW, technical and playmaker players get the old striker / long-shooter preferences; speed MF, support and physical do not', () => {
+    const like = (id: string) => isStrikerLike(getCharacter(id));
+    expect(like('st_kakeru')).toBe(true); // technical FW
+    expect(like('ls_taiga')).toBe(true); // playmaker MF
+    expect(like('ls_kou')).toBe(true); // playmaker FW
+    expect(like('wg_hayate')).toBe(true); // speed FW
+    expect(like('wg_sora')).toBe(false); // speed MF
+    expect(like('ic_shinobu')).toBe(false);
+    expect(like('df_daigo')).toBe(false);
+    expect(like('technical')).toBe(true);
   });
 });

@@ -1,6 +1,7 @@
 import { getProfile, splitCharId } from '../../game/data/roster';
-import type { CharacterDef, SkillId, Stats } from '../../game/types';
-import { CharaBust, Stars } from '../Chara';
+import { TYPE_LABEL } from '../../game/data/positions';
+import type { Position, SkillId, Stats, TypeId } from '../../game/types';
+import { CharaBust, Stars, TypeMark } from '../Chara';
 import { SKILL_LABEL, STAT_LABEL, STAT_ORDER } from '../Shell/chara';
 import './InfoSheet.css';
 
@@ -14,19 +15,19 @@ export interface InfoView {
   abbr: string;
   description: string;
   stats: Stats;
-  /** Raise over the archetype (shown in yellow as +n). */
+  /** Raise over the type's base (shown in yellow as +n). */
   bonus: Partial<Stats>;
   skills: SkillId[];
-  role: CharacterDef['role'];
+  type: TypeId;
+  position: Position;
+  /** Goalkeeper card: block = セーブ and aerial = ハイボール are the only stats used in a match. */
+  keeper?: boolean;
+  /** 「シュート n%（GK のセーブ m% 込み）」 for the player holding the ball (test id `shot-save-note`). */
+  shotNote?: string;
 }
 
-const ROLE_LABEL: Record<CharacterDef['role'], string> = {
-  striker: 'ストライカー',
-  wing: 'ウイング',
-  longShooter: 'ロングシューター',
-  interceptor: 'インターセプター',
-  physicalDefender: 'フィジカルDF',
-};
+const KEEPER_LABEL: Partial<Record<keyof Stats, string>> = { block: 'セーブ', aerial: 'ハイボール' };
+const KEEPER_ORDER: (keyof Stats)[] = ['block', 'aerial', 'physical', 'shoot', 'longShot', 'pass', 'cross', 'intercept'];
 
 interface Props {
   info: InfoView;
@@ -52,7 +53,7 @@ export function InfoSheet({ info, onClose }: Props) {
       <div className={`a-sheet a-panel card-sheet card-sheet--${info.team}`} data-testid="info-sheet" role="dialog" aria-modal="true">
         <div className="card-sheet__head a-halftone">
           <div className="card-sheet__bust">
-            <CharaBust look={look} team={info.team} />
+            <CharaBust look={look} team={info.team} keeper={info.keeper} />
           </div>
           <div className="card-sheet__title">
             <i>{info.title}</i>
@@ -63,8 +64,9 @@ export function InfoSheet({ info, onClose }: Props) {
             <div className="card-sheet__meta">
               <Stars rarity={info.rarity} size={14} />
               <span className="a-num card-sheet__no">#{info.number}</span>
+              <TypeMark type={info.type} size={20} />
               <span className={`a-tag a-tag--${info.team}`} data-testid="info-role">
-                {ROLE_LABEL[info.role]}
+                {TYPE_LABEL[info.type]} ／ {info.position}
               </span>
             </div>
           </div>
@@ -81,23 +83,30 @@ export function InfoSheet({ info, onClose }: Props) {
               ))}
             </div>
           )}
-          <p className="card-sheet__desc">{info.description}</p>
+          {info.shotNote && (
+            <p className="card-sheet__note" data-testid="shot-save-note">
+              {info.shotNote}
+            </p>
+          )}
+          <p className="card-sheet__desc">{info.keeper ? 'ゴール前から動かない。シュートを止める。' : info.description}</p>
           <ul className="card-sheet__stats">
-            {STAT_ORDER.map((k) => {
-              const label = STAT_LABEL[k];
+            {(info.keeper ? KEEPER_ORDER : STAT_ORDER).map((k) => {
+              const dim = !!info.keeper && k !== 'block' && k !== 'aerial';
+              const label = info.keeper ? (KEEPER_LABEL[k] ?? STAT_LABEL[k]) : STAT_LABEL[k];
               const bonus = info.bonus[k] ?? 0;
               return (
-                <li key={k}>
+                <li key={k} className={dim ? 'is-dim' : undefined}>
                   <span className="card-sheet__k">{label}</span>
                   <span className="card-sheet__bar">
                     <i className={bonus > 0 ? 'is-up' : undefined} style={{ width: `${Math.max(2, Math.min(100, info.stats[k]))}%` }} />
                   </span>
                   <span className="card-sheet__v a-num">{info.stats[k]}</span>
-                  <span className="card-sheet__up a-num">{bonus > 0 ? `+${bonus}` : ''}</span>
+                  <span className="card-sheet__up a-num">{dim ? '' : bonus > 0 ? `+${bonus}` : ''}</span>
                 </li>
               );
             })}
           </ul>
+          {info.keeper && <p className="card-sheet__unused">薄い能力は試合では使いません</p>}
         </div>
       </div>
     </>

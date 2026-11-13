@@ -60,13 +60,13 @@ export function RadialMenu({ menu, positions }: { menu: RadialMenuView; position
     const ol = Math.hypot(ox, oy) || 1;
     const ux = ox / ol;
     const uy = oy / ol;
-    const w = it.label.length * 0.26 + 0.14;
+    const w = Math.max(it.label.length * 0.24, (it.note?.length ?? 0) * 0.15) + 0.14;
     const fits = (sd: 'start' | 'end') =>
       sd === 'end' ? p.x - (R + 0.08) - w >= 0.05 : p.x + (R + 0.08) + w <= BOARD.cols - 0.05;
     const pref: 'start' | 'end' = ux > 0.55 ? 'start' : ux < -0.55 ? 'end' : p.x < BOARD.cols / 2 ? 'start' : 'end';
     const other = pref === 'start' ? 'end' : 'start';
     const side: 'start' | 'end' | 'middle' = fits(pref) ? pref : fits(other) ? other : 'middle';
-    const tw = Math.max(it.label.length * 0.26 + 0.04, (it.sub?.length ?? 0) * 0.17);
+    const tw = Math.max(it.label.length * 0.24 + 0.04, (it.sub?.length ?? 0) * 0.17, (it.note?.length ?? 0) * 0.15);
     const sx = side === 'start' ? 1 : -1;
     const lx = side === 'middle' ? ux * 0.2 : sx * (R + 0.08);
     const ly =
@@ -116,17 +116,22 @@ export function RadialMenu({ menu, positions }: { menu: RadialMenuView; position
             <rect
               className="radial__pill"
               x={side === 'start' ? -0.07 : side === 'end' ? -tw + 0.07 : -tw / 2 - 0.07}
-              y={it.sub ? -0.27 : -0.15}
+              y={it.note || it.sub ? -0.27 : -0.15}
               width={tw + 0.14}
-              height={it.sub ? 0.54 : 0.3}
+              height={it.note || it.sub ? 0.54 : 0.3}
               rx={0.15}
             />
-            <text textAnchor={side} y={it.sub ? -0.12 : 0}>
+            <text textAnchor={side} y={it.note || it.sub ? -0.12 : 0}>
               {it.label}
             </text>
             {it.sub && (
               <text className="radial__sub" textAnchor={side} y={0.13}>
                 {it.sub}
+              </text>
+            )}
+            {it.note && (
+              <text className="radial__note" textAnchor={side} y={0.13} data-testid="shot-save-note">
+                {it.note}
               </text>
             )}
           </g>

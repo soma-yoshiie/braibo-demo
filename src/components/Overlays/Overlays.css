@@ -99,7 +99,7 @@
   text-align: center;
   animation: vs-in 0.4s cubic-bezier(0.2, 1.5, 0.4, 1) both;
 }
-.a-head.vs__power {
+.vs__power {
   display: flex;
   align-items: baseline;
   justify-content: flex-end;
@@ -1408,4 +1408,146 @@
 
 .half__home {
   margin-top: 2px;
+}
+
+/* v0.9: six per side, the keeper last and a little smaller */
+.vs__row {
+  grid-template-columns: repeat(5, 1fr) 0.82fr;
+  gap: 2px;
+}
+.vs__who span {
+  font-size: 9px;
+}
+.vs__who--gk {
+  align-self: end;
+}
+.vs__form {
+  margin-right: auto;
+  font-size: 11px;
+  color: #fff;
+  text-shadow: 0 1px 0 var(--ink), 1px 0 0 var(--ink), -1px 0 0 var(--ink), 0 -1px 0 var(--ink);
+}
+
+/* ---------- v0.9: save cut-in ---------- */
+.savecut {
+  position: absolute;
+  inset: 0;
+  z-index: 40;
+  overflow: hidden;
+  cursor: pointer;
+  background: #151a2d;
+  animation: cut-in 0.16s ease-out both;
+}
+.savecut__plate {
+  position: absolute;
+  inset: 0;
+  clip-path: polygon(0 0, 100% 0, 100% 62%, 0 78%);
+}
+.savecut--blue .savecut__plate {
+  background: linear-gradient(160deg, var(--c-blue-hi), var(--c-blue-lo));
+}
+.savecut--red .savecut__plate {
+  background: linear-gradient(160deg, var(--c-red-hi), var(--c-red-lo));
+}
+.savecut__bust {
+  position: absolute;
+  left: 50%;
+  top: 3%;
+  width: min(84vw, 360px);
+  aspect-ratio: 1;
+  max-height: 44%;
+  transform: translateX(-50%);
+  animation: bust-in 0.32s cubic-bezier(0.2, 1.3, 0.4, 1) both;
+}
+.savecut__bust svg {
+  position: absolute;
+  inset: 0;
+}
+.a-head.savecut__title {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 46%;
+  text-align: center;
+  font-size: 66px;
+  -webkit-text-stroke-width: 10px;
+  transform: rotate(-5deg);
+  animation: goal-title 0.4s cubic-bezier(0.2, 1.6, 0.4, 1) 0.08s both;
+}
+.savecut__who {
+  position: absolute;
+  left: 16px;
+  right: 16px;
+  top: calc(46% + 82px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  font-family: var(--font-jp);
+  font-weight: 800;
+  font-size: 16px;
+  color: #fff;
+  -webkit-text-stroke: 4px var(--ink);
+  paint-order: stroke fill;
+}
+.savecut__rate {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: calc(46% + 118px);
+  text-align: center;
+  font-size: 22px;
+  color: #fff;
+  -webkit-text-stroke: 4px var(--ink);
+  paint-order: stroke fill;
+}
+.savecut__rate b {
+  font-weight: 400;
+  font-size: 30px;
+  color: var(--c-yellow);
+}
+.savecut .savecut__quote {
+  position: absolute;
+  left: 16px;
+  right: 16px;
+  bottom: calc(24px + var(--safe-bottom));
+  padding: 10px 14px;
+  font-size: 17px;
+  text-align: center;
+  animation: a-in-up 0.3s ease-out 0.25s both;
+}
+@media (max-height: 700px) {
+  .a-head.savecut__title {
+    font-size: 54px;
+    top: 44%;
+  }
+  .savecut__who {
+    top: calc(44% + 68px);
+  }
+  .savecut__rate {
+    top: calc(44% + 100px);
+    font-size: 19px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .savecut,
+  .savecut * {
+    animation: none !important;
+  }
+}
+/* names wrap to two lines instead of being cut */
+.vs__row {
+  grid-template-columns: repeat(5, 1fr) 0.9fr;
+}
+.vs__who span {
+  overflow: visible;
+  text-overflow: clip;
+  white-space: normal;
+  word-break: break-all;
+  text-align: center;
+  line-height: 1.1;
+  font-size: 9px;
+}
+.vs__who {
+  align-self: start;
 }

@@ -35,7 +35,7 @@ export function ActionBar({ plannedCount, total, disabled, onReset, onExecute, s
         {sel ? (
           <>
             <span className="bar__medal">
-              <CharaMedal look={getProfile(sel.charId).look} team={sel.team} number={sel.number} abbr={sel.abbr} rarity={sel.rarity} />
+              <CharaMedal look={getProfile(sel.charId).look} team={sel.team} number={sel.number} abbr={sel.abbr} rarity={sel.rarity} type={sel.type} />
             </span>
             <span className="bar__who-txt">
               <i>{sel.title}</i>

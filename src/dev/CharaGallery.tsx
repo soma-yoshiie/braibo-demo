@@ -1,5 +1,6 @@
 import type { CSSProperties } from 'react';
-import { BallG, CharaBust, CharaMedal, CharaMedalG, Crest, SpeedLines, Starburst, Stars } from '../components/Chara';
+import { BallG, CharaBust, CharaBustG, CharaMedal, CharaMedalG, Crest, PosTag, SpeedLines, Starburst, Stars, TypeChip, TypeMark } from '../components/Chara';
+import type { Position, TypeId } from '../game/types';
 import type { CharaLook, Expression, TeamId } from '../components/Chara';
 import './CharaGallery.css';
 
@@ -68,6 +69,56 @@ function Card({ e }: { e: Entry }) {
   );
 }
 
+const TYPES: TypeId[] = ['physical', 'speed', 'technical', 'support', 'playmaker'];
+const POSITIONS: Position[] = ['GK', 'DF', 'MF', 'FW'];
+
+function V09() {
+  const look = GALLERY_LOOKS[0].look;
+  const look2 = GALLERY_LOOKS[6].look;
+  return (
+    <section className="cg-card cg-misc">
+      <h3>v0.9: TypeMark / TypeChip / PosTag / keeper / medal type</h3>
+      <div className="cg-row">
+        {[12, 16, 24, 40].map((px) => (
+          <div key={px} className="cg-row">
+            {TYPES.map((t) => <TypeMark key={t} type={t} size={px} />)}
+          </div>
+        ))}
+      </div>
+      <div className="cg-row" style={{ marginTop: 8 }}>
+        {TYPES.map((t) => <TypeChip key={t} type={t} />)}
+        {POSITIONS.map((p) => <PosTag key={p} position={p} />)}
+      </div>
+      <div className="cg-row" style={{ marginTop: 8 }}>
+        {TEAMS.map((t) => (
+          <div key={t} className="cg-row">
+            <div className="cg-bust cg-bg"><CharaBust look={look2} team={t} keeper /></div>
+            <div className="cg-bust cg-bg"><CharaBust look={look2} team={t} keeper expression="lose" /></div>
+            {[96, 48, 36].map((px) => (
+              <div key={px} style={{ width: px, height: (px * 118) / 112 }}>
+                <CharaMedal look={look2} team={t} number={1} abbr="GK" keeper type="support" />
+              </div>
+            ))}
+            <svg width="48" height="50" viewBox="-6 -6 112 118" className="cg-g"><CharaMedalG look={look2} team={t} number={1} abbr="GK" keeper /></svg>
+            <svg width="82" height="82" viewBox="0 0 100 100" className="cg-bg"><CharaBustG look={look} team={t} keeper /></svg>
+          </div>
+        ))}
+      </div>
+      <div className="cg-row cg-medals" style={{ marginTop: 8 }}>
+        {TYPES.flatMap((ty) => ['blue', 'red'].map((t) => (
+          <div key={ty + t} className="cg-medalset">
+            {[96, 48, 36].map((px) => (
+              <div key={px} style={{ width: px, height: (px * 118) / 112 }}>
+                <CharaMedal look={look} team={t as 'blue' | 'red'} number={9} abbr="FW" type={ty} rarity={4} />
+              </div>
+            ))}
+          </div>
+        )))}
+      </div>
+    </section>
+  );
+}
+
 const box: CSSProperties = { width: 120, height: 120 };
 
 function Misc() {
@@ -99,6 +150,7 @@ export function CharaGallery({ only, misc = true }: { only?: [number, number]; m
         {list.map((e) => <Card key={e.id} e={e} />)}
       </div>
       {misc && <Misc />}
+      {misc && <V09 />}
     </div>
   );
 }

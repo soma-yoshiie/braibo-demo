@@ -6,11 +6,12 @@ import { createMatch } from './engine/match';
  * (blue in column 0, rows 0..4; red in column 6, rows 9..5).
  * v0.8: `trap` and `halves` default to FALSE here (not to the game defaults), so the v0.4-v0.7 unit scenes keep
  * their meaning (no half-time reset at turn 10, no AI trap declarations). Tests of the new rules opt in explicitly.
+ * v0.9: scenes have no goalkeepers unless `keepers` is given.
  */
 export function scene(
   positions: Record<PlayerId, Vec>,
   ball: BallState,
-  opts: { turn?: number; maxTurns?: number; throughPass?: ThroughPassMode; trap?: boolean; halves?: boolean; firstKickoff?: TeamId; trapReady?: Record<TeamId, number>; flags?: Record<PlayerId, { wonBallTurn?: number; receivedPassTurn?: number }> } = {},
+  opts: { turn?: number; maxTurns?: number; throughPass?: ThroughPassMode; trap?: boolean; halves?: boolean; firstKickoff?: TeamId; trapReady?: Record<TeamId, number>; keepers?: Partial<Record<TeamId, string>>; flags?: Record<PlayerId, { wonBallTurn?: number; receivedPassTurn?: number }> } = {},
 ): MatchState {
   const base = createMatch({
     maxTurns: opts.maxTurns,
@@ -23,6 +24,7 @@ export function scene(
     ...base,
     turn: opts.turn ?? 1,
     ...(opts.trapReady ? { trapReady: opts.trapReady } : {}),
+    ...(opts.keepers ? { keepers: opts.keepers } : {}),
     ball,
     players: base.players.map((p) => ({
       ...p,

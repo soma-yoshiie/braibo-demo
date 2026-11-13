@@ -1,32 +1,38 @@
 import { useEffect, useRef, useState } from 'react';
-import { CharaBust, SpeedLines, Stars } from '../Chara';
-import { ROLE_LABEL, getCharacter } from '../../game/data/characters';
+import { CharaBust, PosTag, SpeedLines, Stars, TypeChip } from '../Chara';
+import { getCharacter } from '../../game/data/characters';
+import { POSITION_MOD } from '../../game/data/positions';
 import { withPlus } from '../../game/data/roster';
 import { META } from '../../meta/config';
-import { levelOf, levelUpCost, teamPower, type SaveData } from '../../meta/save';
+import { levelOf, levelUpCost, type SaveData } from '../../meta/save';
 import { MoveDiagram } from './MoveDiagram';
 import { Sheet } from './Sheet';
 import { StatBars } from './StatBars';
-import { SKILL_LABEL, charaInfo } from './chara';
+import { SKILL_LABEL, STAT_LABEL, charaInfo } from './chara';
 import './Shell.css';
 
 interface Props {
   id: string;
   save: SaveData;
   onClose: () => void;
+  /** GK: sets the keeper right away. Field player: goes to the team screen holding this player. */
   onSet: (id: string) => void;
   onLevelUp: (id: string) => void;
 }
 
 export function CharaDetail({ id, save, onClose, onSet, onLevelUp }: Props) {
-  const { profile, def: baseDef, team } = charaInfo(id);
+  const { profile, def: baseDef, team, keeper } = charaInfo(id);
   const lv = levelOf(save, id);
   const def = getCharacter(withPlus(id, lv - 1)); // stats with the level applied
-  const power = teamPower([withPlus(id, lv - 1)]);
+  const power = Object.values(def.stats).reduce((a, b) => a + b, 0);
   const cost = levelUpCost(save, id);
   const max = lv >= META.level.max;
   const can = cost !== null && save.coins >= cost;
-  const inLineup = save.lineup[profile.role] === id;
+  const inLineup = keeper ? save.lineup.gk === id : save.lineup.field.includes(id);
+  const mod = !keeper && profile.position !== 'GK' ? POSITION_MOD[profile.position] : null;
+  const modKeys = mod ? (Object.keys(mod) as (keyof typeof mod)[]) : [];
+  const modUp = modKeys.filter((k) => (mod?.[k] ?? 0) > 0).map((k) => `${STAT_LABEL[k]} +${mod?.[k]}`);
+  const modDown = modKeys.filter((k) => (mod?.[k] ?? 0) < 0).map((k) => `${STAT_LABEL[k]} −${Math.abs(mod?.[k] ?? 0)}`);
   const dup = Math.max(0, (save.owned[id] ?? 0) - 1);
 
   // Level-up feedback: the number jumps and the head flashes when Lv rises.
@@ -42,14 +48,15 @@ export function CharaDetail({ id, save, onClose, onSet, onLevelUp }: Props) {
       <div className={`detail__head detail__head--r${profile.rarity}`}>
         <div className="detail__rays"><SpeedLines /></div>
         {flash > 0 && <div key={flash} className="detail__flash" aria-hidden="true" />}
-        <div className="detail__bust"><CharaBust look={profile.look} team={team} /></div>
+        <div className="detail__bust"><CharaBust look={profile.look} team={team} keeper={keeper} /></div>
         <div className="detail__id">
           <span className="detail__title">{profile.title}</span>
           <span className="a-head a-head--lg detail__name">{baseDef.name}</span>
           <Stars rarity={profile.rarity} size={16} />
-          <span className="detail__tags">
+          <span className="detail__types">
+            <TypeChip type={profile.type} size={20} />
+            <PosTag position={profile.position} />
             <span className="a-tag a-tag--dark">#{profile.number}</span>
-            <span className="a-tag">{ROLE_LABEL[profile.role]}</span>
           </span>
         </div>
       </div>
@@ -59,9 +66,18 @@ export function CharaDetail({ id, save, onClose, onSet, onLevelUp }: Props) {
         <span className="detail__power">総合力 <b className="a-num" data-testid="detail-power">{power}</b></span>
       </div>
       <div className="detail__body">
-        <StatBars stats={def.stats} role={profile.role} />
-        <MoveDiagram moves={def.moves} />
+        <StatBars charId={withPlus(id, lv - 1)} keeper={keeper} />
+        {keeper ? (
+          <p className="detail__kmove" data-testid="detail-keeper-note">ゴール前から動かない。シュートを止める。</p>
+        ) : (
+          <MoveDiagram moves={def.moves} />
+        )}
       </div>
+      {mod && (
+        <p className="detail__poshint" data-testid="detail-posmod">
+          {profile.position} 補正：<span className="is-up">{modUp.join(' ')}</span> ／ <span className="is-down">{modDown.join(' ')}</span>
+        </p>
+      )}
       <div className="detail__lv" data-testid="detail-level">
         <div className="detail__lvhead">
           <span key={flash} className={`a-num detail__lvnum${flash > 0 ? ' is-bump' : ''}`}>Lv.{lv}</span>
@@ -90,7 +106,7 @@ export function CharaDetail({ id, save, onClose, onSet, onLevelUp }: Props) {
           <span className="a-tag a-tag--blue detail__now" data-testid="chara-detail-now">編成中</span>
         ) : (
           <button type="button" className="a-btn a-btn--yellow a-btn--sm detail__set" onClick={() => onSet(id)} data-testid="chara-detail-set">
-            <span>このロールに編成する</span>
+            <span>{keeper ? 'GK に編成する' : '編成に入れる'}</span>
           </button>
         )}
       </div>

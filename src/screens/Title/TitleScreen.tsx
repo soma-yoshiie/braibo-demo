@@ -1,5 +1,6 @@
 import { CharaBust, Crest, SpeedLines } from '../../components/Chara';
 import { getProfile } from '../../game/data/roster';
+import { APP_VERSION } from '../../components/Shell/version';
 import './Title.css';
 
 export function TitleScreen({ onStart }: { onStart: () => void }) {
@@ -34,7 +35,7 @@ export function TitleScreen({ onStart }: { onStart: () => void }) {
       </div>
       <div className="title__start a-head a-head--md" data-testid="title-start">TAP TO START</div>
       <div className="title__ver">
-        <span className="a-num">v0.6 PROTOTYPE</span>
+        <span className="a-num">{APP_VERSION} PROTOTYPE</span>
         <span>キャラクターの絵は仮のものです</span>
       </div>
     </div>

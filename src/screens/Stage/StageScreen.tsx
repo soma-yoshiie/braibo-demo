@@ -1,10 +1,10 @@
+import { splitCharId } from '../../game/data/roster';
 import { BottomNav } from '../../components/Shell/BottomNav';
 import { Avatar } from '../../components/Shell/CharaCard';
 import { DiffStars, behindText, coinText, mulText, rewardMulOf } from '../../components/Shell/bits';
 import { TopBar } from '../../components/Shell/TopBar';
 import type { Screen } from '../../components/Shell/actions';
-import { ROLE_ORDER } from '../../game/data/roster';
-import { levelOf, lineupIds, teamPower, type SaveData } from '../../meta/save';
+import { levelOf, lineupOf, teamPower, type SaveData } from '../../meta/save';
 import { STAGES, isUnlocked, stageLineup } from '../../meta/stages';
 import '../../components/Shell/Shell.css';
 import './Stage.css';
@@ -16,8 +16,9 @@ interface Props {
 }
 
 export function StageScreen({ save, onNav, onPlay }: Props) {
-  const ids = lineupIds(save);
-  const myPower = teamPower(ids);
+  const lineup = lineupOf(save);
+  const myPower = teamPower(lineup);
+  const faces = [...lineup.field, lineup.gk];
   return (
     <div className="scr stage" data-testid="stage-screen">
       <div className="scr__bg a-stage a-halftone" />
@@ -29,9 +30,9 @@ export function StageScreen({ save, onNav, onPlay }: Props) {
             <b className="a-num stage__teampow">{myPower}</b>
           </span>
           <span className="stage__faces">
-            {ROLE_ORDER.map((r, i) => (
-              <span key={r} className="stage__face">
-                <Avatar id={ids[i]} tag={`Lv.${levelOf(save, save.lineup[r])}`} />
+            {faces.map((id, i) => (
+              <span key={id + i} className={`stage__face${i === faces.length - 1 ? ' is-gk' : ''}`}>
+                <Avatar id={id} tag={`Lv.${levelOf(save, splitCharId(id).base)}`} />
               </span>
             ))}
           </span>

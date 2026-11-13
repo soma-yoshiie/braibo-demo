@@ -2,6 +2,8 @@ import { useId } from 'react';
 import { GOLD, GOLD_LO, INK, TEAM, type TeamId } from './palette';
 import { BustContent } from './Bust';
 import type { CharaLook } from './lookTypes';
+import type { TypeId } from '../../game/types';
+import { TypeMarkG } from './TypeMark';
 
 const RAYS = (() => {
   let d = '';
@@ -20,6 +22,10 @@ export interface MedalCoreProps {
   rarity?: 3 | 4 | 5;
   /** 左下の小さな札（Lv.3 や +4）。 */
   tag?: string;
+  /** 左下に重ねるタイプの印 */
+  type?: TypeId;
+  /** GK のユニフォーム */
+  keeper?: boolean;
   /** 軽量描画（フィルター・ハーフトーンなし） */
   light?: boolean;
 }
@@ -28,7 +34,7 @@ const spark = (x: number, y: number, r: number): string =>
   `M${x} ${y - r} Q${x} ${y} ${x + r} ${y} Q${x} ${y} ${x} ${y + r} Q${x} ${y} ${x - r} ${y} Q${x} ${y} ${x} ${y - r}Z`;
 
 /** 丸い顔アイコンの中身（中心 50,50、縁の半径 49）。 */
-export function MedalCore({ look, team, number, abbr, rarity, light = false, tag }: MedalCoreProps) {
+export function MedalCore({ look, team, number, abbr, rarity, light = false, tag, type, keeper = false }: MedalCoreProps) {
   const id = useId().replace(/:/g, '');
   const c = TEAM[team];
   const numStr = String(number);
@@ -77,7 +83,7 @@ export function MedalCore({ look, team, number, abbr, rarity, light = false, tag
       {/* 髪はリングの上端にかぶせる（上半分だけ円の外に出す） */}
       <g clipPath={`url(#${id}t)`}>
         <g transform="translate(50 56) scale(1.13) translate(-50 -47)">
-          <BustContent look={look} team={team} small halo />
+          <BustContent look={look} team={team} small halo keeper={keeper} />
         </g>
       </g>
       <g clipPath={`url(#${id}c)`}>
@@ -99,6 +105,7 @@ export function MedalCore({ look, team, number, abbr, rarity, light = false, tag
             style={{ fontFamily: "var(--font-num, 'Bebas Neue'), 'Arial Narrow', sans-serif" }}>{tag}</text>
         </g>
       )}
+      {type && <g transform="translate(11 70)"><TypeMarkG type={type} size={27} /></g>}
       {/* ロールの札 */}
       <path d="M31 84 H74 L70 102 H27 Z" fill={INK} stroke={INK} strokeWidth="4" strokeLinejoin="round" />
       <path d="M31 85.5 H72.4 L69 100.5 H28.6 Z" fill={`url(#${id}rb)`} />
@@ -121,10 +128,12 @@ export interface CharaMedalProps extends BallSpec {
   abbr: string;
   rarity?: 3 | 4 | 5;
   tag?: string;
+  type?: TypeId;
+  keeper?: boolean;
   className?: string;
 }
 
-export function CharaMedal({ look, team, number, abbr, rarity, tag, ball = false, className }: CharaMedalProps) {
+export function CharaMedal({ look, team, number, abbr, rarity, tag, type, keeper, ball = false, className }: CharaMedalProps) {
   const id = useId().replace(/:/g, '');
   return (
     <svg viewBox="-6 -6 112 118" className={className} width="100%" height="100%" aria-hidden="true">
@@ -138,17 +147,17 @@ export function CharaMedal({ look, team, number, abbr, rarity, tag, ball = false
           <circle cx="50" cy="50" r="66" fill={`url(#${id}au)`} />
         </>
       )}
-      <MedalCore look={look} team={team} number={number} abbr={abbr} rarity={rarity} tag={tag} />
+      <MedalCore look={look} team={team} number={number} abbr={abbr} rarity={rarity} tag={tag} type={type} keeper={keeper} />
       {ball && <g transform="translate(14 78)"><BallDraw r={13} /></g>}
     </svg>
   );
 }
 
 /** ピッチの SVG に置く版。中心 (50,50)、縁の半径 49。フィルターなし。 */
-export function CharaMedalG({ look, team, number, abbr, rarity, tag }: Omit<CharaMedalProps, 'className' | 'ball'>) {
+export function CharaMedalG({ look, team, number, abbr, rarity, tag, type, keeper }: Omit<CharaMedalProps, 'className' | 'ball'>) {
   return (
     <g>
-      <MedalCore look={look} team={team} number={number} abbr={abbr} rarity={rarity} tag={tag} light />
+      <MedalCore look={look} team={team} number={number} abbr={abbr} rarity={rarity} tag={tag} type={type} keeper={keeper} light />
     </g>
   );
 }

@@ -2,7 +2,10 @@ import { useState } from 'react';
 import { gachaRates } from '../../meta/gacha';
 import { META } from '../../meta/config';
 import { getProfile } from '../../game/data/roster';
-import { Stars } from '../Chara';
+import { PosTag, Stars, TypeMark } from '../Chara';
+import { getCharacter } from '../../game/data/characters';
+import { TYPE_LABEL, TYPE_ORDER } from '../../game/data/positions';
+import { MoveDiagram } from './MoveDiagram';
 import { loginBonus } from '../../meta/missions';
 import type { SaveData, SaveSettings } from '../../meta/save';
 import { Sheet } from './Sheet';
@@ -20,6 +23,17 @@ export function HowToSheet({ onClose }: { onClose: () => void }) {
       <p className="howto__note">スルーパス（空きマスへのパス）は動く前に蹴る。オフサイドは今の位置で決まる。</p>
       <p className="howto__note">相手ボールのとき『トラップ』で最終ラインを一歩上げられる。当たればオフサイド、外すと動けない。</p>
       <p className="howto__note">試合は前半 10 ターン、後半 10 ターン。後半は相手のキックオフで始まる。</p>
+      <h3 className="howto__sub">タイプで動き方が決まる</h3>
+      <div className="howto__types" data-testid="howto-types">
+        {TYPE_ORDER.map((t) => (
+          <div key={t} className="howto__type">
+            <TypeMark type={t} size={22} />
+            <MoveDiagram moves={getCharacter(t).moves} size={56} caption={TYPE_LABEL[t]} />
+          </div>
+        ))}
+      </div>
+      <p className="howto__note">ポジション（FW・MF・DF）で初期位置と得意なことが決まる。DF・MF・FW の人数は自由に組める。</p>
+      <p className="howto__note">GK はゴール前でシュートを止める。動かせるのはフィールドの 5 人。</p>
     </Sheet>
   );
 }
@@ -100,7 +114,11 @@ export function RatesSheet({ onClose, startTab = 'normal' }: { onClose: () => vo
           <ul>
             {row.ids.map((id) => (
               <li key={id}>
-                <span>{getProfile(id).name}</span>
+                <span className="rates__who">
+                  <TypeMark type={getProfile(id).type} size={16} />
+                  <PosTag position={getProfile(id).position} />
+                  {getProfile(id).name}
+                </span>
                 <b className="a-num">{pct(row.each)}</b>
               </li>
             ))}

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { rolloverDaily, canLevelUp, expNeed, levelUp, levelUpCost, summarizeMatch, teamPower, applyMatchResult, defaultSave, lineupIds, matchReward, parseSave, setLineup } from './save';
+import { rolloverDaily, canLevelUp, expNeed, levelUp, levelUpCost, summarizeMatch, teamPower, applyMatchResult, defaultSave, lineupOf, matchReward, parseSave, setFieldSlot, setKeeper, formationCounts } from './save';
 import { META } from './config';
-import { RIVAL_LINEUP, STARTER_IDS } from '../game/data/roster';
+import { RIVAL_LINEUP, STARTER_LINEUP } from '../game/data/roster';
 import { getCharacter } from '../game/data/characters';
 import { STAGES, isUnlocked, nextStage, stageLineup } from './stages';
 
@@ -11,8 +11,9 @@ describe('save', () => {
   it('default save', () => {
     const s = defaultSave();
     expect(s.coins).toBe(META.startCoins);
-    expect(lineupIds(s)).toEqual(['st_kakeru', 'wg_sora', 'ls_taiga', 'ic_shinobu', 'df_daigo']);
-    for (const id of Object.values(STARTER_IDS)) expect(s.owned[id]).toBe(1);
+    expect(s.v).toBe(3);
+    expect(lineupOf(s)).toEqual({ field: ['st_kakeru', 'wg_sora', 'ls_taiga', 'ic_shinobu', 'df_daigo'], gk: 'gk_tsukasa' });
+    for (const id of [...STARTER_LINEUP.field, STARTER_LINEUP.gk]) expect(s.owned[id]).toBe(1);
     expect(parseSave(JSON.parse(JSON.stringify(s)))).toEqual(s);
   });
 
@@ -37,24 +38,46 @@ describe('save', () => {
     expect(s.pulls).toBe(0);
   });
 
-  it('keeps valid coins and lineup, resets unowned or wrong-role lineup', () => {
-    const ok = parseSave({ coins: 42, owned: { st_ouga: 1 }, lineup: { striker: 'st_ouga' } });
+  it('keeps a valid v3 lineup and repairs the bad slots', () => {
+    const ok = parseSave({ v: 3, coins: 42, owned: { st_ouga: 1, gk_towa: 1, df_gou: 1 }, lineup: { field: ['df_gou', 'st_ouga', 'wg_sora', 'ic_shinobu', 'df_daigo'], gk: 'gk_towa' } });
     expect(ok.coins).toBe(42);
-    expect(ok.lineup.striker).toBe('st_ouga');
+    expect(ok.lineup).toEqual({ field: ['df_gou', 'st_ouga', 'wg_sora', 'ic_shinobu', 'df_daigo'], gk: 'gk_towa' }); // order kept
     const bad = parseSave({
       owned: { st_ouga: 1 },
-      lineup: { striker: 'st_raiga', wing: 'st_ouga', longShooter: 'rv_kagari', interceptor: 7, physicalDefender: 'nope' },
+      lineup: { field: ['st_raiga' /* unowned */, 'st_ouga', 'st_ouga' /* duplicate */, 'gk_tsukasa' /* a keeper */, 7], gk: 'st_ouga' },
     });
-    expect(bad.lineup).toEqual(defaultSave().lineup);
+    // st_ouga kept in slot 1; the other slots get unused starters in order; a bad gk is the starter keeper
+    expect(bad.lineup).toEqual({ field: ['st_kakeru', 'st_ouga', 'ls_taiga', 'ic_shinobu', 'df_daigo'], gk: 'gk_tsukasa' });
+    expect(parseSave({ lineup: { field: 'x', gk: 3 } }).lineup).toEqual(defaultSave().lineup);
+    expect(parseSave({ owned: { gk_towa: 1 }, lineup: { field: STARTER_LINEUP.field, gk: 'gk_mikoto' } }).lineup.gk).toBe('gk_tsukasa'); // keeper not owned
+    for (const raw of [bad, ok]) expect(new Set(raw.lineup.field).size).toBe(5);
   });
 
-  it('setLineup accepts owned same-role and rejects the rest', () => {
-    const s = parseSave({ owned: { st_ouga: 1 } });
-    expect(setLineup(s, 'striker', 'st_ouga').lineup.striker).toBe('st_ouga');
-    expect(setLineup(s, 'striker', 'st_raiga')).toBe(s); // unowned
-    expect(setLineup(s, 'wing', 'st_ouga')).toBe(s); // wrong role
-    expect(setLineup(s, 'striker', 'ghost')).toBe(s);
-    expect(setLineup(s, 'striker', 'rv_enji')).toBe(s);
+  it('setFieldSlot: owned non-keepers only; a player already in another slot swaps', () => {
+    const s = parseSave({ owned: { st_ouga: 1, df_gou: 1 } });
+    const a = setFieldSlot(s, 0, 'st_ouga');
+    expect(a.lineup.field).toEqual(['st_ouga', 'wg_sora', 'ls_taiga', 'ic_shinobu', 'df_daigo']);
+    expect(setFieldSlot(s, 0, 'st_raiga')).toBe(s); // unowned
+    expect(setFieldSlot(s, 0, 'ghost')).toBe(s);
+    expect(setFieldSlot(s, 0, 'rv_enji')).toBe(s);
+    expect(setFieldSlot(s, 0, 'gk_tsukasa')).toBe(s); // a keeper cannot play in the field
+    expect(setFieldSlot(s, 0, 'st_kakeru')).toBe(s); // already there
+    const swapped = setFieldSlot(s, 4, 'st_kakeru'); // st_kakeru was in slot 0
+    expect(swapped.lineup.field).toEqual(['df_daigo', 'wg_sora', 'ls_taiga', 'ic_shinobu', 'st_kakeru']);
+    expect(new Set(swapped.lineup.field).size).toBe(5);
+  });
+
+  it('setKeeper: owned goalkeepers only', () => {
+    const s = parseSave({ owned: { gk_towa: 1, st_ouga: 1 } });
+    expect(setKeeper(s, 'gk_towa').lineup.gk).toBe('gk_towa');
+    expect(setKeeper(s, 'gk_mikoto')).toBe(s); // unowned
+    expect(setKeeper(s, 'st_ouga')).toBe(s); // not a keeper
+    expect(setKeeper(s, 'gk_tsukasa')).toBe(s); // already
+  });
+
+  it('formationCounts counts positions of the field five', () => {
+    expect(formationCounts(defaultSave().lineup)).toEqual({ FW: 1, MF: 2, DF: 2 });
+    expect(formationCounts({ field: ['st_kakeru', 'st_raiga', 'ls_kou', 'wg_hayate', 'df_daigo'], gk: 'gk_tsukasa' })).toEqual({ FW: 4, MF: 0, DF: 1 });
   });
 
   it('matchReward and applyMatchResult', () => {
@@ -71,15 +94,17 @@ describe('save', () => {
   });
 });
 
-describe('v2', () => {
+describe('v3', () => {
   it('migrates v1 data', () => {
     const v1 = { v: 1, coins: 777, owned: { st_ouga: 2 }, lineup: { striker: 'st_ouga' }, settings: { timerOn: true, throughEarly: false, cutIn: false },
       record: { played: 4, won: 2, drawn: 1, lost: 1 }, pulls: 12 };
     const s = parseSave(v1);
-    expect(s.v).toBe(2);
+    expect(s.v).toBe(3);
     expect(s.coins).toBe(777);
     expect(s.settings).toEqual({ timerOn: true, throughEarly: false, cutIn: false, trap: true });
-    expect(s.lineup.striker).toBe('st_ouga');
+    // old role order: striker, wing, longShooter, interceptor, physicalDefender; the keeper is the starter keeper
+    expect(s.lineup).toEqual({ field: ['st_ouga', 'wg_sora', 'ls_taiga', 'ic_shinobu', 'df_daigo'], gk: 'gk_tsukasa' });
+    expect(s.owned.gk_tsukasa).toBe(1);
     expect(s.record).toEqual({ played: 4, won: 2, drawn: 1, lost: 1, goals: 0 });
     expect(s.pulls).toBe(12);
     expect(s.rank).toBe(1);
@@ -87,6 +112,15 @@ describe('v2', () => {
     expect(s.stages).toEqual({});
     expect(s.login).toEqual({ lastDate: '', day: 0 });
     expect(parseSave(s)).toEqual(s);
+  });
+
+  it('migrates a v2 role-keyed lineup, keeping the order and adding the keeper', () => {
+    const v2 = { v: 2, coins: 5, owned: { st_ouga: 1, ls_kou: 1, df_gou: 1 }, lineup: { striker: 'st_ouga', wing: 'wg_sora', longShooter: 'ls_kou', interceptor: 'ic_shinobu', physicalDefender: 'df_gou' } };
+    const s = parseSave(v2);
+    expect(s.v).toBe(3);
+    expect(s.lineup).toEqual({ field: ['st_ouga', 'wg_sora', 'ls_kou', 'ic_shinobu', 'df_gou'], gk: 'gk_tsukasa' });
+    expect(s.owned.gk_tsukasa).toBe(1);
+    expect(parseSave(JSON.parse(JSON.stringify(s)))).toEqual(s);
   });
 
   it('repairs levels, stages, rank and exp', () => {
@@ -97,15 +131,19 @@ describe('v2', () => {
     expect(s.stages).toEqual({ s1: { cleared: true, bestDiff: 2 } });
   });
 
-  it('lineupIds applies +(Lv-1)', () => {
-    const s = { ...defaultSave(), levels: { st_kakeru: 3, wg_sora: 1, df_daigo: 6 } };
-    expect(lineupIds(s)).toEqual(['st_kakeru+2', 'wg_sora', 'ls_taiga', 'ic_shinobu', 'df_daigo+5']);
+  it('lineupOf applies +(Lv-1), orders the field FW, MF, DF, and levels the keeper', () => {
+    const s = { ...defaultSave(), levels: { st_kakeru: 3, wg_sora: 1, df_daigo: 6, gk_tsukasa: 2 } };
+    expect(lineupOf(s)).toEqual({ field: ['st_kakeru+2', 'wg_sora', 'ls_taiga', 'ic_shinobu', 'df_daigo+5'], gk: 'gk_tsukasa+1' });
+    const rev = { ...s, lineup: { ...s.lineup, field: [...s.lineup.field].reverse() } };
+    expect(lineupOf(rev).field).toEqual(['st_kakeru+2', 'ls_taiga', 'wg_sora', 'df_daigo+5', 'ic_shinobu']); // stable inside a position
   });
 
-  it('teamPower sums the 8 stats, including +n', () => {
-    const a = teamPower(['striker']);
-    expect(a).toBe(55 + 60 + 85 + 45 + 55 + 40 + 35 + 30);
-    expect(teamPower(['striker+2'])).toBe(a + 16);
+  it('teamPower sums the 8 stats of the six, including +n', () => {
+    const l = { field: ['technical', 'speed', 'playmaker', 'support', 'physical'], gk: 'gk_tsukasa' };
+    const total = (id: string) => Object.values(getCharacter(id).stats).reduce((a, b) => a + b, 0);
+    const a = teamPower(l);
+    expect(a).toBe(l.field.reduce((n, id) => n + total(id), 0) + total('gk_tsukasa'));
+    expect(teamPower({ ...l, gk: 'gk_tsukasa+2' })).toBe(a + 16);
   });
 
   it('level up: cost, max, insufficient coins, unowned', () => {
@@ -159,8 +197,9 @@ describe('v2', () => {
 
   it('stageLineup applies plus to the rival lineup', () => {
     expect(stageLineup(STAGES[0])).toEqual(RIVAL_LINEUP);
-    expect(stageLineup(STAGES[4])[0]).toBe('rv_enji+7');
-    expect(getCharacter(stageLineup(STAGES[4])[0]).stats.shoot).toBe(92);
+    expect(stageLineup(STAGES[4]).field[0]).toBe('rv_enji+7');
+    expect(stageLineup(STAGES[4]).gk).toBe('rv_jou+7');
+    expect(getCharacter(stageLineup(STAGES[4]).field[0] as string).stats.shoot).toBe(97); // technical 85 + FW 5 + 7
   });
 
   it('summarizeMatch equals the delta applied by applyMatchResult', () => {

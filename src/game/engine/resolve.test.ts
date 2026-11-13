@@ -362,9 +362,9 @@ describe('match end, purity, determinism, log', () => {
     const s = scene({ 'blue-0': { x: 3, y: 5 }, 'blue-1': { x: 3, y: 2 }, 'red-3': { x: 3, y: 3 }, 'red-4': { x: 6, y: 0 } }, held('blue-0'));
     const r = resolveTurn(s, plans({ ballAction: { kind: 'pass', targetId: 'blue-1' } }), fixedRng([0.0]));
     const lines = r.events.map((e) => describeEvent(e, s)).filter(Boolean);
-    expect(lines).toContain('紅蓮 インターセプター がゴロパスをカット！');
+    expect(lines).toContain('紅蓮 サポート がゴロパスをカット！');
     const g = describeEvent({ type: 'goal', team: 'blue', scorerId: 'blue-0' }, s);
-    expect(g).toBe('GOAL! 蒼嵐 ストライカー');
+    expect(g).toBe('GOAL! 蒼嵐 テクニカル');
   });
 });
 

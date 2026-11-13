@@ -29,6 +29,7 @@ import type {
   PlayerId,
   Rng,
   TeamId,
+  TeamLineup,
   TeamPlan,
   TurnEvent,
   Vec,
@@ -42,10 +43,12 @@ import type {
   DuelCutInView,
   GoalFxView,
   HalfTimeView,
+  KeeperView,
   LogLine,
   PassTargetView,
   PlanView,
   RadialMenuView,
+  SaveCutInView,
   SelectedView,
   SpaceCellView,
   TokenView,
@@ -65,7 +68,7 @@ export interface HintView {
 }
 /** Contract between the app shell and the match screen (DESIGN-UI §14.1). */
 export interface MatchScreenProps {
-  lineups: { blue: string[]; red: string[] };
+  lineups: { blue: TeamLineup; red: TeamLineup };
   settings: SaveSettings;
   onSettings: (patch: Partial<SaveSettings>) => void;
   onFinished: (score: Record<TeamId, number>) => void;
@@ -92,6 +95,7 @@ const DUEL_CUTIN_MS = 1600;
 const GOAL_CUTIN_MS = 1900;
 const REDUCED_CUTIN_MS = 700;
 const TRAP_CUTIN_MS = 1200;
+const SAVE_CUTIN_MS = 1200;
 /** The trap step (one step up + banner) at the start of a turn. */
 const TRAP_STEP_MS = 700;
 /** Early through pass intercepted on the lane: the ball reaches the interceptor before anyone moves. */
@@ -177,6 +181,9 @@ export function useMatchController(props: MatchScreenProps) {
   const [trajectory, setTrajectory] = useState<TrajectoryView | null>(null);
   const [goalFx, setGoalFx] = useState<GoalFxView | null>(null);
   const [cutIn, setCutIn] = useState<DuelCutInView | null>(null);
+  const [saveCut, setSaveCut] = useState<SaveCutInView | null>(null);
+  /** The keeper that is diving for the ball (restarts the dive animation per key). */
+  const [keeperFx, setKeeperFx] = useState<{ team: TeamId; key: number } | null>(null);
   const [trapCut, setTrapCut] = useState<TrapCutInView | null>(null);
   const [halfView, setHalfView] = useState<HalfTimeView | null>(null);
   /** Blue's offside-trap declaration for this turn. */
@@ -249,6 +256,8 @@ export function useMatchController(props: MatchScreenProps) {
       setTrajectory(null);
       setGoalFx(null);
       setCutIn(null);
+      setSaveCut(null);
+      setKeeperFx(null);
       setTrapCut(null);
       setHalfView(null);
       setTrapBand(null);
@@ -384,10 +393,12 @@ export function useMatchController(props: MatchScreenProps) {
     return ballAction;
   }, [ballAction, blueHolder, passBy, crossCandidates, spaceBy]);
 
-  const shootPct = useMemo(() => {
-    if (!blueHolder || !holderPos) return 0;
-    return estimateShot(state, blueHolder.id, holderPos).pGoal;
+  const shootEst = useMemo(() => {
+    if (!blueHolder || !holderPos) return { pGoal: 0, pSave: 0 };
+    const e = estimateShot(state, blueHolder.id, holderPos);
+    return { pGoal: e.pGoal, pSave: e.pSave };
   }, [blueHolder, holderPos, state]);
+  const shootPct = shootEst.pGoal;
 
   useEffect(() => {
     if (ballAction.kind !== 'keep' && effectiveAction.kind === 'keep' && ballAction.kind !== 'shoot') {
@@ -1001,6 +1012,12 @@ export function useMatchController(props: MatchScreenProps) {
             big = true;
             goal = true;
             sub = `蒼嵐 ${scoreAfter.blue} - ${scoreAfter.red} 紅蓮`;
+          } else if (ev.outcome === 'saved') {
+            const defTeam: TeamId = actor === 'blue' ? 'red' : 'blue';
+            const kid = cur.keepers?.[defTeam];
+            winner = defTeam;
+            text = 'セーブ！';
+            sub = kid ? getCharacter(kid).name : undefined;
           } else text = ev.outcome === 'blocked' ? 'ブロック！' : 'シュート失敗';
         }
         // flight
@@ -1069,6 +1086,24 @@ export function useMatchController(props: MatchScreenProps) {
           if (ballAerial) setBallDisp({ kind: 'held', id: ballAerial.winnerId });
           aerialShown = true;
         }
+        // v0.9 save: the keeper dives, the ball is pushed away, then the cut-in (the banner follows)
+        if (ev.type === 'shot' && ev.outcome === 'saved') {
+          const defTeam: TeamId = actor === 'blue' ? 'red' : 'blue';
+          const kid = cur.keepers?.[defTeam];
+          setKeeperFx({ team: defTeam, key: nextId() });
+          const side = ev.from.x <= ev.target.x ? -1 : 1;
+          const away: Vec = { x: Math.max(0.2, Math.min(BOARD.cols - 1.2, ev.target.x + side * 1.1)), y: ev.target.y + (ev.target.y < 0 ? 1.5 : -1.5) };
+          setBallExtra({ arc: 0, flightKey: nextId(), ms: T(260) });
+          setBallDisp({ kind: 'free', pos: away, snap: false });
+          await wait(T(420));
+          if (!alive()) return;
+          if (cutOn && kid) {
+            setSaveCut({ key: nextId(), charId: kid, team: defTeam, pSave: ev.pSave ?? 0 });
+            await holdCutIn(reduced ? REDUCED_CUTIN_MS : SAVE_CUTIN_MS);
+            setSaveCut(null);
+            if (!alive()) return;
+          }
+        }
         // trap cut-in when the declaration made the offside (the lead participant of the declaring side)
         if (ev.type === 'offside' && ev.byTrap && cutOn && trapEv) {
           const lead = cur.players.find((p) => p.id === trapEv.steps[0]?.playerId);
@@ -1090,6 +1125,7 @@ export function useMatchController(props: MatchScreenProps) {
         else await wait(T(big ? GOAL_MS : BANNER_MS));
         if (!alive()) return;
         setBanner(null);
+        setKeeperFx(null);
         setGoalFx(null);
         setTrajectory(null);
         if (ev.type === 'offside') setBallDisp({ kind: 'held', id: ev.toPlayerId });
@@ -1185,6 +1221,8 @@ export function useMatchController(props: MatchScreenProps) {
       endHalfWait();
       busyRef.current = false;
       setCutIn(null);
+      setSaveCut(null);
+      setKeeperFx(null);
       setTrapCut(null);
       setHalfView(null);
       setTrapBand(null);
@@ -1300,14 +1338,23 @@ export function useMatchController(props: MatchScreenProps) {
         )
       : [];
 
-  const infoPlayer = infoId ? state.players.find((p) => p.id === infoId) : undefined;
-  const info: InfoView | null = infoPlayer
+  const keeperInfoTeam: TeamId | null = infoId === 'keeper-blue' ? 'blue' : infoId === 'keeper-red' ? 'red' : null;
+  const infoPlayer = infoId && !keeperInfoTeam ? state.players.find((p) => p.id === infoId) : undefined;
+  const infoSource: { charId: string; team: TeamId; keeper: boolean; id?: PlayerId } | null = keeperInfoTeam
+    ? state.keepers?.[keeperInfoTeam]
+      ? { charId: state.keepers[keeperInfoTeam] as string, team: keeperInfoTeam, keeper: true }
+      : null
+    : infoPlayer
+      ? { charId: infoPlayer.charId, team: infoPlayer.team, keeper: false, id: infoPlayer.id }
+      : null;
+  const info: InfoView | null = infoSource
     ? (() => {
-        const c = getCharacter(infoPlayer.charId);
-        const pr = getProfile(infoPlayer.charId);
+        const c = getCharacter(infoSource.charId);
+        const pr = getProfile(infoSource.charId);
+        const isShooter = !infoSource.keeper && infoSource.team === 'blue' && !!blueHolder && blueHolder.id === infoSource.id;
         return {
-          team: infoPlayer.team,
-          charId: infoPlayer.charId,
+          team: infoSource.team,
+          charId: infoSource.charId,
           name: c.name,
           title: pr.title,
           rarity: pr.rarity,
@@ -1317,10 +1364,22 @@ export function useMatchController(props: MatchScreenProps) {
           stats: c.stats,
           bonus: pr.bonus,
           skills: c.skills,
-          role: c.role,
+          type: c.type,
+          position: c.position,
+          keeper: infoSource.keeper,
+          shotNote:
+            isShooter && shootEst.pSave > 0
+              ? `シュート ${pct(shootEst.pGoal)}（GK のセーブ ${pct(shootEst.pSave)} 込み）`
+              : undefined,
         };
       })()
     : null;
+
+  const keepers: KeeperView[] = (['red', 'blue'] as const).flatMap((team) => {
+    const id = state.keepers?.[team];
+    if (!id) return [];
+    return [{ team, charId: id, number: getProfile(id).number, abbr: getCharacter(id).abbr, dive: keeperFx?.team === team ? keeperFx.key : undefined }];
+  });
 
   // radial menu (planning only, closed while picking a target)
   const selectedPlayer = state.players.find((p) => p.id === selectedId);
@@ -1333,8 +1392,10 @@ export function useMatchController(props: MatchScreenProps) {
     if (isHolder) {
       items.push({
         key: 'shoot',
-        label: 'シュート',
-        sub: pct(shootPct),
+        // two lines at most: 「シュート n%」 and the small 「GK のセーブ n% 込み」
+        label: shootEst.pSave > 0 ? `シュート ${pct(shootPct)}` : 'シュート',
+        sub: shootEst.pSave > 0 ? undefined : pct(shootPct),
+        note: shootEst.pSave > 0 ? `GK のセーブ ${pct(shootEst.pSave)} 込み` : undefined,
         enabled: true,
         active: act === 'shoot',
         onTap: () => {
@@ -1409,7 +1470,7 @@ export function useMatchController(props: MatchScreenProps) {
       ? (() => {
           const c = getCharacter(selectedPlayer.charId);
           const pr = getProfile(selectedPlayer.charId);
-          return { team: 'blue' as const, charId: c.id, name: c.name, title: pr.title, number: pr.number, abbr: c.abbr, rarity: pr.rarity };
+          return { team: 'blue' as const, charId: c.id, name: c.name, title: pr.title, number: pr.number, abbr: c.abbr, rarity: pr.rarity, type: c.type };
         })()
       : null;
 
@@ -1466,6 +1527,15 @@ export function useMatchController(props: MatchScreenProps) {
     banner,
     goalFx,
     cutIn,
+    saveCut,
+    keepers,
+    onKeeperTap: (team: TeamId) => {
+      if (!planning) return;
+      setMenuOpen(false);
+      setInspectId(null);
+      setPick(null);
+      setInfoId(`keeper-${team}`);
+    },
     endCutIn: endCutInWait,
     selectedView,
     openSelectedInfo: () => {

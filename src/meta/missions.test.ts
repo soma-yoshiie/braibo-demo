@@ -31,11 +31,11 @@ describe('missions', () => {
     expect(st(s, 'n_win1').done).toBe(true);
     expect(st(s, 'n_win5')).toMatchObject({ progress: 1, done: false });
     expect(st(s, 'n_goal10').progress).toBe(3);
-    expect(st(s, 'n_own10').progress).toBe(5);
+    expect(st(s, 'n_own10').progress).toBe(6); // five starters + the starter keeper
     expect(st(s, 'd_scout').done).toBe(false);
     s = applyGacha(s, ['st_ouga'], 100, D1).save;
     expect(st(s, 'd_scout').done).toBe(true);
-    expect(st(s, 'n_own10').progress).toBe(6);
+    expect(st(s, 'n_own10').progress).toBe(7);
     expect(st(s, 'n_lv').done).toBe(false);
     s = levelUp(s, 'st_kakeru');
     expect(st(s, 'n_lv').done).toBe(true);

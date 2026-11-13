@@ -1,3 +1,4 @@
+import type { TeamLineup } from '../game/types';
 import { RIVAL_LINEUP, withPlus } from '../game/data/roster';
 import type { SaveData } from './save';
 
@@ -25,9 +26,9 @@ export function getStage(stageId: string): StageDef | undefined {
   return STAGES.find((s) => s.id === stageId);
 }
 
-/** The rival lineup with the stage's strengthening applied (slot order). */
-export function stageLineup(stage: StageDef): string[] {
-  return RIVAL_LINEUP.map((id) => withPlus(id, stage.plus));
+/** The rival six with the stage's strengthening applied. */
+export function stageLineup(stage: StageDef): TeamLineup {
+  return { field: RIVAL_LINEUP.field.map((id) => withPlus(id, stage.plus)), gk: withPlus(RIVAL_LINEUP.gk, stage.plus) };
 }
 
 export function isUnlocked(save: SaveData, stageId: string): boolean {

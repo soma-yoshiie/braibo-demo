@@ -1,12 +1,13 @@
 import { getCharacter } from '../../game/data/characters';
 import { getProfile, splitCharId } from '../../game/data/roster';
-import { teamPower } from '../../meta/save';
+import type { TeamLineup } from '../../game/types';
+import { formationCounts, teamPower } from '../../meta/save';
 import { CharaMedal, Crest, SpeedLines } from '../Chara';
 import './Overlays.css';
 
 interface Props {
-  blue: string[];
-  red: string[];
+  blue: TeamLineup;
+  red: TeamLineup;
   timerOn: boolean;
   seconds: number;
   onToggleTimer: (v: boolean) => void;
@@ -19,7 +20,9 @@ interface Props {
   stage?: { no: number; name: string; stars: number };
 }
 
-function Squad({ team, ids }: { team: 'blue' | 'red'; ids: string[] }) {
+function Squad({ team, lineup }: { team: 'blue' | 'red'; lineup: TeamLineup }) {
+  const ids = [...lineup.field, lineup.gk];
+  const fc = formationCounts(lineup);
   return (
     <section className={`vs__team vs__team--${team}`}>
       <div className="vs__head">
@@ -28,18 +31,20 @@ function Squad({ team, ids }: { team: 'blue' | 'red'; ids: string[] }) {
         <span className={`a-tag a-tag--${team}`}>{team === 'blue' ? 'YOU' : 'AI'}</span>
       </div>
       <div className="vs__power a-num">
+        <span className="vs__form" data-testid={`formation-${team}`}>DF {fc.DF}・MF {fc.MF}・FW {fc.FW}</span>
         <span>総合力</span>
-        <b>{teamPower(ids)}</b>
+        <b>{teamPower(lineup)}</b>
       </div>
       <div className="vs__row">
-        {ids.map((id) => {
+        {ids.map((id, i) => {
+          const keeper = i === ids.length - 1;
           const p = getProfile(id);
           const plus = splitCharId(id).plus;
           const tag = team === 'blue' ? `Lv.${plus + 1}` : plus > 0 ? `+${plus}` : undefined;
           return (
-            <div key={id} className="vs__who">
+            <div key={id} className={`vs__who${keeper ? ' vs__who--gk' : ''}`}>
               <div className="vs__medal">
-                <CharaMedal look={p.look} team={team} number={p.number} abbr={getCharacter(id).abbr} rarity={p.rarity} tag={tag} />
+                <CharaMedal look={p.look} team={team} number={p.number} abbr={getCharacter(id).abbr} rarity={p.rarity} tag={tag} type={getCharacter(id).type} keeper={keeper} />
               </div>
               <span>{p.name}</span>
             </div>
@@ -58,7 +63,7 @@ export function StartOverlay({ blue, red, timerOn, seconds, onToggleTimer, throu
         <SpeedLines />
       </div>
       <div className="vs__body">
-        <Squad team="red" ids={red} />
+        <Squad team="red" lineup={red} />
         <div className="vs__mid">
           {stage && (
             <div className="vs__stage a-panel">
@@ -72,7 +77,7 @@ export function StartOverlay({ blue, red, timerOn, seconds, onToggleTimer, throu
           )}
           <span className="vs__vs a-head a-head--yellow" aria-hidden="true">VS</span>
         </div>
-        <Squad team="blue" ids={blue} />
+        <Squad team="blue" lineup={blue} />
         <div className="vs__opts">
           <label className="opt">
             <span>作戦タイマー（{seconds}秒）</span>

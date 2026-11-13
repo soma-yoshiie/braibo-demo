@@ -39,6 +39,7 @@ import {
   crossDelivery,
   duelWinProbability,
   headerGoalProbability,
+  keeperSaveProbability,
   interceptProbability,
   passAccuracy,
   shotGoalProbability,
@@ -52,6 +53,7 @@ import {
   laneInterceptors,
 } from '../rules/estimates';
 import { isOffsidePosition } from '../rules/offside';
+import { keeperStats } from '../rules/keeper';
 import { canDeclareTrap, trapSteps } from '../rules/trap';
 import { kickoffState } from './match';
 
@@ -407,11 +409,17 @@ export function resolveBallAction(
     });
   };
 
-  const headerOrShot = (shooterId: PlayerId, shooterPos: Vec, kind: 'header' | 'shot', pGoal: number): BallActionResult => {
+  /** v0.9: one rng draw decides goal (r < p(1-s)) / save (r < p) / off target; no keeper = s is 0 = v0.8. */
+  const keeperOf = keeperStats(state, otherTeam(passer.team));
+  const headerOrShot = (shooterId: PlayerId, shooterPos: Vec, kind: 'header' | 'shot', pShot: number): BallActionResult => {
     const target = goalTarget(passer.team);
-    const goal = rng.next() < pGoal;
+    const pSave = keeperOf ? keeperSaveProbability(kind, dist(shooterPos, target), keeperOf) : 0;
+    const r = rng.next();
+    const goal = r < pShot * (1 - pSave);
+    const saved = !goal && r < pShot;
     events.push({
-      type: 'shot', shooterId, kind, from: copy(shooterPos), target, outcome: goal ? 'goal' : 'missed', pGoal,
+      type: 'shot', shooterId, kind, from: copy(shooterPos), target, outcome: goal ? 'goal' : saved ? 'saved' : 'missed',
+      pGoal: pShot * (1 - pSave), ...(keeperOf ? { pSave } : {}),
     });
     if (goal) return scored();
     goalKick(passer.team);
@@ -438,7 +446,9 @@ export function resolveBallAction(
         give(e.id, true);
         events.push({
           type: 'shot', shooterId: passerId, kind: 'shot', from: copy(from), target,
-          outcome: 'blocked', blockerId: e.id, pGoal,
+          outcome: 'blocked', blockerId: e.id,
+          pGoal: keeperOf ? pGoal * (1 - keeperSaveProbability('shot', distance, keeperOf)) : pGoal,
+          ...(keeperOf ? { pSave: keeperSaveProbability('shot', distance, keeperOf) } : {}),
         });
         return res();
       }
@@ -610,11 +620,14 @@ export function resolveBallAction(
   const gd = dist(targetPos, goalTarget(passer.team));
   if (gd <= RULES.cross.header.maxDistance) {
     const pH = headerGoalProbability(gd, getEffectiveStats(state, target).aerial);
-    // Header: the receiver is the scorer.
-    const goal = rng.next() < pH;
+    const pSave = keeperOf ? keeperSaveProbability('header', gd, keeperOf) : 0;
+    // Header: the receiver is the scorer. One draw: goal / save / off target (v0.9).
+    const r = rng.next();
+    const goal = r < pH * (1 - pSave);
     events.push({
       type: 'shot', shooterId: targetId, kind: 'header', from: copy(targetPos),
-      target: goalTarget(passer.team), outcome: goal ? 'goal' : 'missed', pGoal: pH,
+      target: goalTarget(passer.team), outcome: goal ? 'goal' : r < pH ? 'saved' : 'missed', pGoal: pH * (1 - pSave),
+      ...(keeperOf ? { pSave } : {}),
     });
     if (goal) {
       events.push({ type: 'goal', team: passer.team, scorerId: targetId });

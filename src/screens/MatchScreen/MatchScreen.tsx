@@ -8,6 +8,7 @@ import { StartOverlay } from '../../components/Overlays/StartOverlay';
 import { Pitch } from '../../components/Pitch/Pitch';
 import { DuelCutIn } from '../../components/Overlays/DuelCutIn';
 import { HalfTimeOverlay } from '../../components/Overlays/HalfTimeOverlay';
+import { SaveCutIn } from '../../components/Overlays/SaveCutIn';
 import { TrapCutIn } from '../../components/Overlays/TrapCutIn';
 import { TIMER_SECONDS, useMatchController } from './useMatchController';
 import type { MatchScreenProps } from './useMatchController';
@@ -52,6 +53,8 @@ export function MatchScreen(props: MatchScreenProps) {
           offsideLineOwn={m.offsideLineOwn}
           offsideLineLabel={m.offsideLineLabel}
           trap={m.trap}
+          keepers={m.keepers}
+          onKeeperTap={m.onKeeperTap}
           offPosIds={m.offPosIds}
           throughEarly={m.throughEarly}
           plans={m.planViews}
@@ -78,6 +81,7 @@ export function MatchScreen(props: MatchScreenProps) {
       <GoalFx fx={m.goalFx} onSkip={m.endCutIn} />
       <DuelCutIn view={m.cutIn} onSkip={m.endCutIn} />
       <TrapCutIn view={m.trapCut} onSkip={m.endCutIn} />
+      <SaveCutIn view={m.saveCut} onSkip={m.endCutIn} />
       <ActionBar
         plannedCount={m.plannedCount}
         total={m.totalPlayers}
@@ -110,8 +114,8 @@ export function MatchScreen(props: MatchScreenProps) {
       {m.phase === 'finished' && (
         <ResultOverlay
           score={m.state.score}
-          blue={props.lineups.blue}
-          red={props.lineups.red}
+          blue={props.lineups.blue.field}
+          red={props.lineups.red.field}
           summary={props.summary}
           onAgain={() => {
             props.onRematch?.();
@@ -121,7 +125,7 @@ export function MatchScreen(props: MatchScreenProps) {
           onLog={() => m.setLogOpen(true)}
         />
       )}
-      {m.halfView && <HalfTimeOverlay view={m.halfView} blue={props.lineups.blue} red={props.lineups.red} onNext={m.resumeHalf} onHome={props.onHome} />}
+      {m.halfView && <HalfTimeOverlay view={m.halfView} blue={props.lineups.blue.field} red={props.lineups.red.field} onNext={m.resumeHalf} onHome={props.onHome} />}
       {m.logOpen && <LogDrawer lines={m.log} onClose={() => m.setLogOpen(false)} />}
     </div>
   );

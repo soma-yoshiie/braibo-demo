@@ -14,7 +14,7 @@ export const AI_WEIGHTS = {
   xg: 1.5, // weight of the shot chance from the cell
   reach: 0.1, // being a passing option for the carrier
   defenderAnchor: 0.06, // physicalDefender: per row away from its home line
-  defenderHomeRow: 3.5, // home line, in advancement rows
+  defenderHomeRow: 3.5, // home line, in advancement rows (no lineup / legacy formation)
   shotScale: 4, // value of 1.0 goal probability when comparing ball actions
   crossScale: 1.6,
   crossBonus: 0.6,
@@ -70,6 +70,23 @@ export const AI_WEIGHTS = {
   trapBehind: 0.1, // offence: bonus for a through-pass runner starting behind the line while the opponent may declare
 } as const;
 
+/**
+ * v0.9: only ONE defender per team is tied to its home row: the deepest DF (by home row with a lineup, by the
+ * current row otherwise; the lower index on a tie). Other DFs play like the old interceptor (free roaming).
+ */
+export function isAnchoredDefender(state: MatchState, player: PlayerState): boolean {
+  if (getCharacter(player.charId).position !== 'DF') return false;
+  const depth = (p: PlayerState): number => advancement(p.team, state.homes?.[p.id] ?? p.pos);
+  const dfs = state.players.filter((p) => p.team === player.team && getCharacter(p.charId).position === 'DF');
+  const deepest = [...dfs].sort((a, b) => depth(a) - depth(b) || a.index - b.index)[0];
+  return deepest?.id === player.id;
+}
+
+/** v0.9: the old striker / long-shooter preferences (centre column, standing on the offside line) go to FW, technical and playmaker players. */
+export function isStrikerLike(ch: { type: string; position: string }): boolean {
+  return ch.position === 'FW' || ch.type === 'technical' || ch.type === 'playmaker';
+}
+
 export const key = (v: Vec): string => `${v.x},${v.y}`;
 
 /** Rows advanced toward the enemy goal: 0 (own end line) .. rows-1 (enemy end line). */
@@ -102,15 +119,17 @@ export function positionValue(
 ): number {
   const W = AI_WEIGHTS;
   const adv = advancement(player.team, pos);
-  const role = getCharacter(player.charId).role;
+  const ch = getCharacter(player.charId);
   let v = 0;
-  if (role === 'physicalDefender') {
+  if (isAnchoredDefender(state, player)) {
+    // v0.9: the anchored defender stays near the v0.8 defender line (measured: tying it to its start row, the deepest
+    // row, cost ~0.3 goals per match because the line sat too deep).
     v -= W.defenderAnchor * Math.abs(adv - W.defenderHomeRow) + 0.03 * Math.abs(pos.x - BOARD.goalX);
   } else {
     v += W.progress * adv;
   }
-  if (role === 'striker' || role === 'longShooter') v += W.central * (1 - Math.abs(pos.x - BOARD.goalX) / 3);
-  if (role === 'wing' && adv >= 5 && BOARD.wideColumns.includes(pos.x)) v += W.wide;
+  if (isStrikerLike(ch)) v += W.central * (1 - Math.abs(pos.x - BOARD.goalX) / 3);
+  if (ch.type === 'speed' && adv >= 5 && BOARD.wideColumns.includes(pos.x)) v += W.wide;
   v -= W.adjacentEnemy * countNear(pos, foes);
   v -= W.crowding * countNear(pos, mates);
   v += W.xg * estimateShot(state, player.id, pos).pGoal;

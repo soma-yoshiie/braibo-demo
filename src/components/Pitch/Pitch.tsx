@@ -1,6 +1,7 @@
 import { BOARD } from '../../game/rules/config';
 import type { Vec } from '../../game/types';
-import { Starburst } from '../Chara';
+import { CharaMedalG, Starburst } from '../Chara';
+import { getProfile } from '../../game/data/roster';
 import { BallIcon, DuelTag, PlayerToken, TokenMedal } from '../Player/PlayerToken';
 import type {
   ArrowView,
@@ -11,6 +12,7 @@ import type {
   RadialMenuView,
   SpaceCellView,
   TokenLayout,
+  KeeperView,
   TokenView,
   TrajectoryView,
   TrapView,
@@ -38,6 +40,9 @@ interface Props {
   offsideLineLabel?: string;
   /** v0.8 offside-trap button and participant marks (null = trap off / not available). */
   trap?: TrapView | null;
+  /** Goalkeepers standing in the goal nets (v0.9). */
+  keepers?: KeeperView[];
+  onKeeperTap?: (team: 'blue' | 'red') => void;
   /** v0.5: blue players currently in an offside position (small OFF mark while picking a pass target). */
   offPosIds?: string[];
   /** v0.5 early through pass: a space pass is kicked before movement, so % badges sit on the current token. */
@@ -166,6 +171,8 @@ export function Pitch({
   offsideLineOwn = false,
   offsideLineLabel,
   trap = null,
+  keepers = [],
+  onKeeperTap,
   offPosIds = [],
   throughEarly = false,
   plans,
@@ -319,6 +326,40 @@ export function Pitch({
           <rect className="pitch__net-frame" x={gl} y={y} width={GOAL_WIDTH} height={GOAL_DEPTH} />
         </g>
       ))}
+
+      {/* goalkeepers: medals at ~0.6x inside the net (depth 0.6 is unchanged); the tap area reaches past the net
+          but sits below the cell / token layers, so it never steals a tap from the pitch */}
+      <g className="keepers">
+        {keepers.map((k) => {
+          const x = gl + GOAL_WIDTH / 2;
+          const y = k.team === 'blue' ? H + GOAL_DEPTH / 2 : -GOAL_DEPTH / 2;
+          const p = getProfile(k.charId);
+          return (
+            <g
+              key={`kp-${k.team}`}
+              className="keeper"
+              data-testid={`keeper-${k.team}`}
+              transform={`translate(${x} ${y})`}
+              onClick={
+                interactive && onKeeperTap
+                  ? (e) => {
+                      e.stopPropagation();
+                      onKeeperTap(k.team);
+                    }
+                  : undefined
+              }
+            >
+              <rect className="keeper__hit" x={-1.0} y={k.team === 'blue' ? -0.5 : -0.7} width={2} height={1.2} />
+              <g key={k.dive ?? 'idle'} className={k.dive ? `keeper__dive keeper__dive--${k.team}` : undefined}>
+                <circle className={`keeper__base keeper__base--${k.team}`} r={0.3} />
+                <g transform={`scale(0.0049) translate(-50 -50)`} pointerEvents="none">
+                  <CharaMedalG look={p.look} team={k.team} number={k.number} abbr={k.abbr} rarity={p.rarity} keeper />
+                </g>
+              </g>
+            </g>
+          );
+        })}
+      </g>
 
       {/* field markings */}
       <g className="pitch__lines">

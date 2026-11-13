@@ -1,86 +1,29 @@
-import type { CharacterDef, RoleId, Stats } from '../types';
+import type { CharacterDef, Stats, TypeId } from '../types';
 import { ROSTER, splitCharId } from './roster';
+import { DEFAULT_POSITION, GK_BASE, GK_TYPE_MOD, POSITION_MOD, TYPE_LABEL } from './positions';
+
+const mk = (id: TypeId, description: string, moves: CharacterDef['moves'], stats: Stats, skills: CharacterDef['skills']): CharacterDef => ({
+  id,
+  type: id,
+  position: DEFAULT_POSITION[id],
+  name: TYPE_LABEL[id],
+  abbr: DEFAULT_POSITION[id],
+  description,
+  moves,
+  stats,
+  skills,
+});
 
 /**
- * Initial roster. Adding a character = adding an entry here.
+ * The five types (DESIGN.md §15.1). A type owns movement, base stats and skills; the id of a type is also
+ * a valid character id (a bare, uncorrected player, used by tests and as the base of the roster).
  * Movement vectors are TEAM-RELATIVE: dy < 0 is forward.
  */
 export const CHARACTERS: CharacterDef[] = [
-  {
-    id: 'striker',
-    role: 'striker',
-    name: 'ストライカー',
-    abbr: 'ST',
-    description: '前方へ最大2マス。近距離シュートが強いが守備は苦手。',
-    moves: [
-      { dx: 0, dy: -1, range: 2 }, // forward slide 2
-      { dx: -1, dy: -1, range: 1 }, // diagonal forward
-      { dx: 1, dy: -1, range: 1 },
-      { dx: -1, dy: 0, range: 1 }, // sideways
-      { dx: 1, dy: 0, range: 1 },
-      { dx: 0, dy: 1, range: 1 }, // back
-    ],
-    stats: { physical: 55, aerial: 60, shoot: 85, longShot: 45, pass: 55, cross: 40, intercept: 35, block: 30 },
-    skills: ['oneTouch'],
-  },
-  {
-    id: 'wing',
-    role: 'wing',
-    name: 'ウイング',
-    abbr: 'WG',
-    description: '前後左右に広く動ける。クロスとパスが得意、競り合いは弱い。',
-    moves: [
-      { dx: 0, dy: -1, range: 2 },
-      { dx: -1, dy: 0, range: 2 },
-      { dx: 1, dy: 0, range: 2 },
-      { dx: -1, dy: -1, range: 1 },
-      { dx: 1, dy: -1, range: 1 },
-      { dx: 0, dy: 1, range: 1 },
-    ],
-    stats: { physical: 40, aerial: 40, shoot: 55, longShot: 45, pass: 75, cross: 85, intercept: 45, block: 30 },
-    skills: ['passMaster'],
-  },
-  {
-    id: 'longShooter',
-    role: 'longShooter',
-    name: 'ロングシューター',
-    abbr: 'LS',
-    description: '移動は狭いが遠距離シュートの成功率が高い。',
-    moves: [
-      { dx: 0, dy: -1, range: 1 },
-      { dx: 0, dy: 1, range: 1 },
-      { dx: -1, dy: 0, range: 1 },
-      { dx: 1, dy: 0, range: 1 },
-      { dx: -1, dy: -1, range: 1 },
-      { dx: 1, dy: -1, range: 1 },
-    ],
-    stats: { physical: 45, aerial: 45, shoot: 60, longShot: 90, pass: 65, cross: 50, intercept: 40, block: 35 },
-    skills: [],
-  },
-  {
-    id: 'interceptor',
-    role: 'interceptor',
-    name: 'インターセプター',
-    abbr: 'IC',
-    description: '斜めに素早く動きパスコースを遮断する。ボール奪取率が高い。',
-    moves: [
-      { dx: -1, dy: -1, range: 2 },
-      { dx: 1, dy: -1, range: 2 },
-      { dx: -1, dy: 1, range: 2 },
-      { dx: 1, dy: 1, range: 2 },
-      { dx: 0, dy: -1, range: 1 },
-      { dx: 0, dy: 1, range: 1 },
-    ],
-    stats: { physical: 60, aerial: 55, shoot: 50, longShot: 45, pass: 65, cross: 50, intercept: 90, block: 55 },
-    skills: ['counter'],
-  },
-  {
-    id: 'physicalDefender',
-    role: 'physicalDefender',
-    name: 'フィジカルDF',
-    abbr: 'DF',
-    description: '移動は周囲1マス。競り合い・空中戦・ブロックが強い。',
-    moves: [
+  mk(
+    'physical',
+    '移動は周囲1マス。競り合い・空中戦・ブロックが強い。',
+    [
       { dx: 0, dy: -1, range: 1 },
       { dx: 0, dy: 1, range: 1 },
       { dx: -1, dy: 0, range: 1 },
@@ -90,9 +33,65 @@ export const CHARACTERS: CharacterDef[] = [
       { dx: -1, dy: 1, range: 1 },
       { dx: 1, dy: 1, range: 1 },
     ],
-    stats: { physical: 90, aerial: 85, shoot: 35, longShot: 30, pass: 50, cross: 35, intercept: 55, block: 85 },
-    skills: ['blockMaster', 'airBattler'],
-  },
+    { physical: 90, aerial: 85, shoot: 35, longShot: 30, pass: 50, cross: 35, intercept: 55, block: 85 },
+    ['blockMaster', 'airBattler'],
+  ),
+  mk(
+    'speed',
+    '前後左右に広く動ける。クロスが得意、競り合いは弱い。',
+    [
+      { dx: 0, dy: -1, range: 2 },
+      { dx: -1, dy: 0, range: 2 },
+      { dx: 1, dy: 0, range: 2 },
+      { dx: -1, dy: -1, range: 1 },
+      { dx: 1, dy: -1, range: 1 },
+      { dx: 0, dy: 1, range: 1 },
+    ],
+    { physical: 40, aerial: 40, shoot: 60, longShot: 45, pass: 70, cross: 85, intercept: 45, block: 30 },
+    [],
+  ),
+  mk(
+    'technical',
+    '前方へ最大2マス。近距離シュートが強いが守備は苦手。',
+    [
+      { dx: 0, dy: -1, range: 2 },
+      { dx: -1, dy: -1, range: 1 },
+      { dx: 1, dy: -1, range: 1 },
+      { dx: -1, dy: 0, range: 1 },
+      { dx: 1, dy: 0, range: 1 },
+      { dx: 0, dy: 1, range: 1 },
+    ],
+    { physical: 55, aerial: 60, shoot: 85, longShot: 45, pass: 55, cross: 40, intercept: 35, block: 30 },
+    ['oneTouch'],
+  ),
+  mk(
+    'support',
+    '斜めに素早く動きパスコースを遮断する。ボール奪取率が高い。',
+    [
+      { dx: -1, dy: -1, range: 2 },
+      { dx: 1, dy: -1, range: 2 },
+      { dx: -1, dy: 1, range: 2 },
+      { dx: 1, dy: 1, range: 2 },
+      { dx: 0, dy: -1, range: 1 },
+      { dx: 0, dy: 1, range: 1 },
+    ],
+    { physical: 60, aerial: 55, shoot: 50, longShot: 45, pass: 65, cross: 50, intercept: 90, block: 55 },
+    ['counter'],
+  ),
+  mk(
+    'playmaker',
+    '移動は狭いが長いパスとミドルシュートが得意。',
+    [
+      { dx: 0, dy: -1, range: 1 },
+      { dx: 0, dy: 1, range: 1 },
+      { dx: -1, dy: 0, range: 1 },
+      { dx: 1, dy: 0, range: 1 },
+      { dx: -1, dy: -1, range: 1 },
+      { dx: 1, dy: -1, range: 1 },
+    ],
+    { physical: 45, aerial: 45, shoot: 55, longShot: 80, pass: 80, cross: 50, intercept: 40, block: 35 },
+    ['passMaster'],
+  ),
 ];
 
 const BY_ID = new Map(CHARACTERS.map((c) => [c.id, c]));
@@ -108,13 +107,18 @@ function resolveBase(id: string): CharacterDef {
   const cached = ROSTER_CACHE.get(id);
   if (cached) return cached;
   const profile = PROFILE_BY_ID.get(id);
-  const base = profile ? BY_ID.get(profile.role) : undefined;
+  const base = profile ? BY_ID.get(profile.type) : undefined;
   if (!profile || !base) throw new Error(`Unknown character: ${id}`);
-  const stats = { ...base.stats };
-  for (const k of Object.keys(profile.bonus) as (keyof Stats)[]) stats[k] = clamp(base.stats[k] + (profile.bonus[k] ?? 0));
-  const def: CharacterDef = { ...base, id: profile.id, name: profile.name, stats };
-  ROSTER_CACHE.set(id, def);
-  return def;
+  // Field players: type base + position correction + bonus. Goalkeepers: common base + type slope + bonus.
+  const stats: Stats =
+    profile.position === 'GK'
+      ? { ...GK_BASE }
+      : { ...base.stats };
+  const mod: Partial<Stats> = profile.position === 'GK' ? GK_TYPE_MOD[profile.type] : POSITION_MOD[profile.position];
+  for (const k of Object.keys(stats) as (keyof Stats)[]) stats[k] = clamp(stats[k] + (mod[k] ?? 0) + (profile.bonus[k] ?? 0));
+  const out: CharacterDef = { ...base, id: profile.id, name: profile.name, position: profile.position, abbr: profile.position, stats, ...(profile.position === 'GK' ? { skills: [] } : {}) };
+  ROSTER_CACHE.set(id, out);
+  return out;
 }
 
 /**
@@ -134,10 +138,3 @@ export function getCharacter(id: string): CharacterDef {
   return out;
 }
 
-export const ROLE_LABEL: Record<RoleId, string> = {
-  striker: 'ストライカー',
-  wing: 'ウイング',
-  longShooter: 'ロングシューター',
-  interceptor: 'インターセプター',
-  physicalDefender: 'フィジカルDF',
-};

@@ -10,6 +10,17 @@ function name(state: MatchState, id: PlayerId): string {
   return `${TEAM_LABEL[p.team]} ${getCharacter(p.charId).name}`;
 }
 
+function otherOf(state: MatchState, shooterId: PlayerId): TeamId {
+  const p = state.players.find((q) => q.id === shooterId);
+  return p?.team === 'red' ? 'blue' : 'red';
+}
+
+function keeperName(state: MatchState, shooterId: PlayerId): string {
+  const team = otherOf(state, shooterId);
+  const id = state.keepers?.[team];
+  return `${TEAM_LABEL[team]} ${id ? `GK ${getCharacter(id).name}` : 'GK'}`;
+}
+
 /** One Japanese log line per event. Plain `move` events are skipped ('') to keep the log short. */
 export function describeEvent(event: TurnEvent, state: MatchState): string {
   const n = (id: PlayerId) => name(state, id);
@@ -76,6 +87,7 @@ export function describeEvent(event: TurnEvent, state: MatchState): string {
       const what = event.kind === 'header' ? 'ヘディングシュート' : 'シュート';
       if (event.outcome === 'blocked')
         return `${n(event.shooterId)} の${what}を ${event.blockerId ? n(event.blockerId) : '守備'} がブロック！`;
+      if (event.outcome === 'saved') return `${n(event.shooterId)} の${what}を ${keeperName(state, event.shooterId)}がセーブ！`;
       if (event.outcome === 'missed') return `${n(event.shooterId)} の${what}は外れた`;
       return `${n(event.shooterId)} の${what}が決まる！`;
     }

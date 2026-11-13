@@ -5,3 +5,4 @@ export type { CharaMedalProps } from './Medal';
 export { Stars, Crest, SpeedLines, Starburst } from './Decor';
 export type { CharaLook, HairId, EyeId, ExtraId } from './lookTypes';
 export type { TeamId } from './palette';
+export { TypeMark, TypeMarkG, TypeChip, PosTag } from './TypeMark';

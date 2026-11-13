@@ -160,3 +160,24 @@
   -webkit-text-stroke: 0;
   vertical-align: 3px;
 }
+
+.card-sheet__note {
+  margin: 0;
+  padding: 2px 8px;
+  border: 2px solid var(--ink);
+  border-radius: 4px;
+  background: #0d1226;
+  color: var(--c-yellow);
+  font-size: 12px;
+}
+.card-sheet__stats li.is-dim {
+  opacity: 0.4;
+}
+.card-sheet__unused {
+  margin: 0;
+  font-size: 10.5px;
+  color: #aab2d8;
+}
+.card-sheet__meta svg {
+  flex: 0 0 auto;
+}
